@@ -343,7 +343,7 @@ app.get('/share/:id', (req, res) => {
     h += '<td class="n">' + fmt(dgc) + '</td></tr>';
   }
   let tongGN = 0, tongGC = 0;
-  for (const item of items) { tongGN += (item.soLuong || 0) * (item.donGiaNhap || 0); const dgc2 = tongTrongSo > 0 && (firstGiaNhap > 0 ? (item.soLuong || 0) * (item.donGiaNhap || 0) / firstGiaNhap : 0) > 0 ? Math.round(giaChaoToiThieu * (firstGiaNhap > 0 ? (item.soLuong || 0) * (item.donGiaNhap || 0) / firstGiaNhap : 0) / tongTrongSo) : 0; tongGC += dgc2 * (item.soLuong || 0); }
+  for (const item of items) { tongGN += (item.soLuong || 0) * (item.donGiaNhap || 0); const dgc2 = tongTrongSo > 0 && (firstGiaNhap > 0 ? (item.soLuong || 0) * (item.donGiaNhap || 0) / firstGiaNhap : 0) > 0 ? Math.round(giaChaoToiThieu * (firstGiaNhap > 0 ? (item.soLuong || 0) * (item.donGiaNhap || 0) / firstGiaNhap : 0) / tongTrongSo) : 0; tongGC += dgc2; }
   h += '<tr style="background:#eef2f7;font-weight:600"><td colspan="4" style="text-align:right">Tổng cộng</td><td class="n"></td><td class="n"></td><td class="n">' + fmt(tongGN) + '</td><td></td><td class="n">' + fmt(tongGC) + '</td></tr>';
   h += '</table>';
 
