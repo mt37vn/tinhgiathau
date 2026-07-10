@@ -7,15 +7,29 @@
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #eef2f7; color: #2c3e50; font-size: 14px; }
-.topbar { background: linear-gradient(135deg, #1a3a5c, #2a5a8c); color: #fff; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+.topbar { background: linear-gradient(135deg, #1a3a5c, #2a5a8c); color: #fff; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 8px rgba(0,0,0,.15); position: sticky; top: 0; z-index: 200; }
 .topbar h1 { font-size: 20px; font-weight: 600; letter-spacing: .5px; }
 .topbar h1 span { font-weight: 300; opacity: .7; }
 .topbar-right { display: flex; gap: 10px; align-items: center; }
 .container { max-width: 1400px; margin: 0 auto; padding: 16px 20px; }
-.project-bar { background: #fff; border-radius: 8px; padding: 10px 16px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.08); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.project-bar label { font-weight: 600; color: #1a3a5c; white-space: nowrap; }
-.project-bar select { flex: 1; min-width: 200px; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
-.project-bar select:focus { border-color: #2a5a8c; outline: none; box-shadow: 0 0 0 2px rgba(42,90,140,.2); }
+.project-bar { background: #fff; border-radius: 8px; padding: 12px 16px; box-shadow: 0 1px 4px rgba(0,0,0,.08); display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
+.project-bar .pb-section { display: flex; flex-direction: column; gap: 6px; }
+.project-bar label { font-weight: 600; color: #1a3a5c; font-size: 13px; }
+.project-bar .search-wrap { position: relative; }
+.project-bar .search-wrap input { width: 100%; padding: 7px 10px 7px 32px; border: 1px solid #d0d5dd; border-radius: 6px; font-size: 14px; background: #f5f7fa; }
+.project-bar .search-wrap input:focus { border-color: #2a5a8c; outline: none; box-shadow: 0 0 0 2px rgba(42,90,140,.15); }
+.project-bar .search-wrap .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #999; font-size: 14px; pointer-events: none; }
+.project-bar .pb-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.project-bar .pb-divider { border: none; border-top: 1px solid #eef2f7; margin: 4px 0; }
+.project-bar .pb-recent-label { font-size: 12px; color: #888; font-weight: 500; }
+.project-bar .pb-recent-list { list-style: none; display: flex; flex-direction: column; gap: 2px; max-height: 180px; overflow-y: auto; }
+.project-bar .pb-recent-list li { padding: 5px 8px; border-radius: 4px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 6px; transition: background .15s; }
+.project-bar .pb-recent-list li:hover { background: #e8f0fe; }
+.project-bar .pb-recent-list li .r-icon { color: #2a5a8c; flex-shrink: 0; }
+.project-bar .pb-recent-list li .r-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-bar .pb-recent-list li .r-time { font-size: 11px; color: #aaa; white-space: nowrap; }
+.project-bar .pb-recent-list li.active { background: #d4e4f7; font-weight: 600; }
+.project-bar .pb-status { font-size: 12px; color: #888; text-align: right; }
 .btn { padding: 6px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all .2s; white-space: nowrap; }
 .btn-primary { background: #2a5a8c; color: #fff; }
 .btn-primary:hover { background: #1a3a5c; }
@@ -31,17 +45,17 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px 20px; }
 .form-group { display: flex; flex-direction: column; gap: 3px; }
 .form-group label { font-size: 12px; font-weight: 600; color: #555; }
-.form-group input, .form-group select { padding: 7px 10px; border: 1px solid #d0d5dd; border-radius: 4px; font-size: 14px; transition: border-color .2s; }
+.form-group input, .form-group select { padding: 7px 10px; border: 1px solid #d0d5dd; border-radius: 4px; font-size: 14px; transition: border-color .2s; background: #f5f7fa; }
 .form-group input:focus, .form-group select:focus { border-color: #2a5a8c; outline: none; box-shadow: 0 0 0 2px rgba(42,90,140,.15); }
-.form-group input[readonly] { background: #f5f7fa; color: #333; cursor: default; }
+.form-group input[readonly] { background: #fff; color: #333; cursor: default; }
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 table th { background: #f5f7fa; color: #1a3a5c; font-weight: 600; padding: 8px 6px; text-align: left; border-bottom: 2px solid #d0d5dd; white-space: nowrap; font-size: 12px; }
 table td { padding: 4px 6px; border-bottom: 1px solid #eef2f7; vertical-align: middle; }
-table td input, table td select { width: 100%; padding: 5px 6px; border: 1px solid transparent; border-radius: 3px; font-size: 13px; background: transparent; }
+table td input, table td select { width: 100%; padding: 5px 6px; border: 1px solid transparent; border-radius: 3px; font-size: 13px; background: #f5f7fa; }
 table td input:hover { border-color: #ccc; }
 table td input:focus { border-color: #2a5a8c; outline: none; box-shadow: 0 0 0 2px rgba(42,90,140,.15); background: #fff; }
-table td input[readonly] { background: #f5f7fa; border-color: transparent; color: #333; cursor: default; }
+table td input[readonly] { background: transparent; border-color: transparent; color: #333; cursor: default; }
 table td input[readonly]:focus { box-shadow: none; }
 table .td-num { text-align: right; }
 table .td-num input { text-align: right; }
@@ -52,15 +66,16 @@ table .td-center input { text-align: center; }
 .param-group { display: flex; flex-direction: column; gap: 10px; }
 .param-row { display: flex; align-items: center; gap: 10px; }
 .param-row label { flex: 0 0 130px; font-size: 13px; color: #333; font-weight: 500; }
-.param-row input { flex: 1; padding: 6px 10px; border: 1px solid #d0d5dd; border-radius: 4px; font-size: 14px; text-align: right; }
+.param-row input { flex: 1; padding: 6px 10px; border: 1px solid #d0d5dd; border-radius: 4px; font-size: 14px; text-align: right; background: #f5f7fa; }
 .param-row input:focus { border-color: #2a5a8c; outline: none; box-shadow: 0 0 0 2px rgba(42,90,140,.15); }
+.param-row input[readonly] { background: #fff; }
 .param-row .suffix { flex: 0 0 30px; font-size: 13px; color: #666; }
 .result-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
 .result-row .rlabel { flex: 0 0 170px; font-size: 13px; color: #333; font-weight: 500; }
-.result-row .rvalue { flex: 1; font-size: 16px; font-weight: 700; color: #1a3a5c; text-align: right; padding: 4px 10px; background: #f0f4f9; border-radius: 4px; }
+.result-row .rvalue { flex: 1; font-size: 16px; font-weight: 700; color: #1a3a5c; text-align: right; padding: 4px 10px; background: transparent; border-radius: 4px; }
 .result-row .rvalue.profit { color: #27ae60; }
 .result-row .rvalue.loss { color: #e74c3c; }
-.result-row .rvalue.highlight { background: #e8f0fe; font-size: 18px; }
+.result-row .rvalue.highlight { font-size: 18px; }
 .toolbar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
 .toolbar .spacer { flex: 1; }
 .status-bar { background: #e8f0fe; padding: 6px 16px; border-radius: 4px; font-size: 12px; color: #2a5a8c; margin-top: 8px; text-align: right; display: none; }
@@ -84,6 +99,10 @@ table .btn-icon:hover { background: #f0f0f0; }
 table .btn-icon.danger { color: #e74c3c; border-color: #e74c3c; }
 table .btn-icon.danger:hover { background: #fde8e8; }
 .fw-600 { font-weight: 600; }
+.error { border-color: #e74c3c !important; }
+.error:focus { box-shadow: 0 0 0 2px rgba(231,76,60,.25) !important; }
+.form-group .error, .param-row .error { border-color: #e74c3c !important; }
+table td input.error { border-color: #e74c3c !important; background: #fff5f5 !important; }
 </style>
 </head>
 <body>
@@ -91,56 +110,74 @@ table .btn-icon.danger:hover { background: #fde8e8; }
 <div class="topbar">
   <h1>📊 Phần Mềm <span>Tính Giá Chào Thầu</span></h1>
   <div class="topbar-right">
-    <button class="btn btn-outline" style="border-color:#fff;color:#fff;opacity:.8" onclick="exportExcel()">📥 Xuất Excel</button>
+    <button class="btn btn-success btn-sm" style="background:#27ae60" onclick="createProject()">+ Mới</button>
+    <button class="btn btn-danger btn-sm" onclick="deleteProject()">🗑 Xóa</button>
+    <span style="width:1px;height:20px;background:rgba(255,255,255,.2);display:inline-block"></span>
+    <button class="btn btn-primary" style="background:#fff;color:#1a3a5c" onclick="manualSave()">💾 Lưu</button>
+    <button class="btn btn-outline" style="border-color:#fff;color:#fff" onclick="cancelEdit()">↩ Huỷ</button>
+    <span style="width:1px;height:20px;background:rgba(255,255,255,.2);display:inline-block"></span>
+    <button class="btn btn-outline" style="border-color:#fff;color:#fff" onclick="shareProject()">🔗 Chia sẻ</button>
     <span style="opacity:.6;font-size:12px" id="connStatus">● Đã kết nối</span>
   </div>
 </div>
 
 <div class="container">
-  <div class="project-bar">
-    <label>Dự án:</label>
-    <select id="projectSelect" onchange="switchProject(this.value)"><option value="">-- Chọn dự án --</option></select>
-    <button class="btn btn-success btn-sm" onclick="createProject()">+ Dự án mới</button>
-    <button class="btn btn-outline btn-sm" onclick="renameProject()">✎ Đổi tên</button>
-    <button class="btn btn-danger btn-sm" onclick="deleteProject()">🗑 Xóa</button>
-    <span style="margin-left:auto;font-size:12px;color:#888" id="projectStatus"></span>
-  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+    <div class="project-bar" style="margin-bottom:0;justify-content:flex-start">
+      <div class="pb-section">
+        <label>Dự án</label>
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="projectSearch" list="projectList" placeholder="Tìm kiếm dự án..." autocomplete="off" oninput="onSearchInput(this)">
+          <datalist id="projectList"></datalist>
+        </div>
+      </div>
+      <hr class="pb-divider">
+      <div class="pb-section">
+        <span class="pb-recent-label">Dự án gần đây</span>
+        <ul class="pb-recent-list" id="recentList"></ul>
+      </div>
+      <span class="pb-status" id="projectStatus"></span>
+      <select id="projectSelect" onchange="switchProject(this.value)" style="display:none"><option value="">--</option></select>
+    </div>
 
-  <div class="card" id="projectInfoCard">
-    <h2>Thông tin dự án</h2>
-    <div class="form-grid">
-      <div class="form-group">
-        <label>Tên công trình / Dự án</label>
-        <input type="text" id="tenCongTrinh" onchange="onProjectInfoChange()" placeholder="Nhập tên dự án">
-      </div>
-      <div class="form-group">
-        <label>Địa điểm thi công</label>
-        <input type="text" id="diaDiem" onchange="onProjectInfoChange()" placeholder="Nhập địa điểm">
-      </div>
-      <div class="form-group">
-        <label>Thời gian thực hiện (ngày)</label>
-        <input type="number" id="thoiGianThucHien" onchange="onProjectInfoChange()" value="90">
-      </div>
-      <div class="form-group">
-        <label>Người lập đề xuất</label>
-        <input type="text" id="nguoiLap" onchange="onProjectInfoChange()" placeholder="Họ tên">
-      </div>
-      <div class="form-group">
-        <label>Ngày lập</label>
-        <input type="date" id="ngayLap" onchange="onProjectInfoChange()">
+    <div class="card" id="projectInfoCard" style="margin-bottom:0">
+      <h2>Thông tin dự án</h2>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div class="form-group">
+          <label>Tên công trình / Dự án</label>
+          <input type="text" id="tenCongTrinh" onchange="onProjectInfoChange()" placeholder="Nhập tên dự án">
+        </div>
+        <div class="form-group">
+          <label>Mã đấu thầu (IB)</label>
+          <input type="text" id="maDauThau" onchange="onProjectInfoChange()" placeholder="Nhập mã đấu thầu">
+        </div>
+        <div class="form-group">
+          <label>Giá dự toán</label>
+          <input type="text" id="giaDuToan" oninput="formatCurrencyInput(this); onProjectInfoChange()" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label>Địa điểm thi công</label>
+          <input type="text" id="diaDiem" onchange="onProjectInfoChange()" placeholder="Nhập địa điểm">
+        </div>
+        <div class="form-group">
+          <label>Thời gian thực hiện (ngày)</label>
+          <input type="number" id="thoiGianThucHien" onchange="onProjectInfoChange()" value="90">
+        </div>
+        <div class="form-group">
+          <label>Người lập đề xuất</label>
+          <input type="text" id="nguoiLap" onchange="onProjectInfoChange()" placeholder="Họ tên">
+        </div>
+        <div class="form-group">
+          <label>Ngày lập</label>
+          <input type="date" id="ngayLap" onchange="onProjectInfoChange()">
+        </div>
       </div>
     </div>
   </div>
 
   <div class="card">
     <h2>Danh mục hàng hóa</h2>
-    <div class="toolbar">
-      <button class="btn btn-primary btn-sm" onclick="addRow()">+ Thêm dòng</button>
-      <button class="btn btn-danger btn-sm" onclick="removeRow()">− Xóa dòng cuối</button>
-      <button class="btn btn-outline btn-sm" onclick="autoTrongSo()">⇄ Cân bằng trọng số</button>
-      <span class="spacer"></span>
-      <span style="font-size:12px;color:#888" id="itemCount">0 mặt hàng</span>
-    </div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -159,6 +196,12 @@ table .btn-icon.danger:hover { background: #fde8e8; }
         </thead>
         <tbody id="itemsBody"></tbody>
       </table>
+    </div>
+    <div class="toolbar" style="margin-bottom:0;margin-top:8px">
+      <button class="btn btn-primary btn-sm" onclick="addRow()">+ Thêm dòng</button>
+      <button class="btn btn-danger btn-sm" onclick="removeRow()">− Xóa dòng cuối</button>
+      <span class="spacer"></span>
+      <span style="font-size:12px;color:#888" id="itemCount">0 mặt hàng</span>
     </div>
   </div>
 
@@ -191,11 +234,6 @@ table .btn-icon.danger:hover { background: #fde8e8; }
           <input type="number" id="hoaHongKD" step="0.1" min="0" max="100" oninput="onParamChange()">
           <span class="suffix">%</span>
         </div>
-        <div class="param-row">
-          <label>Giá dự toán</label>
-          <input type="text" id="giaDuToan" oninput="formatCurrencyInput(this); onParamChange()">
-          <span class="suffix">VNĐ</span>
-        </div>
       </div>
     </div>
 
@@ -203,18 +241,18 @@ table .btn-icon.danger:hover { background: #fde8e8; }
       <h2>Kết quả tính toán</h2>
       <div class="param-group">
         <div class="result-row">
-          <span class="rlabel">Tổng giá nhập</span>
-          <span class="rvalue" id="rTongGiaNhap">0</span>
-        </div>
-        <div class="result-row">
-          <span class="rlabel">Giá chào tối thiểu</span>
-          <span class="rvalue highlight" id="rGiaChaoToiThieu">0</span>
+          <span class="rlabel" style="font-weight:700;color:#1a3a5c">Giá chào tối thiểu</span>
+          <span class="rvalue" style="font-size:22px;font-weight:800;color:#1a3a5c;border-left:4px solid #2a5a8c;padding-left:12px" id="rGiaChaoToiThieu">0</span>
         </div>
         <div class="result-row">
           <span class="rlabel">Tỉ lệ giảm giá</span>
           <span class="rvalue" id="rTiLeGiamGia">0%</span>
         </div>
         <div class="result-row" style="border-top:1px solid #eef2f7;padding-top:8px;margin-top:4px">
+          <span class="rlabel">Tổng giá nhập</span>
+          <span class="rvalue" id="rTongGiaNhap">0</span>
+        </div>
+        <div class="result-row">
           <span class="rlabel">Lợi nhuận gộp</span>
           <span class="rvalue profit" id="rLoiNhuanGop">0</span>
         </div>
@@ -300,14 +338,35 @@ async function api(method, url, body) {
 
 async function loadProjectList() {
   projects = await api('GET', '/api/projects');
+
+  // Populate datalist for search autofill
+  const datalist = document.getElementById('projectList');
+  datalist.innerHTML = '';
+  const sorted = [...projects].sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
+  for (const p of sorted) {
+    const opt = document.createElement('option');
+    opt.value = p.name;
+    opt.dataset.id = p.id;
+    datalist.appendChild(opt);
+  }
+
+  // Populate recent projects list
+  const recentList = document.getElementById('recentList');
+  recentList.innerHTML = '';
+  for (const p of sorted) {
+    const li = document.createElement('li');
+    li.dataset.id = p.id;
+    li.className = (currentProject && currentProject.id === p.id) ? 'active' : '';
+    const time = new Date(p.updatedAt || p.createdAt);
+    const timeStr = time.toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+    li.innerHTML = `<span class="r-icon">📄</span><span class="r-name">${escHtml(p.name)}</span><span class="r-time">${timeStr}</span>`;
+    li.addEventListener('click', () => selectProjectById(p.id));
+    recentList.appendChild(li);
+  }
+
+  // Keep hidden select in sync (for backward compatibility)
   const sel = document.getElementById('projectSelect');
   sel.innerHTML = '<option value="">-- Chọn dự án --</option>';
-  for (const p of projects) {
-    const opt = document.createElement('option');
-    opt.value = p.id;
-    opt.textContent = p.name + (p.name !== (p.name) ? '' : '');
-    sel.appendChild(opt);
-  }
   const ids = projects.map(p => p.id);
   if (currentProject && ids.includes(currentProject.id)) {
     sel.value = currentProject.id;
@@ -315,11 +374,34 @@ async function loadProjectList() {
   document.getElementById('projectStatus').textContent = projects.length + ' dự án';
 }
 
+function onSearchInput(input) {
+  const val = input.value.trim();
+  const matched = projects.find(p => p.name === val);
+  if (matched) {
+    selectProjectById(matched.id);
+  }
+}
+
+async function selectProjectById(id) {
+  if (!id) return;
+  document.getElementById('projectSelect').value = id;
+  await switchProject(id);
+  // Update search input with name
+  const p = projects.find(pr => pr.id === id);
+  if (p) document.getElementById('projectSearch').value = p.name;
+}
+
 async function switchProject(id) {
   if (!id) { currentProject = null; clearForm(); return; }
   currentProject = await api('GET', '/api/projects/' + id);
   loadProjectToForm(currentProject);
   calculate();
+  // Update search input and recent list highlight
+  const p = projects.find(pr => pr.id === id);
+  if (p) document.getElementById('projectSearch').value = p.name;
+  document.querySelectorAll('#recentList li').forEach(li => {
+    li.classList.toggle('active', li.dataset.id === id);
+  });
 }
 
 async function createProject() {
@@ -327,8 +409,7 @@ async function createProject() {
   if (!name) return;
   const p = await api('POST', '/api/projects', { name });
   await loadProjectList();
-  document.getElementById('projectSelect').value = p.id;
-  await switchProject(p.id);
+  await selectProjectById(p.id);
   showToast('Đã tạo dự án: ' + name, 'success');
 }
 
@@ -341,7 +422,7 @@ function renameProject() {
     currentProject.projectInfo.tenCongTrinh = name;
     await api('PUT', '/api/projects/' + currentProject.id, { name: name });
     await loadProjectList();
-    document.getElementById('projectSelect').value = currentProject.id;
+    document.getElementById('projectSearch').value = name;
     document.getElementById('tenCongTrinh').value = name;
     showToast('Đã đổi tên', 'success');
   });
@@ -357,11 +438,36 @@ async function deleteProject() {
   showToast('Đã xóa dự án', 'success');
 }
 
+async function cancelEdit() {
+  if (!currentProject) { showToast('Chưa chọn dự án', 'error'); return; }
+  await selectProjectById(currentProject.id);
+  showToast('Đã huỷ thay đổi', 'success');
+}
+
+async function shareProject() {
+  if (!currentProject) { showToast('Chưa chọn dự án', 'error'); return; }
+  const url = window.location.origin + '/share/' + currentProject.id;
+  try {
+    await navigator.clipboard.writeText(url);
+    showToast('Đã copy link chia sẻ: ' + url, 'success');
+  } catch {
+    // Fallback: show modal with link
+    const dummy = document.createElement('textarea');
+    dummy.value = url;
+    document.body.appendChild(dummy);
+    dummy.select();
+    document.execCommand('copy');
+    document.body.removeChild(dummy);
+    showToast('Đã copy link vào clipboard', 'success');
+  }
+}
+
 function clearForm() {
   document.getElementById('tenCongTrinh').value = '';
   document.getElementById('diaDiem').value = '';
   document.getElementById('thoiGianThucHien').value = '90';
   document.getElementById('nguoiLap').value = '';
+  document.getElementById('maDauThau').value = '';
   document.getElementById('ngayLap').value = '';
   document.getElementById('itemsBody').innerHTML = '';
   document.getElementById('itemCount').textContent = '0 mặt hàng';
@@ -389,8 +495,9 @@ function loadProjectToForm(p) {
   document.getElementById('tenCongTrinh').value = info.tenCongTrinh || '';
   document.getElementById('diaDiem').value = info.diaDiem || '';
   document.getElementById('thoiGianThucHien').value = info.thoiGianThucHien || 90;
+  document.getElementById('maDauThau').value = info.maDauThau || '';
   document.getElementById('nguoiLap').value = info.nguoiLap || '';
-  document.getElementById('ngayLap').value = info.ngayLap || '';
+  document.getElementById('ngayLap').value = info.ngayLap || new Date().toISOString().split('T')[0];
   const params = p.params || {};
   document.getElementById('tiLeLNG').value = params.tiLeLNG || '';
   document.getElementById('phiBaoHanh').value = params.phiBaoHanh || '';
@@ -425,7 +532,7 @@ function addRowToTable(item) {
     <td class="td-num"><input class="sl-input" type="number" value="${item.soLuong || 1}" min="0" step="1" oninput="onItemChange(this)"></td>
     <td class="td-num"><input class="dg-input" type="text" value="${item.donGiaNhap ? formatNumber(item.donGiaNhap) : ''}" placeholder="0" oninput="formatCurrencyInput(this); onItemChange(this)" style="text-align:right"></td>
     <td class="td-num"><input class="gn-input" type="text" readonly value="${item.giaNhap ? formatNumber(item.giaNhap) : '0'}" style="text-align:right"></td>
-    <td class="td-num"><input class="ts-input" type="number" value="${item.trongSo || 1}" min="0" step="0.1" oninput="onItemChange(this)" style="text-align:right;width:60px"></td>
+    <td class="td-num"><input class="ts-input" type="text" readonly value="${item.trongSo || 1}" style="text-align:right;width:60px"></td>
     <td class="td-num"><input class="dgc-input" type="text" readonly value="${item.donGiaChao ? formatNumber(item.donGiaChao) : '0'}" style="text-align:right"></td>
     <td><input class="ghichu-input" type="text" value="${escHtml(item.ghiChu || '')}" placeholder="Ghi chú" oninput="scheduleAutoSave()"></td>
     <td><button class="btn-icon danger" onclick="deleteRow(this)" title="Xóa">✕</button></td>
@@ -462,30 +569,13 @@ function deleteRow(btn) {
   scheduleAutoSave();
 }
 
-function autoTrongSo() {
-  const tbody = document.getElementById('itemsBody');
-  if (!tbody.children.length) return;
-  const rows = [...tbody.children];
-  const giaNhaps = rows.map(r => parseNumber(r.querySelector('.dg-input').value) * parseFloat(r.querySelector('.sl-input').value || 1));
-  const total = giaNhaps.reduce((a, b) => a + b, 0);
-  if (total === 0) {
-    const each = 100 / rows.length;
-    for (const r of rows) r.querySelector('.ts-input').value = each.toFixed(1);
-  } else {
-    for (let i = 0; i < rows.length; i++) {
-      rows[i].querySelector('.ts-input').value = (giaNhaps[i] / total * 100).toFixed(1);
-    }
-  }
-  calculate();
-  scheduleAutoSave();
-}
-
 function onItemChange(el) {
   calculate();
   scheduleAutoSave();
 }
 
 function onProjectInfoChange() {
+  calculate();
   scheduleAutoSave();
 }
 
@@ -529,7 +619,11 @@ function calculate() {
   // Calculate min bid price
   const giaChaoToiThieu = tiLeLNG >= 100 ? 0 : (tiLeLNG > 0 ? Math.round(tongGiaNhap / (1 - tiLeLNG / 100)) : tongGiaNhap);
 
-  // Calculate weights and unit bid prices
+  // Auto-calculate weights based on first item's import price
+  const firstGiaNhap = items.length > 0 ? items[0].giaNhap : 0;
+  for (const item of items) {
+    item.trongSo = firstGiaNhap > 0 ? item.giaNhap / firstGiaNhap : 0;
+  }
   const tongTrongSo = items.reduce((s, item) => s + (item.trongSo || 0), 0);
   for (const item of items) {
     item.donGiaChao = tongTrongSo > 0 && item.trongSo > 0 ? Math.round(giaChaoToiThieu * item.trongSo / tongTrongSo) : 0;
@@ -552,6 +646,7 @@ function calculate() {
     const tr = tbody.children[i];
     tr.querySelector('.stt-input').value = i + 1;
     tr.querySelector('.gn-input').value = formatNumber(items[i].giaNhap);
+    tr.querySelector('.ts-input').value = items[i].trongSo;
     tr.querySelector('.dgc-input').value = formatNumber(items[i].donGiaChao);
   }
 
@@ -621,6 +716,7 @@ function collectFormData() {
     name: document.getElementById('tenCongTrinh').value || currentProject.name,
     projectInfo: {
       tenCongTrinh: document.getElementById('tenCongTrinh').value,
+      maDauThau: document.getElementById('maDauThau').value,
       diaDiem: document.getElementById('diaDiem').value,
       thoiGianThucHien: parseInt(document.getElementById('thoiGianThucHien').value) || 90,
       nguoiLap: document.getElementById('nguoiLap').value,
@@ -670,8 +766,64 @@ document.getElementById('modalInput').addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeModal();
 });
 
+function clearErrors() {
+  document.querySelectorAll('.error').forEach(el => el.classList.remove('error'));
+}
+
+function validateRequired() {
+  clearErrors();
+  const checks = [
+    { id: 'tenCongTrinh', msg: 'Nhập tên công trình / dự án' },
+    { id: 'giaDuToan', msg: 'Nhập giá dự toán' },
+    { id: 'tiLeLNG', msg: 'Nhập tỉ lệ LNG dự kiến' }
+  ];
+  for (const c of checks) {
+    const el = document.getElementById(c.id);
+    if (!el || !el.value || parseFloat(String(el.value).replace(/[.\s]/g, '')) === 0) {
+      if (el) el.classList.add('error');
+      showToast(c.msg, 'error');
+      if (el) el.focus();
+      return false;
+    }
+  }
+  // Check items: at least one with name and unit price > 0
+  const tbody = document.getElementById('itemsBody');
+  const rows = [...tbody.children];
+  let hasValidItem = false;
+  if (rows.length === 0) {
+    showToast('Thêm ít nhất 1 mặt hàng', 'error');
+    return false;
+  }
+  for (const tr of rows) {
+    const name = tr.querySelector('.ten-input')?.value.trim();
+    const price = parseNumber(tr.querySelector('.dg-input')?.value);
+    if (!name) {
+      tr.querySelector('.ten-input')?.classList.add('error');
+      if (!hasValidItem) { tr.querySelector('.ten-input')?.focus(); showToast('Nhập tên hàng hóa', 'error'); }
+      return false;
+    }
+    if (price <= 0) {
+      tr.querySelector('.dg-input')?.classList.add('error');
+      if (!hasValidItem) { tr.querySelector('.dg-input')?.focus(); showToast('Nhập đơn giá nhập > 0', 'error'); }
+      return false;
+    }
+    hasValidItem = true;
+  }
+  return true;
+}
+
+async function manualSave() {
+  if (!currentProject) { showToast('Chưa chọn dự án', 'error'); return; }
+  clearErrors();
+  if (!validateRequired()) return;
+  await autoSave();
+  showToast('Đã lưu thành công', 'success');
+}
+
 async function exportExcel() {
   if (!currentProject) { showToast('Chưa chọn dự án', 'error'); return; }
+  clearErrors();
+  if (!validateRequired()) return;
   calculate();
   const data = collectFormData();
   const items = data.items;
@@ -693,62 +845,83 @@ async function exportExcel() {
   const tiLeLNRVon = tongGiaNhap > 0 ? loiNhuanRong / tongGiaNhap * 100 : 0;
   const tiLeGiamGia = giaDuToan > 0 ? (giaDuToan - giaChaoToiThieu) / giaDuToan * 100 : 0;
 
-  let csv = '\uFEFF'; // BOM for UTF-8
-  csv += 'CÔNG TY CỔ PHẦN THÔNG TIN HAPRO\n';
-  csv += 'ĐỀ XUẤT GIÁ DỰ THẦU\n';
-  csv += '\n';
-  csv += 'I. Thông tin chung\n';
-  csv += 'Tên công trình / Dự án,,' + (data.projectInfo.tenCongTrinh || '') + '\n';
-  csv += 'Địa điểm thi công,,' + (data.projectInfo.diaDiem || '') + '\n';
-  csv += 'Thời gian thực hiện,,' + (data.projectInfo.thoiGianThucHien || '') + ' ngày\n';
-  csv += 'Người lập đề xuất,,' + (data.projectInfo.nguoiLap || '') + '\n';
-  csv += 'Ngày lập,,' + (data.projectInfo.ngayLap || '') + '\n';
-  csv += '\n';
-  csv += 'II. Danh mục hàng hóa\n';
-  csv += 'STT,Tên hàng hóa,Đơn vị tính,Số lượng,Đơn giá nhập,Giá nhập,Trọng số,Đơn giá chào,Ghi chú\n';
+  function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function fmt(n) { return formatNumber(n); }
 
+  let h = '<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Đề xuất giá dự thầu</title>';
+  h += '<style>body{font-family:"Segoe UI",sans-serif;margin:30px 50px;color:#222}';
+  h += 'h1{font-size:20px;color:#1a3a5c;text-align:center;margin-bottom:4px}';
+  h += 'h2{text-align:center;font-size:16px;color:#333;margin:0 0 20px}';
+  h += 'h3{color:#1a3a5c;margin:20px 0 8px;border-bottom:2px solid #1a3a5c;padding-bottom:4px}';
+  h += 'table{width:100%;border-collapse:collapse;margin:10px 0;font-size:13px}';
+  h += 'th{background:#1a3a5c;color:#fff;padding:7px 6px;text-align:left;white-space:nowrap}';
+  h += 'td{padding:5px 6px;border:1px solid #ccc}';
+  h += '.n{text-align:right}.i td{border:none;padding:3px 8px}.i td:first-child{font-weight:600;width:200px}';
+  h += '.s td:first-child{font-weight:600;width:220px}';
+  h += '.hl{font-size:18px;font-weight:800;color:#1a3a5c}.pr{color:#27ae60}</style></head><body>';
+
+  h += '<h1>CÔNG TY CỔ PHẦN THÔNG TIN HAPRO</h1><h2>ĐỀ XUẤT GIÁ DỰ THẦU</h2>';
+
+  h += '<h3>I. Thông tin chung</h3><table class="i">';
+  h += '<tr><td>Tên công trình / Dự án</td><td>' + esc(data.projectInfo.tenCongTrinh) + '</td></tr>';
+  h += '<tr><td>Mã đấu thầu (IB)</td><td>' + esc(data.projectInfo.maDauThau) + '</td></tr>';
+  h += '<tr><td>Giá dự toán</td><td>' + fmt(giaDuToan) + ' ₫</td></tr>';
+  h += '<tr><td>Địa điểm thi công</td><td>' + esc(data.projectInfo.diaDiem) + '</td></tr>';
+  h += '<tr><td>Thời gian thực hiện</td><td>' + (data.projectInfo.thoiGianThucHien || '') + ' ngày</td></tr>';
+  h += '<tr><td>Người lập đề xuất</td><td>' + esc(data.projectInfo.nguoiLap) + '</td></tr>';
+  h += '<tr><td>Ngày lập</td><td>' + esc(data.projectInfo.ngayLap) + '</td></tr></table>';
+
+  h += '<h3>II. Danh mục hàng hóa</h3><table><tr><th>STT</th><th>Tên hàng hóa</th><th>ĐVT</th><th>SL</th><th>ĐG nhập</th><th>Giá nhập</th><th>TS</th><th>ĐG chào</th></tr>';
   for (const item of items) {
-    csv += item.stt + ',' +
-      '"' + (item.tenHangHoa || '') + '",' +
-      '"' + (item.donViTinh || '') + '",' +
-      item.soLuong + ',' +
-      formatNumber(item.donGiaNhap) + ',' +
-      formatNumber(item.giaNhap) + ',' +
-      item.trongSo + ',' +
-      formatNumber(item.donGiaChao) + ',' +
-      '"' + (item.ghiChu || '') + '"\n';
+    h += '<tr><td>' + item.stt + '</td><td>' + esc(item.tenHangHoa) + '</td><td>' + esc(item.donViTinh) + '</td>';
+    h += '<td class="n">' + item.soLuong + '</td><td class="n">' + fmt(item.donGiaNhap) + '</td>';
+    h += '<td class="n">' + fmt(item.giaNhap) + '</td><td class="n">' + item.trongSo.toFixed(2) + '</td>';
+    h += '<td class="n">' + fmt(item.donGiaChao) + '</td></tr>';
   }
+  h += '</table>';
 
-  csv += '\n';
-  csv += 'III. Tổng hợp giá\n';
-  csv += 'Tổng giá nhập,,' + formatNumber(tongGiaNhap) + '\n';
-  csv += 'Tỉ lệ LNG,,' + tiLeLNG + '%\n';
-  csv += 'Giá chào tối thiểu,,' + formatNumber(giaChaoToiThieu) + '\n';
-  csv += 'Giá dự toán,,' + formatNumber(giaDuToan) + '\n';
-  csv += 'Tỉ lệ giảm giá,,' + tiLeGiamGia.toFixed(1) + '%\n';
-  csv += 'Lợi nhuận gộp,,' + formatNumber(loiNhuanGop) + '\n';
-  csv += 'Chi phí bảo hành,,' + formatNumber(cpBaoHanh) + ' (' + phiBaoHanh + '%)\n';
-  csv += 'Chi phí bán hàng,,' + formatNumber(cpBanHang) + ' (' + phiBanHang + '%)\n';
-  csv += 'Chi phí công tác,,' + formatNumber(phiCongTac) + '\n';
-  csv += 'LN gộp kinh doanh,,' + formatNumber(loiNhuanGopKD) + '\n';
-  csv += 'Hoa hồng KD,,' + formatNumber(hhKD) + ' (' + hoaHongKD + '%)\n';
-  csv += 'Lợi nhuận ròng,,' + formatNumber(loiNhuanRong) + '\n';
-  csv += 'Tỷ lệ LNR/Vốn,,' + tiLeLNRVon.toFixed(1) + '%\n';
+  h += '<h3>III. Tổng hợp giá</h3><table class="s">';
+  h += '<tr><td>Giá chào tối thiểu</td><td class="n hl">' + fmt(giaChaoToiThieu) + ' ₫</td></tr>';
+  h += '<tr><td>Tỉ lệ giảm giá</td><td class="n">' + tiLeGiamGia.toFixed(1) + '%</td></tr>';
+  h += '<tr><td>Tổng giá nhập</td><td class="n">' + fmt(tongGiaNhap) + ' ₫</td></tr>';
+  h += '<tr><td>Lợi nhuận gộp</td><td class="n pr">' + fmt(loiNhuanGop) + ' ₫</td></tr>';
+  h += '<tr><td>Phí bảo hành</td><td class="n">' + fmt(cpBaoHanh) + ' (' + phiBaoHanh + '%)</td></tr>';
+  h += '<tr><td>Phí bán hàng</td><td class="n">' + fmt(cpBanHang) + ' (' + phiBanHang + '%)</td></tr>';
+  h += '<tr><td>Phí công tác</td><td class="n">' + fmt(phiCongTac) + ' ₫</td></tr>';
+  h += '<tr><td>LN gộp KD</td><td class="n pr">' + fmt(loiNhuanGopKD) + ' ₫</td></tr>';
+  h += '<tr><td>Hoa hồng KD</td><td class="n">' + fmt(hhKD) + ' (' + hoaHongKD + '%)</td></tr>';
+  h += '<tr style="border-top:2px solid #1a3a5c"><td style="font-weight:700">Lợi nhuận ròng</td><td class="n pr hl">' + fmt(loiNhuanRong) + ' ₫</td></tr>';
+  h += '<tr><td>Tỷ lệ LNR / Vốn</td><td class="n pr hl">' + tiLeLNRVon.toFixed(1) + '%</td></tr></table>';
 
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  h += '<p style="margin-top:30px;font-size:12px;color:#888;text-align:center">';
+  h += 'Phần Mềm Tính Giá Chào Thầu - ' + new Date().toLocaleString("vi-VN") + '</p></body></html>';
+
+  const blob = new Blob([h], { type: 'text/html;charset=utf-8;' });
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
-  link.download = 'De_xuat_gia_' + (data.projectInfo.tenCongTrinh || 'du_thau').replace(/[^a-zA-Z0-9_]/g, '_') + '.csv';
+  link.download = 'De_xuat_gia_' + (data.projectInfo.tenCongTrinh || 'du_thau').replace(/[^a-zA-Z0-9_]/g, '_') + '.html';
   link.click();
   URL.revokeObjectURL(link.href);
-  showToast('Đã xuất file CSV', 'success');
+  showToast('Đã xuất file HTML - mở bằng trình duyệt hoặc Excel', 'success');
 }
 
 // Keyboard shortcut
+document.getElementById('projectSearch').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    const val = this.value.trim();
+    const matched = projects.find(p => p.name === val);
+    if (matched) selectProjectById(matched.id);
+  }
+  if (e.key === 'Escape') {
+    this.value = currentProject ? (projects.find(p => p.id === currentProject.id)?.name || '') : '';
+    this.blur();
+  }
+});
+
 document.addEventListener('keydown', function(e) {
   if ((e.ctrlKey || e.metaKey) && e.key === 's') {
     e.preventDefault();
-    autoSave();
+    manualSave();
   }
 });
 
@@ -758,8 +931,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   const urlParams = new URLSearchParams(window.location.search);
   const projectId = urlParams.get('project');
   if (projectId) {
-    document.getElementById('projectSelect').value = projectId;
-    await switchProject(projectId);
+    await selectProjectById(projectId);
   }
 });
 </script>
