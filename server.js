@@ -141,7 +141,8 @@ app.get('/api/projects', auth, (req, res) => {
     status: p.status || 'draft', approvedBy: p.approvedBy || null, approvedAt: p.approvedAt || null,
     createdBy: p.createdBy || null,
     maDauThau: (p.projectInfo && p.projectInfo.maDauThau) || null,
-    benMoiThau: (p.projectInfo && p.projectInfo.benMoiThau) || null
+    benMoiThau: (p.projectInfo && p.projectInfo.benMoiThau) || null,
+    thoiGianDongThau: (p.projectInfo && p.projectInfo.thoiGianDongThau) || null
   })));
 });
 
@@ -154,6 +155,9 @@ app.get('/api/projects/:id', auth, (req, res) => {
 
 app.post('/api/projects', auth, (req, res) => {
   const data = readData(PROJ_FILE);
+  const maDauThau = req.body.projectInfo && req.body.projectInfo.maDauThau ? req.body.projectInfo.maDauThau.trim() : '';
+  if (maDauThau && data.projects.some(p => p.projectInfo && p.projectInfo.maDauThau === maDauThau))
+    return res.status(400).json({ error: 'Mã đấu thầu đã tồn tại' });
   const now = new Date().toISOString();
   const project = {
     id: uuidv4(),
@@ -163,9 +167,10 @@ app.post('/api/projects', auth, (req, res) => {
     createdBy: req.currentUser.id,
     projectInfo: req.body.projectInfo || {
       tenCongTrinh: req.body.name || '', maDauThau: '', benMoiThau: '', noiDungTrinh: '',
-      diaDiem: '', thoiGianThucHien: 90, nguoiPhuTrach: '',
+      diaDiem: '', thoiGianThucHien: 0, nguoiPhuTrach: '',
       nguoiLap: req.currentUser.fullName,
-      ngayLap: new Date().toISOString().split('T')[0]
+      ngayLap: new Date().toISOString().split('T')[0],
+      thoiGianDongThau: ''
     },
     items: [{ id: uuidv4(), stt: 1, tenHangHoa: '', donViTinh: 'Gói', soLuong: 1, donGiaNhap: 0, trongSo: 1, ghiChu: '', nhaCungCap: '' }],
     params: { tiLeLNG: 30, phiDuThau: 330000, phiBaoHanh: 5, phiBanHang: 2, phiCongTac: 0, hoaHongKD: 12.5, giaDuToan: 0 }
@@ -179,6 +184,9 @@ app.put('/api/projects/:id', auth, (req, res) => {
   const data = readData(PROJ_FILE);
   const idx = data.projects.findIndex(p => p.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Không tìm thấy' });
+  const maDauThau = req.body.projectInfo && req.body.projectInfo.maDauThau ? req.body.projectInfo.maDauThau.trim() : '';
+  if (maDauThau && data.projects.some((p, i) => i !== idx && p.projectInfo && p.projectInfo.maDauThau === maDauThau))
+    return res.status(400).json({ error: 'Mã đấu thầu đã tồn tại' });
   const project = data.projects[idx];
   if (req.currentUser.role !== 'admin') {
     const isOwner = project.createdBy === req.currentUser.id || (project.projectInfo && project.projectInfo.nguoiLap === req.currentUser.fullName);
@@ -301,7 +309,8 @@ app.get('/share/:id', (req, res) => {
   const cpDuThau = phiDuThau;
   const cpBaoHanh = Math.round(giaChaoToiThieu * phiBaoHanh / 100);
   const cpBanHang = Math.round(giaChaoToiThieu * phiBanHang / 100);
-  const loiNhuanGopKD = loiNhuanGop - cpDuThau - cpBaoHanh - cpBanHang - phiCongTac;
+  const cpCongTac = phiCongTac;
+  const loiNhuanGopKD = loiNhuanGop - cpDuThau - cpBaoHanh - cpBanHang - cpCongTac;
   const hhKD = loiNhuanGopKD > 0 ? Math.round(loiNhuanGopKD * hoaHongKD / 100) : 0;
   const loiNhuanRong = loiNhuanGopKD - hhKD;
   const tiLeLNRVon = tongGiaNhap > 0 ? loiNhuanRong / tongGiaNhap * 100 : 0;
@@ -331,6 +340,7 @@ app.get('/share/:id', (req, res) => {
   h += '<tr><td>Giá dự toán</td><td>' + fmt(giaDuToan) + ' ₫</td></tr>';
   if (info.diaDiem) h += '<tr><td>Địa điểm thi công</td><td>' + esc(info.diaDiem) + '</td></tr>';
   if (info.thoiGianThucHien) h += '<tr><td>Thời gian thực hiện</td><td>' + info.thoiGianThucHien + ' ngày</td></tr>';
+  if (info.thoiGianDongThau) h += '<tr><td>Thời gian đóng thầu</td><td>' + esc(info.thoiGianDongThau) + '</td></tr>';
   h += '</table>';
 
   h += '<h3>II. Danh mục hàng hóa</h3><table><tr><th>STT</th><th>Tên hàng hóa</th><th>Thông số kỹ thuật</th><th>ĐVT</th><th>SL</th><th>Đơn giá nhập</th><th>Giá nhập</th><th>Nhà cung cấp</th><th>Giá chào</th></tr>';
@@ -349,17 +359,17 @@ app.get('/share/:id', (req, res) => {
 
   h += '<h3>III. Hiệu quả dự án</h3><table class="s">';
   h += '<tr><td>Giá chào tối thiểu</td><td class="n hl">' + fmt(giaChaoToiThieu) + ' ₫</td></tr>';
-  h += '<tr><td>Tỉ lệ giảm giá</td><td class="n">' + tiLeGiamGia.toFixed(1) + '%</td></tr>';
-  h += '<tr><td>Tổng giá nhập</td><td class="n">' + fmt(tongGiaNhap) + ' ₫</td></tr>';
-  h += '<tr><td>Lợi nhuận gộp</td><td class="n pr">' + fmt(loiNhuanGop) + ' ₫</td></tr>';
-  h += '<tr><td>Phí dự thầu</td><td class="n">' + fmt(cpDuThau) + ' ₫</td></tr>';
-  h += '<tr><td>Phí bảo hành</td><td class="n">' + fmt(cpBaoHanh) + ' (' + phiBaoHanh + '%)</td></tr>';
-  h += '<tr><td>Phí bán hàng</td><td class="n">' + fmt(cpBanHang) + ' (' + phiBanHang + '%)</td></tr>';
-  h += '<tr><td>Phí công tác/khác</td><td class="n">' + fmt(phiCongTac) + ' ₫</td></tr>';
-  h += '<tr><td>LN gộp KD</td><td class="n pr">' + fmt(loiNhuanGopKD) + ' ₫</td></tr>';
-  h += '<tr><td>Hoa hồng KD</td><td class="n">' + fmt(hhKD) + ' (' + hoaHongKD + '%)</td></tr>';
-  h += '<tr style="border-top:2px solid #1a3a5c"><td style="font-weight:700">Lợi nhuận ròng</td><td class="n pr hl">' + fmt(loiNhuanRong) + ' ₫</td></tr>';
-  h += '<tr><td>Tỷ lệ LNR / Vốn</td><td class="n pr hl">' + tiLeLNRVon.toFixed(1) + '%</td></tr></table>';
+  h += '<tr><td>Tỉ lệ giảm giá</td><td class="n" style="color:#e74c3c">-' + tiLeGiamGia.toFixed(1) + '%</td></tr>';
+  h += '<tr><td>Tổng giá nhập</td><td class="n" style="color:#e74c3c">-' + fmt(tongGiaNhap) + ' ₫</td></tr>';
+  h += '<tr><td>Lợi nhuận gộp</td><td class="n pr">' + (loiNhuanGop >= 0 ? '' : '-') + fmt(Math.abs(loiNhuanGop)) + ' ₫</td></tr>';
+  h += '<tr><td>Phí dự thầu</td><td class="n" style="color:#e74c3c">-' + fmt(cpDuThau) + ' ₫</td></tr>';
+  h += '<tr><td>Phí bảo hành</td><td class="n" style="color:#e74c3c">-' + fmt(cpBaoHanh) + ' (' + phiBaoHanh + '%)</td></tr>';
+  h += '<tr><td>Phí bán hàng</td><td class="n" style="color:#e74c3c">-' + fmt(cpBanHang) + ' (' + phiBanHang + '%)</td></tr>';
+  h += '<tr><td>Phí công tác/khác</td><td class="n" style="color:#e74c3c">-' + fmt(cpCongTac) + ' ₫</td></tr>';
+  h += '<tr><td>LN gộp KD</td><td class="n pr">' + (loiNhuanGopKD >= 0 ? '' : '-') + fmt(Math.abs(loiNhuanGopKD)) + ' ₫</td></tr>';
+  h += '<tr><td>Hoa hồng KD</td><td class="n" style="color:#e74c3c">-' + fmt(hhKD) + ' (' + hoaHongKD + '%)</td></tr>';
+  h += '<tr style="border-top:2px solid #1a3a5c"><td style="font-weight:700">Lợi nhuận ròng</td><td class="n pr hl">' + (loiNhuanRong >= 0 ? '' : '-') + fmt(Math.abs(loiNhuanRong)) + ' ₫</td></tr>';
+  h += '<tr><td>Tỷ lệ LNR / Vốn</td><td class="n pr hl">' + (tiLeLNRVon >= 0 ? '' : '-') + Math.abs(tiLeLNRVon).toFixed(1) + '%</td></tr></table>';
 
   if (info.noiDungTrinh) {
     h += '<h3>IV. Nội dung trình</h3>';

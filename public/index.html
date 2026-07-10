@@ -74,6 +74,7 @@ table .td-num input{text-align:right}
 .result-row .rvalue{flex:1;font-size:16px;font-weight:700;color:#1a3a5c;text-align:right;padding:4px 10px;border-radius:4px}
 .result-row .rvalue.profit{color:#27ae60}
 .result-row .rvalue.loss{color:#e74c3c}
+.result-row .rvalue.cost{color:#e74c3c}
 .result-row .rvalue.highlight{font-size:18px}
 .toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
 .toolbar .spacer{flex:1}
@@ -177,6 +178,11 @@ table .td-num input{text-align:right}
         <span class="pb-recent-label" style="color:#1a5c8c">✓ Đã duyệt</span>
         <ul class="pb-recent-list" id="approvedList" style="max-height:120px"></ul>
       </div>
+      <hr class="pb-divider" id="closedDivider" style="display:none">
+      <div class="pb-section" id="closedSection" style="display:none">
+        <span class="pb-recent-label" style="color:#888">🔒 Đã đóng thầu</span>
+        <ul class="pb-recent-list" id="closedList" style="max-height:120px"></ul>
+      </div>
       <div class="pb-status" id="projectStatus">
         <span></span>
         <div style="display:flex;gap:6px">
@@ -192,7 +198,7 @@ table .td-num input{text-align:right}
       <div style="display:flex;flex-direction:column;gap:8px">
         <div class="form-group">
           <label>Mã đấu thầu (IB) <span style="color:#e74c3c">*</span></label>
-          <input type="text" id="maDauThau" oninput="onProjectInfoChange()" placeholder="Nhập mã đấu thầu">
+          <input type="text" id="maDauThau" oninput="onProjectInfoChange();checkDuplicateIB()" placeholder="Nhập mã đấu thầu">
         </div>
         <div class="form-group">
           <label>Tên công trình / Dự án</label>
@@ -212,7 +218,7 @@ table .td-num input{text-align:right}
         </div>
         <div class="form-group">
           <label>Thời gian thực hiện (ngày)</label>
-          <input type="number" id="thoiGianThucHien" oninput="onProjectInfoChange()" value="90">
+          <input type="number" id="thoiGianThucHien" oninput="onProjectInfoChange()">
         </div>
         <div class="form-group">
           <label>Người lập đề xuất</label>
@@ -220,7 +226,11 @@ table .td-num input{text-align:right}
         </div>
         <div class="form-group">
           <label>Ngày lập</label>
-          <input type="date" id="ngayLap" oninput="onProjectInfoChange()">
+          <input type="date" id="ngayLap" readonly>
+        </div>
+        <div class="form-group">
+          <label>Thời gian đóng thầu</label>
+          <input type="datetime-local" id="thoiGianDongThau" oninput="onProjectInfoChange()">
         </div>
         <div class="form-group" id="nguoiDuyetGroup" style="display:none">
           <label>Người duyệt đề xuất</label>
@@ -622,6 +632,8 @@ async function deleteUser(id) {
 // --- Project flow ---
 async function submitProject() {
   if (!currentProject) return;
+  clearErrors();
+  if (!validateRequired()) return;
   if (!confirm('Trình duyệt dự án "' + currentProject.name + '"?')) return;
   try {
     const p = await api('PATCH', '/api/projects/' + currentProject.id + '/submit');
@@ -719,10 +731,13 @@ async function loadProjectList() {
     return filtered.length;
   }
 
-  renderList('recentList', p => p.status === 'draft', '📄');
-  const hasPending = renderList('pendingList', p => p.status === 'pending', '⏳');
-  const hasRejected = renderList('rejectedList', p => p.status === 'rejected', '✗');
-  const hasApproved = renderList('approvedList', p => p.status === 'approved', '✓');
+  const now = new Date();
+  const isClosed = p => p.thoiGianDongThau && new Date(p.thoiGianDongThau) < now;
+  renderList('recentList', p => p.status === 'draft' && !isClosed(p), '📄');
+  const hasPending = renderList('pendingList', p => p.status === 'pending' && !isClosed(p), '⏳');
+  const hasRejected = renderList('rejectedList', p => p.status === 'rejected' && !isClosed(p), '✗');
+  const hasApproved = renderList('approvedList', p => p.status === 'approved' && !isClosed(p), '✓');
+  const hasClosed = renderList('closedList', isClosed, '🔒');
 
   document.getElementById('pendingDivider').style.display = hasPending ? '' : 'none';
   document.getElementById('pendingSection').style.display = hasPending ? '' : 'none';
@@ -730,6 +745,8 @@ async function loadProjectList() {
   document.getElementById('rejectedSection').style.display = hasRejected ? '' : 'none';
   document.getElementById('approvedDivider').style.display = hasApproved ? '' : 'none';
   document.getElementById('approvedSection').style.display = hasApproved ? '' : 'none';
+  document.getElementById('closedDivider').style.display = hasClosed ? '' : 'none';
+  document.getElementById('closedSection').style.display = hasClosed ? '' : 'none';
 
   const statusInfo = document.getElementById('projectStatus').querySelector('span');
   statusInfo.textContent = projects.length + ' dự án';
@@ -766,13 +783,25 @@ async function switchProject(id) {
 }
 
 async function createProject() {
-  const name = prompt('Tên dự án mới:', 'Dự án ' + (projects.length + 1));
-  if (!name) return;
+  const ib = prompt('Nhập mã đấu thầu (IB):');
+  if (!ib) return;
+  if (projects.some(p => p.maDauThau === ib)) { showToast('Mã đấu thầu đã tồn tại', 'error'); return; }
   try {
-    const p = await api('POST', '/api/projects', { name });
+    const p = await api('POST', '/api/projects', {
+      name: ib,
+      projectInfo: {
+        tenCongTrinh: '',
+        maDauThau: ib,
+        benMoiThau: '', noiDungTrinh: '',
+        diaDiem: '', thoiGianThucHien: 0, nguoiPhuTrach: '',
+        nguoiLap: currentUser.fullName,
+        ngayLap: new Date().toISOString().split('T')[0],
+        thoiGianDongThau: ''
+      }
+    });
     await loadProjectList();
     await selectProjectById(p.id);
-    showToast('Đã tạo: ' + name, 'success');
+    showToast('Đã tạo: ' + ib, 'success');
   } catch (e) { showToast(e.message, 'error'); }
 }
 
@@ -795,9 +824,10 @@ function clearForm() {
   document.getElementById('benMoiThau').value = '';
   document.getElementById('giaDuToan').value = '';
   document.getElementById('diaDiem').value = '';
-  document.getElementById('thoiGianThucHien').value = '90';
+  document.getElementById('thoiGianThucHien').value = '';
   document.getElementById('nguoiLap').value = '';
   document.getElementById('ngayLap').value = '';
+  document.getElementById('thoiGianDongThau').value = '';
   document.getElementById('nguoiDuyet').value = '';
   document.getElementById('ngayDuyet').value = '';
   document.getElementById('itemsBody').innerHTML = '';
@@ -833,19 +863,20 @@ function loadProjectToForm(p) {
   document.getElementById('benMoiThau').value = info.benMoiThau || '';
   document.getElementById('noiDungTrinh').value = info.noiDungTrinh || '';
   document.getElementById('diaDiem').value = info.diaDiem || '';
-  document.getElementById('thoiGianThucHien').value = info.thoiGianThucHien || 90;
+  document.getElementById('thoiGianThucHien').value = info.thoiGianThucHien || '';
   document.getElementById('nguoiLap').value = info.nguoiLap || (currentUser ? currentUser.fullName : '') || '';
   document.getElementById('ngayLap').value = info.ngayLap || new Date().toISOString().split('T')[0];
+  document.getElementById('thoiGianDongThau').value = info.thoiGianDongThau || '';
   document.getElementById('nguoiDuyet').value = info.nguoiDuyet || currentProject.approvedBy || '';
   document.getElementById('ngayDuyet').value = info.ngayDuyet || (currentProject.approvedAt ? currentProject.approvedAt.split('T')[0] : '');
   const params = p.params || {};
   document.getElementById('giaDuToan').value = params.giaDuToan ? formatNumber(params.giaDuToan) : '';
-  document.getElementById('tiLeLNG').value = params.tiLeLNG || '';
-  document.getElementById('phiDuThau').value = params.phiDuThau ? formatNumber(params.phiDuThau) : '';
-  document.getElementById('phiBaoHanh').value = params.phiBaoHanh || '';
-  document.getElementById('phiBanHang').value = params.phiBanHang || '';
-  document.getElementById('phiCongTac').value = params.phiCongTac ? formatNumber(params.phiCongTac) : '';
-  document.getElementById('hoaHongKD').value = params.hoaHongKD || '';
+  document.getElementById('tiLeLNG').value = params.tiLeLNG != null && params.tiLeLNG !== '' ? params.tiLeLNG : '';
+  document.getElementById('phiDuThau').value = params.phiDuThau != null && params.phiDuThau !== '' ? formatNumber(params.phiDuThau) : '';
+  document.getElementById('phiBaoHanh').value = params.phiBaoHanh != null && params.phiBaoHanh !== '' ? params.phiBaoHanh : '';
+  document.getElementById('phiBanHang').value = params.phiBanHang != null && params.phiBanHang !== '' ? params.phiBanHang : '';
+  document.getElementById('phiCongTac').value = params.phiCongTac != null && params.phiCongTac !== '' ? formatNumber(params.phiCongTac) : '';
+  document.getElementById('hoaHongKD').value = params.hoaHongKD != null && params.hoaHongKD !== '' ? params.hoaHongKD : '';
   renderItems(p.items || []);
 }
 
@@ -963,24 +994,37 @@ function calculate() {
   totalRow.innerHTML = '<td colspan="4" style="text-align:right;padding:6px;font-weight:600">Tổng cộng</td><td style="padding:6px"></td><td style="padding:6px"></td><td class="td-num" style="padding:6px;font-weight:600">' + formatNumber(tongGiaNhap) + '</td><td style="padding:6px"></td><td class="td-num" style="padding:6px;font-weight:600">' + formatNumber(tongGiaChao) + '</td><td colspan="2" style="padding:6px"></td>';
   totalRow.style.display = items.length > 0 && items[0].tenHangHoa ? '' : 'none';
 
-  document.getElementById('rTongGiaNhap').textContent = toVND(tongGiaNhap);
+  document.getElementById('rTongGiaNhap').textContent = '-' + toVND(tongGiaNhap);
+  document.getElementById('rTongGiaNhap').className = 'rvalue cost';
   document.getElementById('rGiaChaoToiThieu').textContent = toVND(giaChaoToiThieu);
-  document.getElementById('rTiLeGiamGia').textContent = giaDuToan > 0 ? toPct(tiLeGiamGia) : '(nhập giá dự toán)';
+  const tiLeGiamGiaEl = document.getElementById('rTiLeGiamGia');
+  if (giaDuToan > 0) {
+    tiLeGiamGiaEl.textContent = '-' + toPct(tiLeGiamGia);
+    tiLeGiamGiaEl.className = 'rvalue cost';
+  } else {
+    tiLeGiamGiaEl.textContent = '(nhập giá dự toán)';
+    tiLeGiamGiaEl.className = 'rvalue';
+  }
 
   const profitEl = document.getElementById('rLoiNhuanGop');
   profitEl.textContent = toVND(loiNhuanGop >= 0 ? loiNhuanGop : -loiNhuanGop);
   profitEl.className = 'rvalue ' + (loiNhuanGop >= 0 ? 'profit' : 'loss');
   if (loiNhuanGop < 0) profitEl.textContent = '-' + toVND(-loiNhuanGop);
 
-  document.getElementById('rPhiDuThau').textContent = toVND(cpDuThau);
-  document.getElementById('rPhiBaoHanh').textContent = toVND(cpBaoHanh) + ' (' + toPct(phiBaoHanh) + ')';
-  document.getElementById('rPhiBanHang').textContent = toVND(cpBanHang) + ' (' + toPct(phiBanHang) + ')';
-  document.getElementById('rPhiCongTac').textContent = toVND(cpCongTac);
+  document.getElementById('rPhiDuThau').textContent = '-' + toVND(cpDuThau);
+  document.getElementById('rPhiDuThau').className = 'rvalue cost';
+  document.getElementById('rPhiBaoHanh').textContent = '-' + toVND(cpBaoHanh) + ' (' + toPct(phiBaoHanh) + ')';
+  document.getElementById('rPhiBaoHanh').className = 'rvalue cost';
+  document.getElementById('rPhiBanHang').textContent = '-' + toVND(cpBanHang) + ' (' + toPct(phiBanHang) + ')';
+  document.getElementById('rPhiBanHang').className = 'rvalue cost';
+  document.getElementById('rPhiCongTac').textContent = '-' + toVND(cpCongTac);
+  document.getElementById('rPhiCongTac').className = 'rvalue cost';
   const lnkdEl = document.getElementById('rLoiNhuanGopKD');
   lnkdEl.textContent = toVND(loiNhuanGopKD >= 0 ? loiNhuanGopKD : -loiNhuanGopKD);
   lnkdEl.className = 'rvalue ' + (loiNhuanGopKD >= 0 ? 'profit' : 'loss');
   if (loiNhuanGopKD < 0) lnkdEl.textContent = '-' + toVND(-loiNhuanGopKD);
-  document.getElementById('rHoaHongKD').textContent = toVND(hhKD) + ' (' + toPct(hoaHongKD) + ')';
+  document.getElementById('rHoaHongKD').textContent = '-' + toVND(hhKD) + ' (' + toPct(hoaHongKD) + ')';
+  document.getElementById('rHoaHongKD').className = 'rvalue cost';
   const lnrEl = document.getElementById('rLoiNhuanRong');
   lnrEl.textContent = toVND(loiNhuanRong >= 0 ? loiNhuanRong : -loiNhuanRong);
   lnrEl.className = 'rvalue profit highlight';
@@ -1082,9 +1126,10 @@ function collectFormData() {
       benMoiThau: document.getElementById('benMoiThau').value,
       noiDungTrinh: document.getElementById('noiDungTrinh').value,
       diaDiem: document.getElementById('diaDiem').value,
-      thoiGianThucHien: parseInt(document.getElementById('thoiGianThucHien').value) || 90,
+      thoiGianThucHien: parseInt(document.getElementById('thoiGianThucHien').value) || 0,
       nguoiLap: document.getElementById('nguoiLap').value,
       ngayLap: document.getElementById('ngayLap').value,
+      thoiGianDongThau: document.getElementById('thoiGianDongThau').value,
       nguoiDuyet: document.getElementById('nguoiDuyet').value,
       ngayDuyet: document.getElementById('ngayDuyet').value
     },
@@ -1115,7 +1160,7 @@ function applyPermissions() {
   document.getElementById('btnSubmit').style.display = !isAdmin && isOwner && currentProject && (currentProject.status === 'draft' || currentProject.status === 'rejected') ? '' : 'none';
 
   const canEditField = (isAdmin || employeeCanEdit) && currentProject && currentProject.status !== 'approved';
-  const editableFields = ['tenCongTrinh','maDauThau','benMoiThau','giaDuToan','diaDiem','thoiGianThucHien','ngayLap','tiLeLNG','phiDuThau','phiBaoHanh','phiBanHang','phiCongTac','hoaHongKD'];
+  const editableFields = ['tenCongTrinh','maDauThau','benMoiThau','giaDuToan','diaDiem','thoiGianThucHien','tiLeLNG','phiDuThau','phiBaoHanh','phiBanHang','phiCongTac','hoaHongKD'];
   for (const id of editableFields) document.getElementById(id).readOnly = !canEditField;
   document.getElementById('nguoiLap').disabled = !isAdmin;
   document.getElementById('noiDungTrinh').readOnly = !canEditField;
@@ -1139,17 +1184,31 @@ function showToast(msg, type) {
 }
 function clearErrors() { document.querySelectorAll('.error').forEach(el => el.classList.remove('error')); }
 
+function checkDuplicateIB() {
+  const ib = document.getElementById('maDauThau').value.trim();
+  if (!ib) return;
+  const el = document.getElementById('maDauThau');
+  const dup = projects.some(p => p.id !== (currentProject && currentProject.id) && p.maDauThau === ib);
+  if (dup) { el.classList.add('error'); showToast('Mã đấu thầu đã tồn tại', 'error'); }
+  else el.classList.remove('error');
+}
+
 function validateRequired() {
   clearErrors();
   const checks = [
     { id:'maDauThau', msg:'Nhập mã đấu thầu (IB)' },
     { id:'tenCongTrinh', msg:'Nhập tên công trình / dự án' },
+    { id:'benMoiThau', msg:'Nhập bên mời thầu' },
     { id:'giaDuToan', msg:'Nhập giá dự toán' },
-    { id:'tiLeLNG', msg:'Nhập tỉ lệ LNG dự kiến' }
+    { id:'diaDiem', msg:'Nhập địa điểm thi công' },
+    { id:'thoiGianThucHien', msg:'Nhập thời gian thực hiện' },
+    { id:'nguoiLap', msg:'Chọn người lập đề xuất' },
+    { id:'ngayLap', msg:'Nhập ngày lập' }
   ];
   for (const c of checks) {
     const el = document.getElementById(c.id);
-    if (!el || !el.value || parseFloat(String(el.value).replace(/[.\s]/g,'')) === 0) {
+    const raw = el && el.value != null ? String(el.value).trim() : '';
+    if (!raw) {
       if (el) el.classList.add('error');
       showToast(c.msg, 'error');
       if (el) el.focus();
@@ -1164,9 +1223,32 @@ function validateRequired() {
     if (!tenInput) continue;
     const name = tenInput.value.trim();
     const price = parseNumber(tr.querySelector('.dg-input')?.value);
+    const nccInput = tr.querySelector('.ncc-input');
+    const ncc = nccInput ? nccInput.value.trim() : '';
     if (!name) { tenInput.classList.add('error'); showToast('Nhập tên hàng hóa', 'error'); tenInput.focus(); return false; }
     if (price <= 0) { tr.querySelector('.dg-input')?.classList.add('error'); showToast('Nhập đơn giá nhập > 0', 'error'); if (rows[0]===tr) tr.querySelector('.dg-input')?.focus(); return false; }
+    if (!ncc) { nccInput.classList.add('error'); showToast('Nhập nhà cung cấp', 'error'); nccInput.focus(); return false; }
   }
+  const paramChecks = [
+    { id:'tiLeLNG', msg:'Nhập tỉ lệ LNG dự kiến' },
+    { id:'phiDuThau', msg:'Nhập chi phí dự thầu' },
+    { id:'phiBaoHanh', msg:'Nhập chi phí bảo hành' },
+    { id:'phiBanHang', msg:'Nhập chi phí bán hàng' },
+    { id:'phiCongTac', msg:'Nhập chi phí công tác/khác' },
+    { id:'hoaHongKD', msg:'Nhập hoa hồng kinh doanh' }
+  ];
+  for (const c of paramChecks) {
+    const el = document.getElementById(c.id);
+    const raw = el && el.value != null ? String(el.value).trim() : '';
+    if (!raw) {
+      if (el) el.classList.add('error');
+      showToast(c.msg, 'error');
+      if (el) el.focus();
+      return false;
+    }
+  }
+  const ndt = document.getElementById('noiDungTrinh');
+  if (!ndt || !ndt.value.trim()) { ndt.classList.add('error'); showToast('Nhập nội dung trình', 'error'); ndt.focus(); return false; }
   return true;
 }
 
