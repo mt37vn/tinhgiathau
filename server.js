@@ -4,6 +4,7 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
+const { chromium } = require('playwright');
 
 const app = express();
 const PORT = process.env.PORT || 3456;
@@ -167,7 +168,7 @@ app.post('/api/projects', auth, (req, res) => {
     createdBy: req.currentUser.id,
     projectInfo: req.body.projectInfo || {
       tenCongTrinh: req.body.name || '', maDauThau: '', benMoiThau: '', noiDungTrinh: '',
-      diaDiem: '', thoiGianThucHien: 0, nguoiPhuTrach: '',
+      diaDiem: '', nguoiPhuTrach: '',
       nguoiLap: req.currentUser.fullName,
       ngayLap: new Date().toISOString().split('T')[0],
       thoiGianDongThau: ''
@@ -283,6 +284,143 @@ app.delete('/api/projects/:id', auth, (req, res) => {
   res.json({ ok: true });
 });
 
+// --- Fetch Bidding Info by IB Code ---
+app.get('/api/fetch-bidding-info/:ibCode', auth, async (req, res) => {
+  const ibCode = req.params.ibCode.trim();
+  if (!ibCode) return res.status(400).json({ error: 'Mã IB không hợp lệ' });
+
+  const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+  let browser;
+  try {
+    browser = await chromium.launch({ headless: true });
+    const context = await browser.newContext({ userAgent: UA });
+    const page = await context.newPage();
+    page.setDefaultTimeout(30000);
+
+    await page.goto(
+      'https://muasamcong.mpi.gov.vn/web/guest/contractor-selection?render=index',
+      { waitUntil: 'networkidle', timeout: 30000 }
+    );
+
+    await page.waitForTimeout(1500);
+    await page.fill('input[name="keyword"]', ibCode);
+
+    let responseData = null;
+    const handler = async (r) => {
+      try {
+        if (responseData) return;
+        const ct = (r.headers()['content-type'] || '').toLowerCase();
+        if (r.status() === 200 && r.url().includes('contractor-selection') && ct.includes('application/json')) {
+          const json = await r.json();
+          const items = (json.page && json.page.content) || json.data || [];
+          const match = items.find(i => (i.notifyNo || i.bidNo) === ibCode);
+          if (match) {
+            responseData = match;
+          }
+        }
+      } catch {}
+    };
+    page.on('response', handler);
+
+    await page.keyboard.press('Enter');
+
+    for (let i = 0; i < 25; i++) {
+      if (responseData) break;
+      await page.waitForTimeout(1000);
+    }
+    page.removeListener('response', handler);
+
+    if (!responseData) {
+      return res.status(404).json({ error: 'Không tìm thấy thông tin cho mã IB: ' + ibCode });
+    }
+
+    function extractValue(v) {
+      if (v == null) return '';
+      if (Array.isArray(v)) return String(v[0] != null ? v[0] : '');
+      return String(v);
+    }
+
+    function extractPrice(v) {
+      if (v == null) return null;
+      if (Array.isArray(v)) v = v[0];
+      if (v == null) return null;
+      const cleaned = String(v).replace(/[,\sVND₫]/gi, '').trim();
+      const n = parseFloat(cleaned);
+      return isNaN(n) ? null : n;
+    }
+
+    const result = {
+      tenCongTrinh: extractValue(responseData.bidName),
+      benMoiThau: extractValue(responseData.investorName),
+      thoiGianDongThau: extractValue(responseData.bidCloseDate),
+      giaDuToan: extractPrice(responseData.bidPrice || responseData.bidEstimatePrice || responseData.planItemPrice),
+      bidNo: extractValue(responseData.notifyNo || responseData.bidNo) || ibCode,
+      diaDiem: ''
+    };
+
+    // Step 2: Fetch detail page for location and construction time
+    const tbmtId = extractValue(responseData.id);
+    if (tbmtId) {
+      try {
+        const detailUrl =
+          'https://muasamcong.mpi.gov.vn/web/guest/contractor-selection?' +
+          'p_p_id=egpportalcontractorselectionv2_WAR_egpportalcontractorselectionv2' +
+          '&p_p_lifecycle=0&p_p_state=normal&p_p_mode=view' +
+          '&_egpportalcontractorselectionv2_WAR_egpportalcontractorselectionv2_render=detail-v2' +
+          '&type=es-notify-contractor&step=tbmt' +
+          '&id=' + tbmtId + '&notifyId=' + tbmtId;
+
+        let detailData = null;
+        const detailHandler = async (r) => {
+          try {
+            if (detailData) return;
+            const ct = (r.headers()['content-type'] || '').toLowerCase();
+            if (r.status() === 200 && r.url().includes('lcnt_tbmt_ttc_ldt') && ct.includes('application/json')) {
+              detailData = await r.json();
+            }
+          } catch {}
+        };
+        page.on('response', detailHandler);
+
+        await page.goto(detailUrl, { waitUntil: 'networkidle', timeout: 15000 });
+        await page.waitForTimeout(3000);
+        page.removeListener('response', detailHandler);
+
+        if (detailData) {
+          // Extract địa điểm from bidpBidLocationList
+          if (detailData.bidpBidLocationList?.length > 0) {
+            const loc = detailData.bidpBidLocationList[0];
+            const parts = [];
+            if (loc.wardName) parts.push(loc.wardName);
+            if (loc.districtName) parts.push(loc.districtName);
+            if (loc.provName) parts.push(loc.provName);
+            result.diaDiem = parts.join(', ');
+          }
+        }
+
+        // Fallback: extract địa điểm từ search result (cho gói rút gọn)
+        if (!result.diaDiem && responseData.locations?.length > 0) {
+          const loc = responseData.locations[0];
+          const parts = [];
+          if (loc.wardName) parts.push(loc.wardName);
+          if (loc.districtName) parts.push(loc.districtName);
+          if (loc.provName) parts.push(loc.provName);
+          result.diaDiem = parts.join(', ');
+        }
+      } catch (e) {
+        // Detail fetch failed — still return search result data
+      }
+    }
+
+    return res.json(result);
+  } catch (error) {
+    console.error('Fetch IB error:', error);
+    return res.status(500).json({ error: 'Lỗi kết nối đến trang đấu thầu: ' + error.message });
+  } finally {
+    if (browser) await browser.close();
+  }
+});
+
 function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function fmt(n) { if (n === 0 || !n) return '0'; return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
 function toDateStr(s) { if (!s) return ''; const d = new Date(s); if (isNaN(d)) return s; const dd = String(d.getDate()).padStart(2,'0'); const mm = String(d.getMonth()+1).padStart(2,'0'); const yyyy = d.getFullYear(); return dd+'/'+mm+'/'+yyyy; }
@@ -340,7 +478,7 @@ app.get('/share/:id', (req, res) => {
   if (info.maDauThau) h += '<tr><td>Mã đấu thầu (IB)</td><td>' + esc(info.maDauThau) + '</td></tr>';
   if (info.benMoiThau) h += '<tr><td>Bên mời thầu</td><td>' + esc(info.benMoiThau) + '</td></tr>';
   if (info.diaDiem) h += '<tr><td>Địa điểm thi công</td><td>' + esc(info.diaDiem) + '</td></tr>';
-  if (info.thoiGianThucHien) h += '<tr><td>Thời gian thực hiện</td><td>' + info.thoiGianThucHien + ' ngày</td></tr>';
+
   if (info.thoiGianDongThau) h += '<tr><td>Thời gian đóng thầu</td><td>' + esc(toDateTimeStr(info.thoiGianDongThau)) + '</td></tr>';
   h += '</table>';
 

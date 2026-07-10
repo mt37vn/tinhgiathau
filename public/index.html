@@ -198,7 +198,10 @@ table .td-num input{text-align:right}
       <div style="display:flex;flex-direction:column;gap:8px">
         <div class="form-group">
           <label>Mã đấu thầu (IB) <span style="color:#e74c3c">*</span></label>
-          <input type="text" id="maDauThau" oninput="onProjectInfoChange();checkDuplicateIB()" placeholder="Nhập mã đấu thầu">
+          <div style="display:flex;gap:4px">
+            <input type="text" id="maDauThau" oninput="onProjectInfoChange();checkDuplicateIB()" placeholder="Nhập mã đấu thầu" style="flex:1">
+            <button class="btn btn-primary btn-sm" id="btnFetchIB" onclick="fetchBiddingInfo()" style="white-space:nowrap">🔍 Tìm</button>
+          </div>
         </div>
         <div class="form-group">
           <label>Tên công trình / Dự án</label>
@@ -209,26 +212,6 @@ table .td-num input{text-align:right}
           <input type="text" id="benMoiThau" oninput="onProjectInfoChange()" placeholder="Nhập tên bên mời thầu">
         </div>
         <div class="form-group">
-          <label>Giá dự toán</label>
-          <input type="text" id="giaDuToan" oninput="formatCurrencyInput(this); onProjectInfoChange()" placeholder="0">
-        </div>
-        <div class="form-group">
-          <label>Địa điểm thi công</label>
-          <input type="text" id="diaDiem" oninput="onProjectInfoChange()" placeholder="Nhập địa điểm">
-        </div>
-        <div class="form-group">
-          <label>Thời gian thực hiện (ngày)</label>
-          <input type="number" id="thoiGianThucHien" oninput="onProjectInfoChange()">
-        </div>
-        <div class="form-group">
-          <label>Người lập đề xuất</label>
-          <select id="nguoiLap" onchange="onProjectInfoChange()"><option value="">-- Chọn --</option></select>
-        </div>
-        <div class="form-group">
-          <label>Ngày lập</label>
-          <input type="text" id="ngayLap" readonly>
-        </div>
-        <div class="form-group">
           <label>Thời gian đóng thầu</label>
           <div style="display:flex;gap:4px;align-items:center">
             <select id="tgdtGio" onchange="onProjectInfoChange()" style="width:72px;padding:4px 2px"><option value="">HH:mm</option></select>
@@ -237,6 +220,22 @@ table .td-num input{text-align:right}
             <select id="tgdtThang" onchange="onProjectInfoChange()" style="width:64px;padding:4px 2px"><option value="">MM</option></select>
             <select id="tgdtNam" onchange="onProjectInfoChange()" style="width:80px;padding:4px 2px"><option value="">YYYY</option></select>
           </div>
+        </div>
+        <div class="form-group">
+          <label>Giá dự toán</label>
+          <input type="text" id="giaDuToan" oninput="formatCurrencyInput(this); onProjectInfoChange()" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label>Địa điểm thi công</label>
+          <input type="text" id="diaDiem" oninput="onProjectInfoChange()" placeholder="Nhập địa điểm">
+        </div>
+        <div class="form-group">
+          <label>Người lập đề xuất</label>
+          <select id="nguoiLap" onchange="onProjectInfoChange()"><option value="">-- Chọn --</option></select>
+        </div>
+        <div class="form-group">
+          <label>Ngày lập</label>
+          <input type="text" id="ngayLap" readonly>
         </div>
         <div class="form-group" id="nguoiDuyetGroup" style="display:none">
           <label>Người duyệt đề xuất</label>
@@ -650,9 +649,12 @@ async function deleteUser(id) {
 async function submitProject() {
   if (!currentProject) return;
   clearErrors();
-  if (!validateRequired()) return;
+  if (!validateFull()) return;
   if (!confirm('Trình duyệt dự án "' + currentProject.name + '"?')) return;
   try {
+    document.getElementById('ngayLap').value = toDateStr(new Date().toISOString());
+    const saveData = collectFormData();
+    await api('PUT', '/api/projects/' + currentProject.id, saveData);
     const p = await api('PATCH', '/api/projects/' + currentProject.id + '/submit');
     currentProject = p; updateStatusUI(); applyPermissions(); await loadProjectList();
     showToast('Đã trình duyệt', 'success');
@@ -810,7 +812,7 @@ async function createProject() {
         tenCongTrinh: '',
         maDauThau: ib,
         benMoiThau: '', noiDungTrinh: '',
-        diaDiem: '', thoiGianThucHien: 0, nguoiPhuTrach: '',
+        diaDiem: '', nguoiPhuTrach: '',
         nguoiLap: currentUser.fullName,
         ngayLap: new Date().toISOString().split('T')[0],
         thoiGianDongThau: ''
@@ -841,7 +843,6 @@ function clearForm() {
   document.getElementById('benMoiThau').value = '';
   document.getElementById('giaDuToan').value = '';
   document.getElementById('diaDiem').value = '';
-  document.getElementById('thoiGianThucHien').value = '';
   document.getElementById('nguoiLap').value = '';
   document.getElementById('ngayLap').value = '';
   document.getElementById('tgdtNgay').value = '';
@@ -884,7 +885,6 @@ function loadProjectToForm(p) {
   document.getElementById('benMoiThau').value = info.benMoiThau || '';
   document.getElementById('noiDungTrinh').value = info.noiDungTrinh || '';
   document.getElementById('diaDiem').value = info.diaDiem || '';
-  document.getElementById('thoiGianThucHien').value = info.thoiGianThucHien || '';
   document.getElementById('nguoiLap').value = info.nguoiLap || (currentUser ? currentUser.fullName : '') || '';
   document.getElementById('ngayLap').value = toDateStr(info.ngayLap) || toDateStr(new Date().toISOString());
   setThoiGianDongThau(info.thoiGianDongThau);
@@ -1180,7 +1180,7 @@ async function autoSave() {
 async function manualSave() {
   if (!currentProject) { showToast('Chưa chọn dự án', 'error'); return; }
   clearErrors();
-  if (!validateRequired()) return;
+  if (!validateProjectInfo()) return;
   await autoSave();
   showToast('Đã lưu thành công', 'success');
 }
@@ -1202,7 +1202,6 @@ function collectFormData() {
       benMoiThau: document.getElementById('benMoiThau').value,
       noiDungTrinh: document.getElementById('noiDungTrinh').value,
       diaDiem: document.getElementById('diaDiem').value,
-      thoiGianThucHien: parseInt(document.getElementById('thoiGianThucHien').value) || 0,
       nguoiLap: document.getElementById('nguoiLap').value,
       ngayLap: fromDateStr(document.getElementById('ngayLap').value),
       thoiGianDongThau: getThoiGianDongThau(),
@@ -1236,7 +1235,7 @@ function applyPermissions() {
   document.getElementById('btnSubmit').style.display = !isAdmin && isOwner && currentProject && (currentProject.status === 'draft' || currentProject.status === 'rejected') ? '' : 'none';
 
   const canEditField = (isAdmin || employeeCanEdit) && currentProject && currentProject.status !== 'approved';
-  const editableFields = ['tenCongTrinh','maDauThau','benMoiThau','giaDuToan','diaDiem','thoiGianThucHien','tiLeLNG','phiDuThau','phiBaoHanh','phiBanHang','phiCongTac','hoaHongKD'];
+  const editableFields = ['tenCongTrinh','maDauThau','benMoiThau','giaDuToan','diaDiem','tiLeLNG','phiDuThau','phiBaoHanh','phiBanHang','phiCongTac','hoaHongKD'];
   for (const id of editableFields) document.getElementById(id).readOnly = !canEditField;
   document.getElementById('nguoiLap').disabled = !isAdmin;
   document.getElementById('noiDungTrinh').readOnly = !canEditField;
@@ -1269,7 +1268,32 @@ function checkDuplicateIB() {
   else el.classList.remove('error');
 }
 
-function validateRequired() {
+async function fetchBiddingInfo() {
+  const ib = document.getElementById('maDauThau').value.trim();
+  if (!ib) { showToast('Nhập mã đấu thầu (IB)', 'error'); return; }
+  const btn = document.getElementById('btnFetchIB');
+  btn.disabled = true;
+  btn.textContent = '⏳ Đang tìm...';
+  try {
+    const data = await api('GET', '/api/fetch-bidding-info/' + encodeURIComponent(ib));
+    if (data.tenCongTrinh) document.getElementById('tenCongTrinh').value = data.tenCongTrinh;
+    if (data.benMoiThau) document.getElementById('benMoiThau').value = data.benMoiThau;
+    if (data.thoiGianDongThau) setThoiGianDongThau(data.thoiGianDongThau);
+    if (data.giaDuToan) document.getElementById('giaDuToan').value = formatNumber(data.giaDuToan);
+    if (data.diaDiem) document.getElementById('diaDiem').value = data.diaDiem;
+    calculate();
+    setFormDirty();
+    scheduleAutoSave();
+    showToast('Đã tìm thấy thông tin dự án', 'success');
+  } catch (e) {
+    showToast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔍 Tìm';
+  }
+}
+
+function validateProjectInfo() {
   clearErrors();
   const checks = [
     { id:'maDauThau', msg:'Nhập mã đấu thầu (IB)' },
@@ -1277,7 +1301,6 @@ function validateRequired() {
     { id:'benMoiThau', msg:'Nhập bên mời thầu' },
     { id:'giaDuToan', msg:'Nhập giá dự toán' },
     { id:'diaDiem', msg:'Nhập địa điểm thi công' },
-    { id:'thoiGianThucHien', msg:'Nhập thời gian thực hiện' },
     { id:'nguoiLap', msg:'Chọn người lập đề xuất' },
     { id:'ngayLap', msg:'Nhập ngày lập' }
   ];
@@ -1291,6 +1314,13 @@ function validateRequired() {
       return false;
     }
   }
+  const tgdt = getThoiGianDongThau();
+  if (!tgdt) { showToast('Nhập thời gian đóng thầu', 'error'); return false; }
+  return true;
+}
+
+function validateFull() {
+  if (!validateProjectInfo()) return false;
   const tbody = document.getElementById('itemsBody');
   const rows = [...tbody.children];
   if (rows.length === 0) { showToast('Thêm ít nhất 1 mặt hàng', 'error'); return false; }
