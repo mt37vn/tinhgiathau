@@ -285,6 +285,8 @@ app.delete('/api/projects/:id', auth, (req, res) => {
 
 function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function fmt(n) { if (n === 0 || !n) return '0'; return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+function toDateStr(s) { if (!s) return ''; const d = new Date(s); if (isNaN(d)) return s; const dd = String(d.getDate()).padStart(2,'0'); const mm = String(d.getMonth()+1).padStart(2,'0'); const yyyy = d.getFullYear(); return dd+'/'+mm+'/'+yyyy; }
+function toDateTimeStr(s) { if (!s) return ''; const d = new Date(s); if (isNaN(d)) return s; const dd = String(d.getDate()).padStart(2,'0'); const mm = String(d.getMonth()+1).padStart(2,'0'); const yyyy = d.getFullYear(); const h = String(d.getHours()).padStart(2,'0'); const m = String(d.getMinutes()).padStart(2,'0'); return dd+'/'+mm+'/'+yyyy+' '+h+':'+m; }
 
 app.get('/share/:id', (req, res) => {
   const data = readData(PROJ_FILE);
@@ -339,7 +341,7 @@ app.get('/share/:id', (req, res) => {
   if (info.benMoiThau) h += '<tr><td>Bên mời thầu</td><td>' + esc(info.benMoiThau) + '</td></tr>';
   if (info.diaDiem) h += '<tr><td>Địa điểm thi công</td><td>' + esc(info.diaDiem) + '</td></tr>';
   if (info.thoiGianThucHien) h += '<tr><td>Thời gian thực hiện</td><td>' + info.thoiGianThucHien + ' ngày</td></tr>';
-  if (info.thoiGianDongThau) h += '<tr><td>Thời gian đóng thầu</td><td>' + esc(info.thoiGianDongThau) + '</td></tr>';
+  if (info.thoiGianDongThau) h += '<tr><td>Thời gian đóng thầu</td><td>' + esc(toDateTimeStr(info.thoiGianDongThau)) + '</td></tr>';
   h += '</table>';
 
   h += '<h3>II. Danh mục hàng hóa</h3><table><tr><th>STT</th><th>Tên hàng hóa</th><th>Thông số kỹ thuật</th><th>ĐVT</th><th>SL</th><th>Đơn giá nhập</th><th>Giá nhập</th><th>Nhà cung cấp</th><th>Giá chào</th><th>Trọng số</th></tr>';
@@ -387,12 +389,12 @@ app.get('/share/:id', (req, res) => {
   h += '<table style="border:none;width:100%"><tr style="border:none">';
   h += '<td style="border:none;width:50%;vertical-align:top;padding:10px">';
   h += '<table class="i"><tr><td style="font-weight:600;width:160px">Người lập đề xuất</td><td>' + esc(info.nguoiLap || '') + '</td></tr>';
-  h += '<tr><td style="font-weight:600">Ngày lập</td><td>' + esc(info.ngayLap || '') + '</td></tr></table>';
+  h += '<tr><td style="font-weight:600">Ngày lập</td><td>' + esc(toDateStr(info.ngayLap)) + '</td></tr></table>';
   h += '</td><td style="border:none;width:50%;vertical-align:top;padding:10px">';
   const hasDuyet = info.nguoiDuyet || p.approvedBy;
   const ngayDuyet = info.ngayDuyet || (p.approvedAt ? p.approvedAt.split('T')[0] : '');
   h += '<table class="i"><tr><td style="font-weight:600;width:160px">Người duyệt đề xuất</td><td>' + esc(hasDuyet || '') + '</td></tr>';
-  h += '<tr><td style="font-weight:600">Ngày duyệt</td><td>' + esc(ngayDuyet || '') + '</td></tr></table>';
+  h += '<tr><td style="font-weight:600">Ngày duyệt</td><td>' + esc(toDateStr(ngayDuyet)) + '</td></tr></table>';
   h += '</td></tr></table>';
 
   h += '<div style="text-align:center;margin-top:16px"><button onclick="window.print()" style="padding:8px 24px;background:#2a5a8c;color:#fff;border:none;border-radius:4px;font-size:14px;cursor:pointer">🖨 In trang này</button></div>';
