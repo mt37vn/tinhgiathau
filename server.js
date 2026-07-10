@@ -90,7 +90,7 @@ app.post('/api/change-password', auth, (req, res) => {
 });
 
 // --- User management ---
-app.get('/api/users', auth, adminOnly, (req, res) => {
+app.get('/api/users', auth, (req, res) => {
   const data = readData(USER_FILE);
   res.json(data.users.map(u => ({ id: u.id, username: u.username, fullName: u.fullName, role: u.role, createdAt: u.createdAt })));
 });
