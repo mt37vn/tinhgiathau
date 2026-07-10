@@ -199,7 +199,7 @@ app.patch('/api/projects/:id/submit', auth, (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'Không tìm thấy' });
   const project = data.projects[idx];
   if (project.status !== 'draft' && project.status !== 'rejected')
-    return res.status(400).json({ error: 'Chỉ trình duyệt dự án ở trạng thái dự thảo' });
+    return res.status(400).json({ error: 'Chỉ trình duyệt dự án ở trạng thái dự thảo hoặc không duyệt' });
   const isOwner = project.createdBy === req.currentUser.id || (project.projectInfo && project.projectInfo.nguoiLap === req.currentUser.fullName);
   if (!isOwner && req.currentUser.role !== 'admin')
     return res.status(403).json({ error: 'Chỉ người tạo mới được trình duyệt' });
@@ -246,7 +246,7 @@ app.patch('/api/projects/:id/unapprove', auth, adminOnly, (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'Không tìm thấy' });
   const project = data.projects[idx];
   if (project.status !== 'approved') return res.status(400).json({ error: 'Dự án chưa được duyệt' });
-  project.status = 'draft';
+  project.status = 'rejected';
   delete project.approvedBy;
   delete project.approvedById;
   delete project.approvedAt;

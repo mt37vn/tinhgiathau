@@ -90,8 +90,8 @@ table .td-num input{text-align:right}
 .toast.error{background:#e74c3c}
 .status-badge{display:inline-block;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
 .status-draft{background:#e8e8e8;color:#666}
-.status-pending{background:#fff3cd;color:#856404}
-.status-approved{background:#d4edda;color:#155724}
+.status-pending{background:#f8d7da;color:#721c24}
+.status-approved{background:#d4e8f7;color:#1a5c8c}
 .status-rejected{background:#f8d7da;color:#721c24}
 .login-overlay{position:fixed;inset:0;background:linear-gradient(135deg,#1a3a5c,#2a5a8c);display:flex;align-items:center;justify-content:center;z-index:9999}
 .login-box{background:#fff;border-radius:12px;padding:36px 32px;width:380px;box-shadow:0 10px 60px rgba(0,0,0,.3)}
@@ -164,7 +164,7 @@ table .td-num input{text-align:right}
       </div>
       <hr class="pb-divider" id="pendingDivider" style="display:none">
       <div class="pb-section" id="pendingSection" style="display:none">
-        <span class="pb-recent-label" style="color:#856404">⏳ Chờ duyệt</span>
+        <span class="pb-recent-label" style="color:#721c24">⏳ Chờ duyệt</span>
         <ul class="pb-recent-list" id="pendingList" style="max-height:120px"></ul>
       </div>
       <hr class="pb-divider" id="rejectedDivider" style="display:none">
@@ -174,7 +174,7 @@ table .td-num input{text-align:right}
       </div>
       <hr class="pb-divider" id="approvedDivider" style="display:none">
       <div class="pb-section" id="approvedSection" style="display:none">
-        <span class="pb-recent-label" style="color:#155724">✓ Đã duyệt</span>
+        <span class="pb-recent-label" style="color:#1a5c8c">✓ Đã duyệt</span>
         <ul class="pb-recent-list" id="approvedList" style="max-height:120px"></ul>
       </div>
       <div class="pb-status" id="projectStatus">
@@ -1114,7 +1114,7 @@ function applyPermissions() {
   document.getElementById('bottomBar').style.display = currentProject ? '' : 'none';
   document.getElementById('btnSubmit').style.display = !isAdmin && isOwner && currentProject && (currentProject.status === 'draft' || currentProject.status === 'rejected') ? '' : 'none';
 
-  const canEditField = isAdmin || employeeCanEdit;
+  const canEditField = (isAdmin || employeeCanEdit) && currentProject && currentProject.status !== 'approved';
   const editableFields = ['tenCongTrinh','maDauThau','benMoiThau','giaDuToan','diaDiem','thoiGianThucHien','ngayLap','tiLeLNG','phiDuThau','phiBaoHanh','phiBanHang','phiCongTac','hoaHongKD'];
   for (const id of editableFields) document.getElementById(id).readOnly = !canEditField;
   document.getElementById('nguoiLap').disabled = !isAdmin;
@@ -1128,7 +1128,6 @@ function applyPermissions() {
   if (currentProject && isAdmin) {
     if (currentProject.status === 'approved') bu.style.display = '';
     else if (currentProject.status === 'pending') { ba.style.display = ''; br.style.display = ''; }
-    else ba.style.display = '';
   }
 }
 
