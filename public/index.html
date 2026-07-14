@@ -174,15 +174,20 @@ table .td-num input{text-align:right}
         <span class="pb-recent-label" style="color:#721c24">✗ Không duyệt</span>
         <ul class="pb-recent-list" id="rejectedList" style="max-height:120px"></ul>
       </div>
-      <hr class="pb-divider" id="approvedDivider" style="display:none">
-      <div class="pb-section" id="approvedSection" style="display:none">
-        <span class="pb-recent-label" style="color:#1a5c8c">✓ Đã duyệt</span>
-        <ul class="pb-recent-list" id="approvedList" style="max-height:120px"></ul>
+      <hr class="pb-divider" id="winDivider" style="display:none">
+      <div class="pb-section" id="winSection" style="display:none">
+        <span class="pb-recent-label" style="color:#27ae60">🏆 Trúng thầu</span>
+        <ul class="pb-recent-list" id="winList" style="max-height:120px"></ul>
       </div>
-      <hr class="pb-divider" id="closedDivider" style="display:none">
-      <div class="pb-section" id="closedSection" style="display:none">
-        <span class="pb-recent-label" style="color:#888">🔒 Đã đóng thầu</span>
-        <ul class="pb-recent-list" id="closedList" style="max-height:120px"></ul>
+      <hr class="pb-divider" id="loseDivider" style="display:none">
+      <div class="pb-section" id="loseSection" style="display:none">
+        <span class="pb-recent-label" style="color:#e74c3c">❌ Trượt thầu</span>
+        <ul class="pb-recent-list" id="loseList" style="max-height:120px"></ul>
+      </div>
+      <hr class="pb-divider" id="pendingResultDivider" style="display:none">
+      <div class="pb-section" id="pendingResultSection" style="display:none">
+        <span class="pb-recent-label" style="color:#e67e22">⏳ Đang xét thầu</span>
+        <ul class="pb-recent-list" id="pendingResultList" style="max-height:120px"></ul>
       </div>
       <div class="pb-status" id="projectStatus">
         <span></span>
@@ -806,10 +811,18 @@ async function loadProjectList() {
     if (p.maDauThau) { const o = document.createElement('option'); o.value = p.maDauThau; datalist.appendChild(o); }
   }
 
+  function sortByCloseDate(arr) {
+    return arr.sort((a,b) => {
+      const da = a.thoiGianDongThau || a.updatedAt || a.createdAt;
+      const db = b.thoiGianDongThau || b.updatedAt || b.createdAt;
+      return new Date(db) - new Date(da);
+    });
+  }
+
   function renderList(containerId, filterFn, icon) {
     const list = document.getElementById(containerId);
     list.innerHTML = '';
-    const filtered = projects.filter(filterFn).sort((a,b)=>new Date(b.updatedAt||b.createdAt)-new Date(a.updatedAt||a.createdAt));
+    const filtered = sortByCloseDate(projects.filter(filterFn));
     for (const p of filtered) {
       const li = document.createElement('li');
       li.dataset.id = p.id;
@@ -817,7 +830,7 @@ async function loadProjectList() {
       const ibStr = p.maDauThau ? escHtml(p.maDauThau) : '';
       const bm = p.benMoiThau ? ' - ' + escHtml(p.benMoiThau) : '';
       const dn = (ibStr ? '['+ibStr+'] ' : '') + escHtml(p.name) + bm;
-      const ts = toDateTimeStr(p.updatedAt||p.createdAt);
+      const ts = p.thoiGianDongThau ? toDateStr(p.thoiGianDongThau) : toDateTimeStr(p.updatedAt||p.createdAt);
       li.innerHTML = '<span class="r-icon">' + icon + '</span><span class="r-name">' + dn + '</span><span class="r-time">' + ts + '</span>';
       li.addEventListener('click', () => selectProjectById(p.id));
       list.appendChild(li);
@@ -826,21 +839,24 @@ async function loadProjectList() {
   }
 
   const now = new Date();
-  const isClosed = p => p.thoiGianDongThau && new Date(p.thoiGianDongThau) < now;
-  renderList('recentList', p => p.status === 'draft' && !isClosed(p), '📄');
-  const hasPending = renderList('pendingList', p => p.status === 'pending' && !isClosed(p), '⏳');
-  const hasRejected = renderList('rejectedList', p => p.status === 'rejected' && !isClosed(p), '✗');
-  const hasApproved = renderList('approvedList', p => p.status === 'approved' && !isClosed(p), '✓');
-  const hasClosed = renderList('closedList', isClosed, '🔒');
+  const isOpen = p => !p.thoiGianDongThau || new Date(p.thoiGianDongThau) >= now;
+  renderList('recentList', p => p.status === 'draft' && isOpen(p), '📄');
+  const hasPending = renderList('pendingList', p => p.status === 'pending' && isOpen(p), '⏳');
+  const hasRejected = renderList('rejectedList', p => p.status === 'rejected' && isOpen(p), '✗');
+  const hasWin = renderList('winList', p => p.ketQuaTrungThau === 'win', '🏆');
+  const hasLose = renderList('loseList', p => p.ketQuaTrungThau === 'lose', '❌');
+  const hasPendingResult = renderList('pendingResultList', p => p.ketQuaTrungThau == null && p.status !== 'draft' && p.status !== 'pending' && p.status !== 'rejected', '⏳');
 
   document.getElementById('pendingDivider').style.display = hasPending ? '' : 'none';
   document.getElementById('pendingSection').style.display = hasPending ? '' : 'none';
   document.getElementById('rejectedDivider').style.display = hasRejected ? '' : 'none';
   document.getElementById('rejectedSection').style.display = hasRejected ? '' : 'none';
-  document.getElementById('approvedDivider').style.display = hasApproved ? '' : 'none';
-  document.getElementById('approvedSection').style.display = hasApproved ? '' : 'none';
-  document.getElementById('closedDivider').style.display = hasClosed ? '' : 'none';
-  document.getElementById('closedSection').style.display = hasClosed ? '' : 'none';
+  document.getElementById('winDivider').style.display = hasWin ? '' : 'none';
+  document.getElementById('winSection').style.display = hasWin ? '' : 'none';
+  document.getElementById('loseDivider').style.display = hasLose ? '' : 'none';
+  document.getElementById('loseSection').style.display = hasLose ? '' : 'none';
+  document.getElementById('pendingResultDivider').style.display = hasPendingResult ? '' : 'none';
+  document.getElementById('pendingResultSection').style.display = hasPendingResult ? '' : 'none';
 
   const statusInfo = document.getElementById('projectStatus').querySelector('span');
   statusInfo.textContent = projects.length + ' dự án';
