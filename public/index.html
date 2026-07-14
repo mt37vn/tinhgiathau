@@ -141,6 +141,7 @@ table .td-num input{text-align:right}
       <span class="auth-role" id="roleDisplay"></span>
       <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" onclick="showChangePassword()">🔑 Đổi mật khẩu</button>
       <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" id="userMgmtBtn" onclick="showUserManagement()">👥 Nhân viên</button>
+      <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" onclick="showSupplierList()">🏭 Nhà cung cấp</button>
       <span style="width:1px;height:20px;background:rgba(255,255,255,.2);display:inline-block;margin:0 4px"></span>
       <button class="btn btn-danger btn-sm" onclick="doLogout()">Đăng xuất</button>
     </div>
@@ -244,6 +245,22 @@ table .td-num input{text-align:right}
         <div class="form-group" id="ngayDuyetGroup" style="display:none">
           <label>Ngày duyệt</label>
           <input type="text" id="ngayDuyet" readonly>
+        </div>
+        <div class="form-group" id="bidResultGroup" style="display:none;margin-top:8px;border-top:1px dashed #d0d5dd;padding-top:8px">
+          <label style="font-weight:700;color:#1a3a5c">Kết quả thầu</label>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+            <select id="ketQuaTrungThau" onchange="onBidResultChange()" style="flex:1;padding:7px 10px;border:1px solid #d0d5dd;border-radius:4px;font-size:14px;background:#f5f7fa">
+              <option value="">-- Chưa có kết quả --</option>
+              <option value="win">✅ Trúng thầu</option>
+              <option value="lose">❌ Trượt thầu</option>
+            </select>
+            <input type="text" id="giaTrungThau" placeholder="Giá trúng thầu" oninput="formatCurrencyInput(this)" style="flex:1;padding:7px 10px;border:1px solid #d0d5dd;border-radius:4px;font-size:14px;background:#f5f7fa">
+          </div>
+          <input type="text" id="nhaThauTrung" placeholder="Nhà thầu trúng (tự động)" readonly style="width:100%;padding:7px 10px;border:1px solid #d0d5dd;border-radius:4px;font-size:13px;background:#f5f7fa;margin-bottom:6px;color:#888">
+          <div style="display:flex;gap:8px;align-items:center">
+            <button id="btnFetchBidResult" class="btn btn-primary btn-sm" onclick="fetchBidResult()" style="font-size:12px">🔍 Lấy kết quả tự động</button>
+            <span id="bidResultFetchStatus" style="font-size:11px;color:#888"></span>
+          </div>
         </div>
       </div>
     </div>
@@ -447,6 +464,63 @@ table .td-num input{text-align:right}
   </div>
 </div>
 
+<!-- Supplier List Modal -->
+<div class="modal-overlay" id="supplierModal">
+  <div class="modal" style="min-width:800px;max-width:900px;max-height:80vh;overflow-y:auto">
+    <h3>🏭 Danh sách nhà cung cấp</h3>
+    <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center">
+      <input type="text" id="supplierSearch" placeholder="Tìm kiếm nhà cung cấp..." oninput="renderSupplierList()" style="flex:1;padding:7px 10px;border:1px solid #d0d5dd;border-radius:4px;font-size:14px">
+    </div>
+    <div class="table-wrap" style="max-height:400px;overflow-y:auto">
+      <table>
+        <thead><tr>
+          <th>Tên nhà cung cấp</th>
+          <th style="width:80px">Dự án</th>
+          <th style="width:80px">Chiết khấu TB</th>
+          <th style="width:130px">Giá nhập TB</th>
+          <th style="width:80px">Xếp hạng</th>
+          <th style="width:100px"></th>
+        </tr></thead>
+        <tbody id="supplierTableBody"></tbody>
+      </table>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeSupplierModal()">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<!-- Supplier Detail Modal -->
+<div class="modal-overlay" id="supplierDetailModal">
+  <div class="modal" style="min-width:800px;max-width:900px;max-height:85vh;overflow-y:auto">
+    <h3 id="supplierDetailTitle">🏭 Chi tiết nhà cung cấp</h3>
+    <div id="supplierDetailContent"></div>
+    <div class="modal-actions" style="margin-top:16px">
+      <button class="btn btn-outline" onclick="closeSupplierDetailModal()">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<!-- Supplier Merge Modal (Admin only) -->
+<div class="modal-overlay" id="supplierMergeModal">
+  <div class="modal" style="min-width:500px;max-width:600px">
+    <h3>🔗 Gộp nhà cung cấp</h3>
+    <p style="font-size:13px;color:#555;margin-bottom:12px">Chọn các nhà cung cấp trùng lặp để gộp vào nhà cung cấp chính.</p>
+    <div class="form-group" style="margin-bottom:12px">
+      <label>Nhà cung cấp chính (giữ lại)</label>
+      <select id="mergeTargetSelect" style="width:100%;padding:7px 10px;border:1px solid #d0d5dd;border-radius:4px;font-size:14px"></select>
+    </div>
+    <div class="form-group" style="margin-bottom:12px">
+      <label>Các nhà cung cấp sẽ gộp (sẽ bị xoá)</label>
+      <div id="mergeAliasList" style="border:1px solid #d0d5dd;border-radius:4px;padding:8px;max-height:200px;overflow-y:auto"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeSupplierMergeModal()">Hủy</button>
+      <button class="btn btn-primary" onclick="confirmMergeSuppliers()">Xác nhận gộp</button>
+    </div>
+  </div>
+</div>
+
 <div class="bottombar" id="bottomBar">
   <span class="bb-label" id="bbProjectName" style="margin-right:auto;text-align:left;font-size:13px;color:rgba(255,255,255,.9);overflow:hidden;min-width:0"></span>
   <button class="btn btn-primary btn-sm" style="background:#fff;color:#1a3a5c" onclick="manualSave()" id="btnSave">💾 Lưu</button>
@@ -458,6 +532,7 @@ table .td-num input{text-align:right}
   <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff;cursor:pointer" onclick="printProject()" id="btnShare">🖨 In</button>
 </div>
 
+<datalist id="nccDatalist"></datalist>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -923,7 +998,7 @@ function addRowToTable(item) {
     + '<td class="td-num"><input class="sl-input" type="number" value="' + (item.soLuong||1) + '" min="0" step="1" oninput="onItemChange(this)" ' + (canEdit?'':'readonly') + '></td>'
     + '<td class="td-num"><input class="dg-input" type="text" value="' + (item.donGiaNhap?formatNumber(item.donGiaNhap):'') + '" placeholder="0" oninput="formatCurrencyInput(this);onItemChange(this)" style="text-align:right" ' + (canEdit?'':'readonly') + '></td>'
     + '<td class="td-num"><input class="gn-input" type="text" readonly value="' + (item.giaNhap?formatNumber(item.giaNhap):'0') + '" style="text-align:right"></td>'
-    + '<td><input class="ncc-input" type="text" value="' + escHtml(item.nhaCungCap||'') + '" placeholder="Nhà cung cấp" oninput="onItemChange(this)" ' + (canEdit?'':'readonly') + '></td>'
+    + '<td><input class="ncc-input" type="text" list="nccDatalist" value="' + escHtml(item.nhaCungCap||'') + '" placeholder="Nhà cung cấp" oninput="onItemChange(this);onNccInput(this)" ' + (canEdit?'':'readonly') + '></td>'
     + '<td class="td-num"><input class="dgc-input" type="text" readonly value="' + (item.donGiaChao?formatNumber(item.donGiaChao):'0') + '" style="text-align:right"></td>'
     + '<td class="td-num"><input class="ts-input" type="text" readonly value="' + (item.trongSo||1) + '" style="text-align:right"></td>'
     + '<td>' + (canEdit?'<button class="btn-icon danger" onclick="deleteRow(this)" title="Xóa">✕</button>':'') + '</td>';
@@ -1232,7 +1307,8 @@ function applyPermissions() {
   document.getElementById('btnAddRow').style.display = isAdmin || employeeCanEdit ? '' : 'none';
   document.getElementById('btnRemoveRow').style.display = isAdmin || employeeCanEdit ? '' : 'none';
   document.getElementById('bottomBar').style.display = currentProject ? '' : 'none';
-  document.getElementById('btnSubmit').style.display = !isAdmin && isOwner && currentProject && (currentProject.status === 'draft' || currentProject.status === 'rejected') ? '' : 'none';
+  const canSubmit = currentProject && (currentProject.status === 'draft' || currentProject.status === 'rejected');
+  document.getElementById('btnSubmit').style.display = (isAdmin || isOwner) && canSubmit ? '' : 'none';
 
   const canEditField = (isAdmin || employeeCanEdit) && currentProject && currentProject.status !== 'approved';
   const editableFields = ['tenCongTrinh','maDauThau','benMoiThau','giaDuToan','diaDiem','tiLeLNG','phiDuThau','phiBaoHanh','phiBanHang','phiCongTac','hoaHongKD'];
@@ -1357,6 +1433,389 @@ function validateFull() {
   if (!ndt || !ndt.value.trim()) { ndt.classList.add('error'); showToast('Nhập nội dung trình', 'error'); ndt.focus(); return false; }
   return true;
 }
+
+// --- Supplier Management ---
+let supplierCache = [];
+
+async function loadSupplierList() {
+  try {
+    supplierCache = await api('GET', '/api/suppliers');
+    loadNccDatalist();
+  } catch {}
+}
+
+function loadNccDatalist() {
+  const dl = document.getElementById('nccDatalist');
+  dl.innerHTML = '';
+  const added = new Set();
+  for (const s of supplierCache) {
+    if (!added.has(s.name)) {
+      const opt = document.createElement('option'); opt.value = s.name; dl.appendChild(opt);
+      added.add(s.name);
+    }
+    for (const a of (s.aliases || [])) {
+      if (!added.has(a)) {
+        const opt = document.createElement('option'); opt.value = a; dl.appendChild(opt);
+        added.add(a);
+      }
+    }
+  }
+}
+
+async function showSupplierList() {
+  await loadSupplierList();
+  renderSupplierList();
+  document.getElementById('supplierModal').className = 'modal-overlay show';
+}
+
+function closeSupplierModal() {
+  document.getElementById('supplierModal').className = 'modal-overlay';
+}
+
+function renderSupplierList() {
+  const search = (document.getElementById('supplierSearch').value || '').trim().toLowerCase();
+  const tbody = document.getElementById('supplierTableBody');
+  tbody.innerHTML = '';
+  const filtered = supplierCache.filter(s => !search || s.name.toLowerCase().includes(search));
+  filtered.sort((a, b) => {
+    const sa = a.stats || {}, sb = b.stats || {};
+    const dA = sa.avgDiscountRate != null ? sa.avgDiscountRate : -1;
+    const dB = sb.avgDiscountRate != null ? sb.avgDiscountRate : -1;
+    return dB - dA || (sb.totalProjects || 0) - (sa.totalProjects || 0);
+  });
+  for (const s of filtered) {
+    const st = s.stats || {};
+    const discountStr = st.avgDiscountRate != null ? st.avgDiscountRate.toFixed(1) + '%' : '—';
+    const winRateStr = st.winRate != null ? st.winRate.toFixed(1) + '%' : '—';
+    const avgPriceStr = st.avgDonGiaNhap ? formatNumber(st.avgDonGiaNhap) + ' ₫' : '—';
+    const stars = st.stars ? '⭐'.repeat(st.stars) : '—';
+    const isAdmin = currentUser && currentUser.role === 'admin';
+    tbody.innerHTML += '<tr>'
+      + '<td><a href="#" onclick="showSupplierDetail(\'' + s.id + '\');return false" style="color:#2a5a8c;font-weight:500">' + escHtml(s.name) + '</a></td>'
+      + '<td class="td-num">' + (st.totalProjects || 0) + '</td>'
+      + '<td class="td-num" style="color:' + ((st.avgDiscountRate || 0) >= 30 ? '#27ae60' : '#e74c3c') + ';font-weight:600">' + discountStr + '</td>'
+      + '<td class="td-num">' + avgPriceStr + '</td>'
+      + '<td class="td-num">' + stars + '</td>'
+      + '<td>' + (isAdmin ? '<button class="btn btn-primary btn-sm" onclick="showSupplierDetail(\'' + s.id + '\')">Chi tiết</button>' : '<button class="btn btn-primary btn-sm" onclick="showSupplierDetail(\'' + s.id + '\')">Xem</button>') + '</td>'
+      + '</tr>';
+  }
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:#888">Không tìm thấy nhà cung cấp</td></tr>';
+  }
+}
+
+async function showSupplierDetail(id) {
+  try {
+    const supplier = await api('GET', '/api/suppliers/' + id);
+    document.getElementById('supplierDetailTitle').textContent = '🏭 ' + escHtml(supplier.name);
+    const st = supplier.stats || {};
+    const projects = st.projects || [];
+    let html = '';
+
+    // Overview cards
+    const discountStr = st.avgDiscountRate != null ? st.avgDiscountRate.toFixed(1) + '%' : '—';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px">';
+    html += '<div style="background:#e8f0fe;border-radius:8px;padding:12px;text-align:center"><div style="font-size:24px;font-weight:700;color:#1a3a5c">' + (st.totalProjects || 0) + '</div><div style="font-size:12px;color:#666">Dự án</div></div>';
+    html += '<div style="background:#d4edda;border-radius:8px;padding:12px;text-align:center"><div style="font-size:24px;font-weight:700;color:#27ae60">' + (st.winCount || 0) + '</div><div style="font-size:12px;color:#666">Trúng thầu</div></div>';
+    html += '<div style="background:#f8d7da;border-radius:8px;padding:12px;text-align:center"><div style="font-size:24px;font-weight:700;color:#e74c3c">' + (st.loseCount || 0) + '</div><div style="font-size:12px;color:#666">Trượt thầu</div></div>';
+    html += '<div style="background:' + ((st.avgDiscountRate || 0) >= 30 ? '#d4edda' : '#f8d7da') + ';border-radius:8px;padding:12px;text-align:center"><div style="font-size:24px;font-weight:700;color:' + ((st.avgDiscountRate || 0) >= 30 ? '#27ae60' : '#e74c3c') + '">' + discountStr + '</div><div style="font-size:12px;color:#666">Chiết khấu TB</div></div>';
+    html += '</div>';
+
+    // Discount detail cards (if available)
+    if (st.avgDiscountRate != null) {
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">';
+      html += '<div style="background:#e8f0fe;border-radius:8px;padding:12px;text-align:center"><div style="font-size:20px;font-weight:700;color:#1a3a5c">' + (st.minDiscountRate != null ? st.minDiscountRate.toFixed(1) + '%' : '—') + '</div><div style="font-size:11px;color:#666">Chiết khấu thấp nhất</div></div>';
+      html += '<div style="background:#e8f0fe;border-radius:8px;padding:12px;text-align:center"><div style="font-size:20px;font-weight:700;color:#1a3a5c">' + (st.maxDiscountRate != null ? st.maxDiscountRate.toFixed(1) + '%' : '—') + '</div><div style="font-size:11px;color:#666">Chiết khấu cao nhất</div></div>';
+      html += '<div style="background:#e8f0fe;border-radius:8px;padding:12px;text-align:center"><div style="font-size:20px;font-weight:700;color:#1a3a5c">' + (st.weightedDiscountRate != null ? st.weightedDiscountRate.toFixed(1) + '%' : '—') + '</div><div style="font-size:11px;color:#666">Chiết khấu TB có trọng số</div></div>';
+      html += '</div>';
+    }
+
+    // Win rate secondary info
+    const winRateStr = st.winRate != null ? st.winRate.toFixed(1) + '%' : 'Chưa có dữ liệu';
+    html += '<div style="font-size:12px;color:#888;margin-bottom:12px;text-align:center">Tỉ lệ thắng: <strong>' + winRateStr + '</strong> | Điểm đánh giá: <strong>' + (st.score != null ? st.score.toFixed(1) : '—') + '</strong> | ' + (st.stars ? '⭐'.repeat(st.stars) : '') + '</div>';
+
+    // Aliases
+    if (supplier.aliases && supplier.aliases.length > 0) {
+      html += '<div style="margin-bottom:12px;font-size:13px;color:#666"><strong>Tên khác:</strong> ' + escHtml(supplier.aliases.join(', ')) + '</div>';
+    }
+
+    // Item stats (with discount rate column)
+    const itemStats = st.itemStats || {};
+    const itemKeys = Object.keys(itemStats);
+    if (itemKeys.length > 0) {
+      html += '<h4 style="margin:12px 0 8px;color:#1a3a5c;font-size:14px;border-bottom:1px solid #eef2f7;padding-bottom:4px">📦 Thống kê theo mặt hàng</h4>';
+      html += '<div class="table-wrap" style="margin-bottom:16px"><table><thead><tr><th>Mặt hàng</th><th style="width:70px">Số lần</th><th style="width:120px">Giá TB</th><th style="width:120px">Giá thấp</th><th style="width:120px">Giá cao</th><th style="width:120px">Giá gần nhất</th><th style="width:100px">CK (%)</th></tr></thead><tbody>';
+      for (const key of itemKeys) {
+        const h = itemStats[key];
+        const dr = h.discountRate != null ? h.discountRate.toFixed(1) + '%' : '—';
+        html += '<tr><td>' + escHtml(h.tenHangHoa) + '</td><td class="td-num">' + h.soLan + '</td><td class="td-num">' + formatNumber(h.giaTrungBinh) + ' ₫</td><td class="td-num">' + formatNumber(h.giaThapNhat) + ' ₫</td><td class="td-num">' + formatNumber(h.giaCaoNhat) + ' ₫</td><td class="td-num">' + formatNumber(h.giaGanNhat) + ' ₫</td><td class="td-num" style="font-weight:600;color:' + ((h.discountRate || 0) >= 30 ? '#27ae60' : '#e74c3c') + '">' + dr + '</td></tr>';
+      }
+      html += '</tbody></table></div>';
+    }
+
+    // Discount breakdown per item
+    if (st.discountDetails && st.discountDetails.length > 0) {
+      html += '<h4 style="margin:12px 0 8px;color:#1a3a5c;font-size:14px;border-bottom:1px solid #eef2f7;padding-bottom:4px">💰 Chi tiết chiết khấu trúng thầu</h4>';
+      html += '<div class="table-wrap" style="margin-bottom:16px"><table><thead><tr><th>Dự án</th><th>Mặt hàng</th><th style="width:130px">Giá trúng</th><th style="width:130px">Giá nhập</th><th style="width:100px">CK (%)</th></tr></thead><tbody>';
+      for (const d of st.discountDetails) {
+        const color = d.discountRate >= 30 ? '#27ae60' : d.discountRate >= 10 ? '#f39c12' : '#e74c3c';
+        html += '<tr><td>' + escHtml(d.projectName) + '</td><td>' + escHtml(d.itemName) + '</td><td class="td-num">' + formatNumber(d.itemWinningPrice) + ' ₫</td><td class="td-num">' + formatNumber(d.itemCost) + ' ₫</td><td class="td-num" style="font-weight:600;color:' + color + '">' + d.discountRate.toFixed(1) + '%</td></tr>';
+      }
+      html += '</tbody></table></div>';
+    }
+
+    // Project history
+    html += '<h4 style="margin:12px 0 8px;color:#1a3a5c;font-size:14px;border-bottom:1px solid #eef2f7;padding-bottom:4px">📋 Lịch sử dự án</h4>';
+    if (projects.length === 0) {
+      html += '<div style="text-align:center;padding:16px;color:#888">Chưa có dự án nào</div>';
+    } else {
+      html += '<div class="table-wrap"><table><thead><tr><th>Dự án</th><th>Mã IB</th><th>Trạng thái</th><th>Kết quả thầu</th><th>Giá trúng thầu</th></tr></thead><tbody>';
+      const statusLabels = { draft:'Dự thảo', pending:'Chờ duyệt', approved:'Đã duyệt', rejected:'Không duyệt' };
+      const krLabels = { win: '✅ Trúng thầu', lose: '❌ Trượt thầu' };
+      for (const proj of projects) {
+        const kr = proj.ketQuaTrungThau ? krLabels[proj.ketQuaTrungThau] : '—';
+        const krColor = proj.ketQuaTrungThau === 'win' ? '#27ae60' : proj.ketQuaTrungThau === 'lose' ? '#e74c3c' : '#888';
+        html += '<tr>'
+          + '<td><a href="#" onclick="selectProjectById(\'' + proj.id + '\');closeSupplierDetailModal()" style="color:#2a5a8c">' + escHtml(proj.name) + '</a></td>'
+          + '<td>' + escHtml(proj.maDauThau) + '</td>'
+          + '<td>' + (statusLabels[proj.status] || proj.status) + '</td>'
+          + '<td style="color:' + krColor + ';font-weight:600">' + kr + '</td>'
+          + '<td class="td-num">' + (proj.giaTrungThau ? formatNumber(proj.giaTrungThau) + ' ₫' : '—') + '</td>'
+          + '</tr>';
+      }
+      html += '</tbody></table></div>';
+    }
+
+    document.getElementById('supplierDetailContent').innerHTML = html;
+    document.getElementById('supplierDetailModal').className = 'modal-overlay show';
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
+function closeSupplierDetailModal() {
+  document.getElementById('supplierDetailModal').className = 'modal-overlay';
+}
+
+// --- Supplier Merge ---
+let mergeSuppliersData = [];
+
+function showMergeSuppliers() {
+  mergeSuppliersData = [...supplierCache];
+  const targetSel = document.getElementById('mergeTargetSelect');
+  targetSel.innerHTML = '';
+  for (const s of mergeSuppliersData) {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = s.name + (s.stats ? ' (' + (s.stats.totalProjects || 0) + ' dự án)' : '');
+    targetSel.appendChild(opt);
+  }
+  renderAliasList();
+  document.getElementById('supplierMergeModal').className = 'modal-overlay show';
+}
+
+function closeSupplierMergeModal() {
+  document.getElementById('supplierMergeModal').className = 'modal-overlay';
+}
+
+function renderAliasList() {
+  const targetId = document.getElementById('mergeTargetSelect').value;
+  const container = document.getElementById('mergeAliasList');
+  container.innerHTML = '';
+  for (const s of mergeSuppliersData) {
+    if (s.id === targetId) continue;
+    const label = document.createElement('label');
+    label.style.cssText = 'display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.value = s.id;
+    cb.style.cssText = 'accent-color:#2a5a8c';
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(s.name + (s.stats && s.stats.totalProjects ? ' (' + s.stats.totalProjects + ' dự án)' : '')));
+    container.appendChild(label);
+  }
+}
+
+async function confirmMergeSuppliers() {
+  const targetId = document.getElementById('mergeTargetSelect').value;
+  const checked = document.querySelectorAll('#mergeAliasList input:checked');
+  const aliasIds = Array.from(checked).map(cb => cb.value);
+  if (!targetId || aliasIds.length === 0) {
+    showToast('Chọn nhà cung cấp chính và ít nhất 1 nhà cung cấp để gộp', 'error');
+    return;
+  }
+  try {
+    await api('PUT', '/api/suppliers/' + targetId + '/merge', { aliasIds });
+    showToast('Đã gộp nhà cung cấp thành công', 'success');
+    closeSupplierMergeModal();
+    await loadSupplierList();
+    renderSupplierList();
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
+// --- Supplier Suggestions ---
+let suggestTimer = null;
+
+async function onNccInput(el) {
+  const tr = el.closest('tr');
+  if (!tr) return;
+  const tenInput = tr.querySelector('.ten-input');
+  const itemName = tenInput ? tenInput.value.trim() : '';
+  const nccName = el.value.trim();
+  if (!nccName) return;
+  if (!itemName) return;
+
+  if (suggestTimer) clearTimeout(suggestTimer);
+  suggestTimer = setTimeout(async () => {
+    try {
+      const suggestions = await api('GET', '/api/suppliers/suggest/' + encodeURIComponent(itemName));
+      if (!suggestions.length) return;
+      const match = suggestions.find(s => s.supplierName.toLowerCase() === nccName.toLowerCase());
+      if (match) {
+        const dgInput = tr.querySelector('.dg-input');
+        if (dgInput && dgInput.value === '') {
+          dgInput.value = formatNumber(match.giaGanNhat);
+          onItemChange(dgInput);
+        }
+      }
+    } catch {}
+  }, 600);
+}
+
+// --- Bid Result ---
+function onBidResultChange() {
+  setFormDirty();
+  scheduleAutoSave();
+  const kr = document.getElementById('ketQuaTrungThau').value;
+  const giaTT = document.getElementById('giaTrungThau').value;
+  if (currentProject && currentProject.id) {
+    saveBidResult(kr, giaTT);
+  }
+}
+
+async function saveBidResult(ketQuaTrungThau, giaTrungThauRaw) {
+  try {
+    const giaTrungThau = parseNumber(giaTrungThauRaw);
+    await api('PATCH', '/api/projects/' + currentProject.id + '/bid-result', {
+      ketQuaTrungThau: ketQuaTrungThau || null,
+      giaTrungThau: giaTrungThau || null
+    });
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
+async function fetchBidResult() {
+  if (!currentProject) { showToast('Chưa chọn dự án', 'error'); return; }
+  const btn = document.getElementById('btnFetchBidResult');
+  const statusEl = document.getElementById('bidResultFetchStatus');
+  btn.disabled = true;
+  btn.textContent = '⏳ Đang lấy...';
+  statusEl.textContent = '';
+  try {
+    const project = await api('POST', '/api/projects/' + currentProject.id + '/fetch-bid-result');
+    document.getElementById('giaTrungThau').value = project.giaTrungThau ? formatNumber(project.giaTrungThau) : '';
+    document.getElementById('nhaThauTrung').value = project.nhaThauTrung || '';
+    if (project.giaTrungThau) {
+      const isSearch = project.bidResultFetchError === null && !project.ketQuaTrungThau;
+      const prefix = project.nhaThauTrung ? '📄 Nhà thầu: ' + project.nhaThauTrung + ' — ' : '';
+      statusEl.textContent = prefix + '💰 ' + formatNumber(project.giaTrungThau) + ' ₫';
+      statusEl.style.color = '#2980b9';
+      showToast('Đã lấy thông tin từ cổng đấu thầu', 'info');
+    } else if (project.bidResultFetchError) {
+      statusEl.textContent = '⚠ ' + project.bidResultFetchError;
+      statusEl.style.color = '#e74c3c';
+      showToast('Không tìm thấy kết quả tự động. Bạn có thể nhập tay.', 'error');
+    }
+  } catch (e) {
+    statusEl.textContent = '⚠ ' + e.message;
+    statusEl.style.color = '#e74c3c';
+    showToast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔍 Lấy kết quả tự động';
+  }
+}
+
+// --- Chart helper (simple canvas chart) ---
+function renderSupplierChart(canvasId, labels, data, label, color) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  if (!labels.length || !data.length) {
+    ctx.fillStyle = '#888'; ctx.font = '13px sans-serif';
+    ctx.textAlign = 'center'; ctx.fillText('Chưa có dữ liệu', w/2, h/2);
+    return;
+  }
+  const max = Math.max(...data, 1);
+  const barW = Math.min(40, (w - 40) / labels.length);
+  const pad = 10, bottom = 30;
+  for (let i = 0; i < data.length; i++) {
+    const x = pad + i * (barW + 8);
+    const bh = (data[i] / max) * (h - bottom - 20);
+    ctx.fillStyle = color || '#2a5a8c';
+    ctx.fillRect(x, h - bottom - bh, barW, bh);
+    ctx.fillStyle = '#333'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+    if (labels[i]) ctx.fillText(labels[i].substring(0, 8), x + barW/2, h - 8);
+    ctx.fillStyle = '#555'; ctx.font = 'bold 10px sans-serif';
+    ctx.fillText(formatNumber(data[i]), x + barW/2, h - bottom - bh - 3);
+  }
+}
+
+// Override loadProjectToForm to handle bid result
+const _origLoadProjectToForm = loadProjectToForm;
+loadProjectToForm = function(p) {
+  _origLoadProjectToForm(p);
+  const kr = p.ketQuaTrungThau || '';
+  document.getElementById('ketQuaTrungThau').value = kr;
+  document.getElementById('giaTrungThau').value = p.giaTrungThau ? formatNumber(p.giaTrungThau) : '';
+  document.getElementById('nhaThauTrung').value = p.nhaThauTrung || '';
+  document.getElementById('bidResultGroup').style.display = p.status === 'approved' ? '' : 'none';
+  const statusEl = document.getElementById('bidResultFetchStatus');
+  if (p.bidResultFetchedAt && p.giaTrungThau) {
+    const prefix = p.nhaThauTrung ? '📄 Nhà thầu: ' + esc(p.nhaThauTrung) + ' — ' : '';
+    statusEl.textContent = prefix + '💰 ' + formatNumber(p.giaTrungThau) + ' ₫';
+    statusEl.style.color = '#2980b9';
+  } else if (p.bidResultFetchError) {
+    statusEl.textContent = '⚠ ' + p.bidResultFetchError;
+    statusEl.style.color = '#e74c3c';
+  } else {
+    statusEl.textContent = '';
+  }
+};
+
+// Override applyPermissions to handle bid result visibility
+const _origApplyPermissions = applyPermissions;
+applyPermissions = function() {
+  _origApplyPermissions();
+  if (currentProject && currentProject.status === 'approved') {
+    document.getElementById('bidResultGroup').style.display = '';
+  } else {
+    document.getElementById('bidResultGroup').style.display = 'none';
+  }
+};
+
+// Override clearForm
+const _origClearForm = clearForm;
+clearForm = function() {
+  _origClearForm();
+  document.getElementById('ketQuaTrungThau').value = '';
+  document.getElementById('giaTrungThau').value = '';
+  document.getElementById('nhaThauTrung').value = '';
+  document.getElementById('bidResultGroup').style.display = 'none';
+  document.getElementById('bidResultFetchStatus').textContent = '';
+};
+
+// Also load supplier list on init
+const _origInitApp = initApp;
+initApp = function() {
+  _origInitApp();
+  loadSupplierList();
+};
 
 document.addEventListener('DOMContentLoaded', function() { checkAuth(); });
 document.addEventListener('keydown', function(e) { if ((e.ctrlKey||e.metaKey)&&e.key==='s') { e.preventDefault(); manualSave(); } });

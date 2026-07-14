@@ -11,6 +11,7 @@ const PORT = process.env.PORT || 3456;
 const DATA_DIR = path.join(__dirname, 'data');
 const PROJ_FILE = path.join(DATA_DIR, 'projects.json');
 const USER_FILE = path.join(DATA_DIR, 'users.json');
+const SUPPLIER_FILE = path.join(DATA_DIR, 'suppliers.json');
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -23,6 +24,32 @@ app.use(session({
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(PROJ_FILE)) fs.writeFileSync(PROJ_FILE, JSON.stringify({ projects: [] }, null, 2));
+if (!fs.existsSync(SUPPLIER_FILE)) fs.writeFileSync(SUPPLIER_FILE, JSON.stringify({ suppliers: [] }, null, 2));
+// Sync existing suppliers from projects on startup
+try {
+  const existingProj = JSON.parse(fs.readFileSync(PROJ_FILE, 'utf-8'));
+  const existingSupp = JSON.parse(fs.readFileSync(SUPPLIER_FILE, 'utf-8'));
+  let changed = false;
+  for (const proj of existingProj.projects) {
+    if (!proj.items) continue;
+    for (const item of proj.items) {
+      if (item.nhaCungCap && item.nhaCungCap.trim()) {
+        const id = getSupplierIdByName(item.nhaCungCap, existingSupp.suppliers);
+        if (!id) {
+          existingSupp.suppliers.push({
+            id: uuidv4(),
+            name: item.nhaCungCap.trim(),
+            aliases: [],
+            createdAt: new Date().toISOString()
+          });
+          changed = true;
+        }
+      }
+    }
+  }
+  if (changed) fs.writeFileSync(SUPPLIER_FILE, JSON.stringify(existingSupp, null, 2));
+} catch (e) { /* ignore startup sync errors */ }
+
 if (!fs.existsSync(USER_FILE)) {
   const defaultUsers = [
     { id: uuidv4(), username: 'admin', password: bcrypt.hashSync('admin123', 10), fullName: 'CEO Admin', role: 'admin', createdAt: new Date().toISOString() },
@@ -49,6 +76,347 @@ function adminOnly(req, res, next) {
   if (req.currentUser.role !== 'admin') return res.status(403).json({ error: 'Từ chối: chỉ admin' });
   next();
 }
+
+// --- Supplier helpers ---
+function normalizeSupplierName(name) {
+  if (!name) return '';
+  let n = name.trim().toLowerCase();
+  n = n.replace(/[.,;:!?()"']/g, ' ');
+  n = n.replace(/\bcty\b/g, 'cong ty');
+  n = n.replace(/\bcông ty\b/g, 'cong ty');
+  n = n.replace(/\btnhh\b/g, 'trach nhiem huu han');
+  n = n.replace(/\btrách nhiệm hữu hạn\b/g, 'trach nhiem huu han');
+  n = n.replace(/\bcong ty\b/g, 'cong ty');
+  n = n.replace(/\bco\b/g, '');
+  n = n.replace(/\bltd\b/g, '');
+  n = n.replace(/[^a-z0-9\s]/g, ' ');
+  n = n.replace(/\s+/g, ' ').trim();
+  return n;
+}
+
+function getSupplierIdByName(rawName, suppliers) {
+  const normalized = normalizeSupplierName(rawName);
+  if (!normalized) return null;
+  for (const s of suppliers) {
+    if (normalizeSupplierName(s.name) === normalized) return s.id;
+    for (const a of (s.aliases || [])) {
+      if (normalizeSupplierName(a) === normalized) return s.id;
+    }
+  }
+  return null;
+}
+
+function ensureSupplier(rawName) {
+  if (!rawName || !rawName.trim()) return null;
+  const data = readData(SUPPLIER_FILE);
+  const existingId = getSupplierIdByName(rawName, data.suppliers);
+  if (existingId) return existingId;
+  const newSupplier = {
+    id: uuidv4(),
+    name: rawName.trim(),
+    aliases: [],
+    createdAt: new Date().toISOString()
+  };
+  data.suppliers.push(newSupplier);
+  writeData(SUPPLIER_FILE, data);
+  return newSupplier.id;
+}
+
+function syncSuppliersFromItems(items) {
+  if (!items || !items.length) return;
+  for (const item of items) {
+    if (item.nhaCungCap && item.nhaCungCap.trim()) {
+      ensureSupplier(item.nhaCungCap);
+    }
+  }
+}
+
+function computeSupplierStats() {
+  const sData = readData(SUPPLIER_FILE);
+  const pData = readData(PROJ_FILE);
+  const stats = {};
+
+  for (const s of sData.suppliers) {
+    const aliases = [s.name, ...(s.aliases || [])];
+    const aliasLower = aliases.map(a => normalizeSupplierName(a));
+    const projectIds = new Set();
+    let totalItems = 0;
+    let sumGiaNhap = 0;
+    let sumDonGiaNhap = 0;
+    let winCount = 0;
+    let loseCount = 0;
+    const itemHistory = {};
+    const projectList = [];
+    const discountRates = [];
+
+    for (const proj of pData.projects) {
+      if (!proj.items) continue;
+      let foundInProject = false;
+      const supplierItems = [];
+      for (const item of proj.items) {
+        if (!item.nhaCungCap) continue;
+        if (aliasLower.includes(normalizeSupplierName(item.nhaCungCap))) {
+          foundInProject = true;
+          totalItems++;
+          const gn = (item.soLuong || 0) * (item.donGiaNhap || 0);
+          sumGiaNhap += gn;
+          sumDonGiaNhap += item.donGiaNhap || 0;
+          supplierItems.push(item);
+          const key = normalizeSupplierName(item.tenHangHoa || '');
+          if (key) {
+            if (!itemHistory[key]) itemHistory[key] = { ten: item.tenHangHoa, count: 0, sumPrice: 0, minPrice: Infinity, maxPrice: 0, lastPrice: 0, lastDate: '' };
+            itemHistory[key].count++;
+            itemHistory[key].sumPrice += item.donGiaNhap || 0;
+            if ((item.donGiaNhap || 0) < itemHistory[key].minPrice) itemHistory[key].minPrice = item.donGiaNhap || 0;
+            if ((item.donGiaNhap || 0) > itemHistory[key].maxPrice) itemHistory[key].maxPrice = item.donGiaNhap || 0;
+            itemHistory[key].lastPrice = item.donGiaNhap || 0;
+            if (proj.updatedAt > itemHistory[key].lastDate) itemHistory[key].lastDate = proj.updatedAt;
+          }
+        }
+      }
+      if (foundInProject) {
+        projectIds.add(proj.id);
+        const kr = proj.ketQuaTrungThau;
+        if (kr === 'win') winCount++;
+        else if (kr === 'lose') loseCount++;
+
+        if (kr === 'win' && proj.giaTrungThau && supplierItems.length > 0) {
+          const totalGiaChao = supplierItems.reduce((sum, item) => sum + (item.donGiaChao || 0), 0);
+          if (totalGiaChao > 0) {
+            for (const item of supplierItems) {
+              const dgc = item.donGiaChao || 0;
+              const gn = (item.soLuong || 0) * (item.donGiaNhap || 0);
+              const itemWinningPrice = proj.giaTrungThau * (dgc / totalGiaChao);
+              if (itemWinningPrice > 0) {
+                const discountRate = (itemWinningPrice - gn) / itemWinningPrice * 100;
+                discountRates.push({
+                  projectId: proj.id,
+                  projectName: proj.name,
+                  itemName: item.tenHangHoa,
+                  itemWinningPrice: Math.round(itemWinningPrice),
+                  itemCost: gn,
+                  discountRate
+                });
+              }
+            }
+          }
+        }
+
+        projectList.push({
+          id: proj.id,
+          name: proj.name,
+          maDauThau: proj.projectInfo?.maDauThau || '',
+          status: proj.status,
+          ketQuaTrungThau: kr || null,
+          giaTrungThau: proj.giaTrungThau || null,
+          updatedAt: proj.updatedAt
+        });
+      }
+    }
+
+    let avgDiscountRate = null;
+    let minDiscountRate = null;
+    let maxDiscountRate = null;
+    let weightedDiscountRate = null;
+
+    if (discountRates.length > 0) {
+      const rates = discountRates.map(d => d.discountRate);
+      avgDiscountRate = rates.reduce((s, r) => s + r, 0) / rates.length;
+      minDiscountRate = Math.min(...rates);
+      maxDiscountRate = Math.max(...rates);
+
+      let weightedSum = 0, totalWeight = 0;
+      for (const d of discountRates) {
+        weightedSum += d.discountRate * d.itemWinningPrice;
+        totalWeight += d.itemWinningPrice;
+      }
+      weightedDiscountRate = totalWeight > 0 ? weightedSum / totalWeight : avgDiscountRate;
+    }
+
+    const totalDecided = winCount + loseCount;
+    const winRate = totalDecided > 0 ? (winCount / totalDecided * 100) : null;
+
+    const itemStats = {};
+    for (const key of Object.keys(itemHistory)) {
+      const h = itemHistory[key];
+      itemStats[key] = {
+        tenHangHoa: h.ten,
+        soLan: h.count,
+        giaTrungBinh: h.count > 0 ? Math.round(h.sumPrice / h.count) : 0,
+        giaThapNhat: h.minPrice === Infinity ? 0 : h.minPrice,
+        giaCaoNhat: h.maxPrice,
+        giaGanNhat: h.lastPrice,
+        discountRate: null
+      };
+    }
+
+    for (const d of discountRates) {
+      const key = normalizeSupplierName(d.itemName);
+      if (itemStats[key]) {
+        itemStats[key].discountRate = Math.round(d.discountRate * 100) / 100;
+        itemStats[key].itemWinningPrice = d.itemWinningPrice;
+        itemStats[key].itemCost = d.itemCost;
+      }
+    }
+
+    const w1 = 0.6, w2 = 0.2, w3 = 0.2;
+    const discountScore = avgDiscountRate != null ? Math.min(avgDiscountRate, 100) : 0;
+
+    let priceScore = 0;
+    if (totalItems > 0 && sumDonGiaNhap > 0) {
+      const supplierAvgPrice = sumDonGiaNhap / totalItems;
+      let totalIndustryAvg = 0, avgCount = 0;
+      const allPrices = {};
+      for (const proj of pData.projects) {
+        if (!proj.items) continue;
+        for (const item of proj.items) {
+          if (item.donGiaNhap && item.tenHangHoa) {
+            const key = normalizeSupplierName(item.tenHangHoa);
+            if (!allPrices[key]) allPrices[key] = [];
+            allPrices[key].push(item.donGiaNhap);
+          }
+        }
+      }
+      for (const key of Object.keys(itemHistory)) {
+        if (allPrices[key]) {
+          const avg = allPrices[key].reduce((s, p) => s + p, 0) / allPrices[key].length;
+          totalIndustryAvg += avg;
+          avgCount++;
+        }
+      }
+      if (avgCount > 0 && totalIndustryAvg > 0) {
+        const industryAvg = totalIndustryAvg / avgCount;
+        priceScore = Math.max(0, (1 - supplierAvgPrice / industryAvg) * 100);
+      }
+    }
+
+    const maxProjects = Math.max(1, sData.suppliers.reduce((max, sup) => {
+      const supAliases = [sup.name, ...(sup.aliases || [])].map(a => normalizeSupplierName(a));
+      const count = pData.projects.filter(p => p.items && p.items.some(item =>
+        item.nhaCungCap && supAliases.includes(normalizeSupplierName(item.nhaCungCap))
+      )).length;
+      return Math.max(max, count);
+    }, 1));
+    const experienceScore = (projectIds.size / maxProjects) * 100;
+
+    const score = w1 * discountScore + w2 * priceScore + w3 * experienceScore;
+
+    stats[s.id] = {
+      supplierId: s.id,
+      supplierName: s.name,
+      totalProjects: projectIds.size,
+      winCount,
+      loseCount,
+      totalDecided,
+      winRate,
+      totalItems,
+      avgGiaNhap: totalItems > 0 ? Math.round(sumGiaNhap / totalItems) : 0,
+      avgDonGiaNhap: totalItems > 0 ? Math.round(sumDonGiaNhap / totalItems) : 0,
+      itemStats,
+      projects: projectList.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)),
+      avgDiscountRate: avgDiscountRate != null ? Math.round(avgDiscountRate * 100) / 100 : null,
+      minDiscountRate: minDiscountRate != null ? Math.round(minDiscountRate * 100) / 100 : null,
+      maxDiscountRate: maxDiscountRate != null ? Math.round(maxDiscountRate * 100) / 100 : null,
+      weightedDiscountRate: weightedDiscountRate != null ? Math.round(weightedDiscountRate * 100) / 100 : null,
+      discountDetails: discountRates,
+      score: Math.round(score * 100) / 100,
+      stars: 0
+    };
+  }
+
+  const scores = Object.values(stats).map(s => s.score).filter(s => s > 0);
+  if (scores.length > 0) {
+    scores.sort((a, b) => a - b);
+    const total = scores.length;
+    Object.values(stats).forEach(s => {
+      if (s.score <= 0) { s.stars = 0; return; }
+      const idx = scores.indexOf(s.score);
+      const percentile = total > 1 ? idx / (total - 1) : 1;
+      s.stars = percentile >= 0.8 ? 5 : percentile >= 0.6 ? 4 : percentile >= 0.4 ? 3 : percentile >= 0.2 ? 2 : 1;
+    });
+  }
+
+  return stats;
+}
+
+// --- Supplier API ---
+app.get('/api/suppliers', auth, (req, res) => {
+  const sData = readData(SUPPLIER_FILE);
+  const stats = computeSupplierStats();
+  const result = sData.suppliers.map(s => ({
+    id: s.id,
+    name: s.name,
+    aliases: s.aliases || [],
+    createdAt: s.createdAt,
+    stats: stats[s.id] || null
+  }));
+  res.json(result);
+});
+
+app.get('/api/suppliers/:id', auth, (req, res) => {
+  const sData = readData(SUPPLIER_FILE);
+  const supplier = sData.suppliers.find(s => s.id === req.params.id);
+  if (!supplier) return res.status(404).json({ error: 'Không tìm thấy nhà cung cấp' });
+  const stats = computeSupplierStats();
+  res.json({
+    id: supplier.id,
+    name: supplier.name,
+    aliases: supplier.aliases || [],
+    createdAt: supplier.createdAt,
+    stats: stats[supplier.id] || null
+  });
+});
+
+app.put('/api/suppliers/:id/merge', auth, adminOnly, (req, res) => {
+  const sData = readData(SUPPLIER_FILE);
+  const target = sData.suppliers.find(s => s.id === req.params.id);
+  if (!target) return res.status(404).json({ error: 'Không tìm thấy nhà cung cấp' });
+  const { aliasIds } = req.body;
+  if (!aliasIds || !Array.isArray(aliasIds) || !aliasIds.length)
+    return res.status(400).json({ error: 'Cần danh sách aliasIds' });
+  for (const aliasId of aliasIds) {
+    const idx = sData.suppliers.findIndex(s => s.id === aliasId);
+    if (idx === -1) continue;
+    const alias = sData.suppliers[idx];
+    if (alias.name !== target.name) {
+      if (!target.aliases.includes(alias.name)) target.aliases.push(alias.name);
+      for (const a of (alias.aliases || [])) {
+        if (!target.aliases.includes(a)) target.aliases.push(a);
+      }
+    }
+    sData.suppliers.splice(idx, 1);
+  }
+  writeData(SUPPLIER_FILE, sData);
+  res.json({ ok: true, supplier: target });
+});
+
+app.get('/api/suppliers/suggest/:itemName', auth, (req, res) => {
+  const itemName = decodeURIComponent(req.params.itemName || '').trim().toLowerCase();
+  if (!itemName) return res.json([]);
+  const stats = computeSupplierStats();
+  const sData = readData(SUPPLIER_FILE);
+  const results = [];
+  for (const s of sData.suppliers) {
+    const st = stats[s.id];
+    if (!st || !st.itemStats) continue;
+    for (const key of Object.keys(st.itemStats)) {
+      if (key.includes(itemName)) {
+        results.push({
+          supplierId: s.id,
+          supplierName: s.name,
+          tenHangHoa: st.itemStats[key].tenHangHoa,
+          giaGanNhat: st.itemStats[key].giaGanNhat,
+          giaTrungBinh: st.itemStats[key].giaTrungBinh,
+          soLan: st.itemStats[key].soLan,
+          winRate: st.winRate,
+          avgDiscountRate: st.avgDiscountRate
+        });
+      }
+    }
+  }
+  results.sort((a, b) => (b.soLan || 0) - (a.soLan || 0));
+  res.json(results.slice(0, 10));
+});
 
 // --- Auth ---
 app.post('/api/login', (req, res) => {
@@ -143,7 +511,8 @@ app.get('/api/projects', auth, (req, res) => {
     createdBy: p.createdBy || null,
     maDauThau: (p.projectInfo && p.projectInfo.maDauThau) || null,
     benMoiThau: (p.projectInfo && p.projectInfo.benMoiThau) || null,
-    thoiGianDongThau: (p.projectInfo && p.projectInfo.thoiGianDongThau) || null
+    thoiGianDongThau: (p.projectInfo && p.projectInfo.thoiGianDongThau) || null,
+    ketQuaTrungThau: p.ketQuaTrungThau || null
   })));
 });
 
@@ -199,6 +568,7 @@ app.put('/api/projects/:id', auth, (req, res) => {
   const updated = { ...project, ...req.body, id: req.params.id, updatedAt: new Date().toISOString() };
   data.projects[idx] = updated;
   writeData(PROJ_FILE, data);
+  if (updated.items) syncSuppliersFromItems(updated.items);
   res.json(data.projects[idx]);
 });
 
@@ -284,6 +654,39 @@ app.delete('/api/projects/:id', auth, (req, res) => {
   res.json({ ok: true });
 });
 
+// --- Bid Result ---
+app.patch('/api/projects/:id/bid-result', auth, adminOnly, (req, res) => {
+  const data = readData(PROJ_FILE);
+  const idx = data.projects.findIndex(p => p.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Không tìm thấy' });
+  const project = data.projects[idx];
+  const { ketQuaTrungThau, giaTrungThau, nhaThauTrung } = req.body;
+  if (ketQuaTrungThau !== undefined) {
+    if (!['win', 'lose', null].includes(ketQuaTrungThau)) return res.status(400).json({ error: 'ketQuaTrungThau phải là "win", "lose" hoặc null' });
+    project.ketQuaTrungThau = ketQuaTrungThau || null;
+  }
+  if (giaTrungThau !== undefined) project.giaTrungThau = giaTrungThau || null;
+  if (nhaThauTrung !== undefined) project.nhaThauTrung = nhaThauTrung || null;
+  project.updatedAt = new Date().toISOString();
+  writeData(PROJ_FILE, data);
+  res.json(project);
+});
+
+function extractValue(v) {
+  if (v == null) return '';
+  if (Array.isArray(v)) return String(v[0] != null ? v[0] : '');
+  return String(v);
+}
+
+function extractPrice(v) {
+  if (v == null) return null;
+  if (Array.isArray(v)) v = v[0];
+  if (v == null) return null;
+  const cleaned = String(v).replace(/[,\sVND₫]/gi, '').trim();
+  const n = parseFloat(cleaned);
+  return isNaN(n) ? null : n;
+}
+
 // --- Fetch Bidding Info by IB Code ---
 app.get('/api/fetch-bidding-info/:ibCode', auth, async (req, res) => {
   const ibCode = req.params.ibCode.trim();
@@ -334,28 +737,15 @@ app.get('/api/fetch-bidding-info/:ibCode', auth, async (req, res) => {
       return res.status(404).json({ error: 'Không tìm thấy thông tin cho mã IB: ' + ibCode });
     }
 
-    function extractValue(v) {
-      if (v == null) return '';
-      if (Array.isArray(v)) return String(v[0] != null ? v[0] : '');
-      return String(v);
-    }
-
-    function extractPrice(v) {
-      if (v == null) return null;
-      if (Array.isArray(v)) v = v[0];
-      if (v == null) return null;
-      const cleaned = String(v).replace(/[,\sVND₫]/gi, '').trim();
-      const n = parseFloat(cleaned);
-      return isNaN(n) ? null : n;
-    }
-
     const result = {
       tenCongTrinh: extractValue(responseData.bidName),
       benMoiThau: extractValue(responseData.investorName),
       thoiGianDongThau: extractValue(responseData.bidCloseDate),
       giaDuToan: extractPrice(responseData.bidPrice || responseData.bidEstimatePrice || responseData.planItemPrice),
       bidNo: extractValue(responseData.notifyNo || responseData.bidNo) || ibCode,
-      diaDiem: ''
+      diaDiem: '',
+      giaTrungThau: extractPrice(responseData.bidWinningPrice),
+      nhaThauTrung: extractValue(responseData.contractorName)
     };
 
     // Step 2: Fetch detail page for location and construction time
@@ -418,6 +808,202 @@ app.get('/api/fetch-bidding-info/:ibCode', auth, async (req, res) => {
     return res.status(500).json({ error: 'Lỗi kết nối đến trang đấu thầu: ' + error.message });
   } finally {
     if (browser) await browser.close();
+  }
+});
+
+// --- Fetch Bid Result by IB Code ---
+app.get('/api/fetch-bid-result/:ibCode', auth, async (req, res) => {
+  const ibCode = req.params.ibCode.trim();
+  if (!ibCode) return res.status(400).json({ error: 'Mã IB không hợp lệ' });
+
+  const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+  let browser;
+  try {
+    browser = await chromium.launch({ headless: true });
+    const context = await browser.newContext({ userAgent: UA });
+    const page = await context.newPage();
+    page.setDefaultTimeout(30000);
+
+    await page.goto(
+      'https://muasamcong.mpi.gov.vn/web/guest/contractor-selection?render=index',
+      { waitUntil: 'networkidle', timeout: 30000 }
+    );
+    await page.waitForTimeout(1500);
+    await page.fill('input[name="keyword"]', ibCode);
+
+    let searchResult = null;
+    const searchHandler = async (r) => {
+      try {
+        if (searchResult) return;
+        const ct = (r.headers()['content-type'] || '').toLowerCase();
+        if (r.status() === 200 && r.url().includes('contractor-selection') && ct.includes('application/json')) {
+          const json = await r.json();
+          const items = (json.page && json.page.content) || json.data || [];
+          const match = items.find(i => (i.notifyNo || i.bidNo) === ibCode);
+          if (match) searchResult = match;
+        }
+      } catch {}
+    };
+    page.on('response', searchHandler);
+    await page.keyboard.press('Enter');
+
+    for (let i = 0; i < 25; i++) {
+      if (searchResult) break;
+      await page.waitForTimeout(1000);
+    }
+    page.removeListener('response', searchHandler);
+
+    if (!searchResult) {
+      return res.status(404).json({ error: 'Không tìm thấy thông tin cho mã IB: ' + ibCode });
+    }
+
+    // Check search result for bid winning data (avoids unnecessary detail page navigation)
+    if (searchResult.bidWinningPrice && Array.isArray(searchResult.bidWinningPrice) && searchResult.bidWinningPrice.length > 0) {
+      return res.json({
+        giaTrungThau: extractPrice(searchResult.bidWinningPrice),
+        nhaThauTrung: extractValue(searchResult.contractorName),
+        found: true,
+        source: 'searchResult'
+      });
+    }
+
+    const tbmtId = String(searchResult.id || searchResult.notifyId || '');
+    if (!tbmtId) {
+      return res.status(404).json({ error: 'Không tìm thấy mã thông tin thầu' });
+    }
+
+    // Build detail URL with full search result parameters (stepCode for re-offer phase, etc.)
+    const qs = new URLSearchParams({
+      'p_p_id': 'egpportalcontractorselectionv2_WAR_egpportalcontractorselectionv2',
+      'p_p_lifecycle': '0',
+      'p_p_state': 'normal',
+      'p_p_mode': 'view',
+      '_egpportalcontractorselectionv2_WAR_egpportalcontractorselectionv2_render': 'detail-v2',
+      'type': 'es-notify-contractor',
+      'step': 'tbmt',
+      'id': tbmtId,
+      'notifyId': tbmtId,
+      'stepCode': extractValue(searchResult.stepCode),
+      'processApply': extractValue(searchResult.processApply),
+      'bidMode': extractValue(searchResult.bidMode),
+      'notifyNo': extractValue(searchResult.notifyNo || searchResult.bidNo),
+      'planNo': extractValue(searchResult.planNo),
+      'bidForm': extractValue(searchResult.bidForm),
+      'bidOpenId': '',
+      'isInternet': extractValue(searchResult.isInternet)
+    });
+    const detailUrl = 'https://muasamcong.mpi.gov.vn/web/guest/contractor-selection?' + qs.toString();
+
+    let detailData = null;
+    let bidOnlineData = null;
+    const captureResponse = async (r) => {
+      try {
+        const ct = (r.headers()['content-type'] || '').toLowerCase();
+        if (r.status() !== 200) return;
+        const url = r.url();
+        if (!ct.includes('application/json')) return;
+        const json = await r.json();
+        if (!detailData && url.includes('lcnt_tbmt_ttc_ldt')) {
+          detailData = json;
+        }
+        // Capture bid online data (contains reofferPrice for online bidding results)
+        if (!bidOnlineData && url.includes('bidonline/get')) {
+          const jstr = JSON.stringify(json);
+          if (jstr.length > 200) bidOnlineData = json;
+        }
+      } catch {}
+    };
+    page.on('response', captureResponse);
+    await page.goto(detailUrl, { waitUntil: 'networkidle', timeout: 15000 });
+    await page.waitForTimeout(3000);
+
+    page.removeListener('response', captureResponse);
+
+    // Extract from lcnt_tbmt_ttc_ldt detail data
+    if (detailData) {
+      if (detailData.bidoPreNotifyContractorResult) {
+        const r = detailData.bidoPreNotifyContractorResult;
+        const p = r.giaTrungThau || r.winningPrice || r.resultPrice || r.price || null;
+        if (p) return res.json({ giaTrungThau: p, nhaThauTrung: r.contractorName || r.winningBidder || r.winnerName || '', found: true, source: 'bidoPreNotifyContractorResult' });
+      }
+      if (detailData.bidoInvBiddingDTO && detailData.bidoInvBiddingDTO.bidContractorResultList) {
+        const w = detailData.bidoInvBiddingDTO.bidContractorResultList.find(c => c.isWinner || c.result === 'win' || c.giaTrungThau)
+               || detailData.bidoInvBiddingDTO.bidContractorResultList[0];
+        const p = w && (w.giaTrungThau || w.winningPrice || w.price);
+        if (p) return res.json({ giaTrungThau: p, nhaThauTrung: w.contractorName || w.winningBidder || '', found: true, source: 'bidoInvBiddingDTO' });
+      }
+    }
+
+    // Extract from bid online data (online bidding re-offer results)
+    if (bidOnlineData) {
+      const bodyStr = JSON.stringify(bidOnlineData);
+      const priceMatch = bodyStr.match(/"reofferPrice"\s*:\s*(\d+)/i)
+                     || bodyStr.match(/"price"\s*:\s*(\d{6,10})/i)
+                     || bodyStr.match(/"giaTrungThau"\s*:\s*(\d+)/i);
+      const nameMatch = bodyStr.match(/"contractorName"\s*:\s*"([^"]+)"/i);
+      if (priceMatch) {
+        const price = parseInt(priceMatch[1]);
+        if (price > 100000 && price < 9999999999 && price !== 434639350) {
+          return res.json({ giaTrungThau: price, nhaThauTrung: nameMatch ? nameMatch[1] : '', found: true, source: 'bidOnline' });
+        }
+      }
+    }
+
+    return res.json({ giaTrungThau: null, nhaThauTrung: null, found: false, error: 'Chưa có kết quả thầu công bố trên cổng thông tin' });
+  } catch (error) {
+    console.error('Fetch bid result error:', error);
+    return res.status(500).json({ error: 'Lỗi kết nối đến trang đấu thầu: ' + error.message });
+  } finally {
+    if (browser) await browser.close();
+  }
+});
+
+// --- Auto-fetch bid result for a project ---
+app.post('/api/projects/:id/fetch-bid-result', auth, adminOnly, async (req, res) => {
+  const data = readData(PROJ_FILE);
+  const idx = data.projects.findIndex(p => p.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Không tìm thấy dự án' });
+  const project = data.projects[idx];
+  const ibCode = project.projectInfo?.maDauThau;
+  if (!ibCode) return res.status(400).json({ error: 'Dự án chưa có mã đấu thầu (IB)' });
+
+  try {
+    const fetchRes = await fetch(`http://localhost:${PORT}/api/fetch-bid-result/${encodeURIComponent(ibCode)}`, {
+      headers: { 'Cookie': req.headers.cookie || '' }
+    });
+    const result = await fetchRes.json();
+
+    if (result.found && result.giaTrungThau) {
+      project.giaTrungThau = result.giaTrungThau;
+      project.nhaThauTrung = result.nhaThauTrung || null;
+      project.bidResultFetchedAt = new Date().toISOString();
+      project.bidResultFetchError = null;
+      // Auto-detect win/lose by comparing winning contractor with project suppliers
+      if (result.nhaThauTrung) {
+        const winnerNorm = normalizeSupplierName(result.nhaThauTrung);
+        if (!winnerNorm) {
+          // Masked name (**********) = đang xét thầu, chưa có kết quả
+          project.ketQuaTrungThau = null;
+        } else {
+          const supplierNames = (project.items || []).map(i => normalizeSupplierName(i.nhaCungCap || '')).filter(Boolean);
+          project.ketQuaTrungThau = (supplierNames.length > 0 && supplierNames.some(s => s === winnerNorm || s.includes(winnerNorm) || winnerNorm.includes(s))) ? 'win' : 'lose';
+        }
+      } else {
+        project.ketQuaTrungThau = null;
+      }
+    } else {
+      project.bidResultFetchedAt = new Date().toISOString();
+      project.bidResultFetchError = result.error || 'Không tìm thấy kết quả thầu';
+    }
+    project.updatedAt = new Date().toISOString();
+    writeData(PROJ_FILE, data);
+    return res.json(project);
+  } catch (error) {
+    project.bidResultFetchedAt = new Date().toISOString();
+    project.bidResultFetchError = 'Lỗi kết nối: ' + error.message;
+    project.updatedAt = new Date().toISOString();
+    writeData(PROJ_FILE, data);
+    return res.status(500).json({ error: project.bidResultFetchError });
   }
 });
 
@@ -514,12 +1100,23 @@ app.get('/share/:id', (req, res) => {
   h += '<tr style="border-top:2px solid #1a3a5c"><td style="font-weight:700">Lợi nhuận ròng</td><td class="n pr hl">' + (loiNhuanRong >= 0 ? '' : '-') + fmt(Math.abs(loiNhuanRong)) + ' ₫</td></tr>';
   h += '<tr><td>Tỷ lệ LNR / Vốn</td><td class="n pr hl">' + (tiLeLNRVon >= 0 ? '' : '-') + Math.abs(tiLeLNRVon).toFixed(1) + '%</td></tr></table>';
 
-  if (info.noiDungTrinh) {
-    h += '<h3>IV. Nội dung trình</h3>';
-    h += '<div style="border:1px solid #d0d5dd;border-radius:4px;padding:10px 14px;margin:8px 0;font-size:13px;line-height:1.6;white-space:pre-wrap">' + esc(info.noiDungTrinh) + '</div>';
+  let secIdx = 0;
+  if (p.ketQuaTrungThau) {
+    h += '<h3>' + ['IV','V','VI'][secIdx] + '. Kết quả thầu</h3><table class="s">';
+    const krLabels = { win: 'Trúng thầu', lose: 'Trượt thầu' };
+    h += '<tr><td>Kết quả</td><td class="n" style="font-weight:600;color:' + (p.ketQuaTrungThau === 'win' ? '#27ae60' : '#e74c3c') + '">' + (krLabels[p.ketQuaTrungThau] || p.ketQuaTrungThau) + '</td></tr>';
+    if (p.giaTrungThau) h += '<tr><td>Giá trúng thầu</td><td class="n hl">' + fmt(p.giaTrungThau) + ' ₫</td></tr>';
+    h += '</table>';
+    secIdx++;
   }
 
-  h += '<h3>V. Thông tin ký duyệt</h3>';
+  if (info.noiDungTrinh) {
+    h += '<h3>' + ['IV','V','VI'][secIdx] + '. Nội dung trình</h3>';
+    h += '<div style="border:1px solid #d0d5dd;border-radius:4px;padding:10px 14px;margin:8px 0;font-size:13px;line-height:1.6;white-space:pre-wrap">' + esc(info.noiDungTrinh) + '</div>';
+    secIdx++;
+  }
+
+  h += '<h3>' + ['IV','V','VI'][secIdx] + '. Thông tin ký duyệt</h3>';
   const statusLabels = { draft: 'Dự thảo', pending: 'Chờ duyệt', approved: 'Đã duyệt', rejected: 'Không duyệt' };
   const statusClasses = { draft: 'status-draft', pending: 'status-pending', approved: 'status-approved', rejected: 'status-rejected' };
   const st = p.status || 'draft';
