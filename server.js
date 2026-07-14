@@ -986,9 +986,6 @@ app.post('/api/projects/:id/fetch-bid-result', auth, adminOnly, async (req, res)
           project.ketQuaTrungThau = (supplierNames.length > 0 && supplierNames.some(s => s === winnerNorm || s.includes(winnerNorm) || winnerNorm.includes(s))) ? 'win' : 'lose';
         }
       }
-      } else {
-        project.ketQuaTrungThau = null;
-      }
     } else {
       project.bidResultFetchedAt = new Date().toISOString();
       project.bidResultFetchError = result.error || 'Không tìm thấy kết quả thầu';
