@@ -156,6 +156,11 @@ for (let i = 2; i < rows2.length; i++) {
   // Parse supplier names (may be comma-separated)
   const supplierNames = supplierRaw ? String(supplierRaw).split(/[,;\n\r]+/).map(s => s.trim()).filter(Boolean) : [];
 
+  // Determine bid closing date (from r[15] or fallback)
+  const closingDateRaw = String(r[15] || '').trim();
+  const closingDate = closingDateRaw || now;
+  const dateStr = closingDate.includes('T') ? closingDate.split('T')[0] : (closingDate.length >= 10 ? closingDate.substring(0,10) : now.split('T')[0]);
+
   // Create project
   const now = new Date().toISOString();
   const project = {
@@ -164,14 +169,18 @@ for (let i = 2; i < rows2.length; i++) {
     createdAt: now,
     updatedAt: now,
     status: 'approved',
+    approvedBy: 'Bùi Minh Tuấn',
+    approvedAt: closingDate,
     projectInfo: {
       tenCongTrinh: `${fieldName}${investor ? ' - ' + investor : ''}`,
       maDauThau: ibCode,
       benMoiThau: investor || '',
       diaDiem: '',
-      nguoiLap: 'Hệ thống',
-      ngayLap: now.split('T')[0],
-      thoiGianDongThau: '',
+      nguoiLap: 'Bùi Thị Minh Tâm',
+      nguoiDuyet: 'Bùi Minh Tuấn',
+      ngayLap: dateStr,
+      ngayDuyet: dateStr,
+      thoiGianDongThau: closingDate,
     },
     items: [{
       id: 'i1',

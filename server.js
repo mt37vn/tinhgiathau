@@ -12,6 +12,7 @@ const DATA_DIR = path.join(__dirname, 'data');
 const PROJ_FILE = path.join(DATA_DIR, 'projects.json');
 const USER_FILE = path.join(DATA_DIR, 'users.json');
 const SUPPLIER_FILE = path.join(DATA_DIR, 'suppliers.json');
+const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -25,6 +26,7 @@ app.use(session({
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(PROJ_FILE)) fs.writeFileSync(PROJ_FILE, JSON.stringify({ projects: [] }, null, 2));
 if (!fs.existsSync(SUPPLIER_FILE)) fs.writeFileSync(SUPPLIER_FILE, JSON.stringify({ suppliers: [] }, null, 2));
+if (!fs.existsSync(CONFIG_FILE)) fs.writeFileSync(CONFIG_FILE, JSON.stringify({ companyName: 'CÔNG TY CỔ PHẦN THÔNG TIN HAPRO' }, null, 2));
 // Sync existing suppliers from projects on startup
 try {
   const existingProj = JSON.parse(fs.readFileSync(PROJ_FILE, 'utf-8'));
@@ -209,6 +211,7 @@ function computeSupplierStats() {
           status: proj.status,
           ketQuaTrungThau: kr || null,
           giaTrungThau: proj.giaTrungThau || null,
+          xepHang: proj.xepHang || extractXepHang(proj.items) || null,
           updatedAt: proj.updatedAt
         });
       }
@@ -502,6 +505,19 @@ app.delete('/api/users/:id', auth, adminOnly, (req, res) => {
   res.json({ ok: true });
 });
 
+// --- Settings ---
+app.get('/api/settings', (req, res) => {
+  if (!req.session.user) return res.status(401).json({ error: 'Chưa đăng nhập' });
+  const config = readData(CONFIG_FILE);
+  res.json({ companyName: config.companyName || '' });
+});
+app.put('/api/settings', auth, adminOnly, (req, res) => {
+  const config = readData(CONFIG_FILE);
+  if (req.body.companyName !== undefined) config.companyName = req.body.companyName;
+  writeData(CONFIG_FILE, config);
+  res.json({ companyName: config.companyName });
+});
+
 // --- Projects ---
 app.get('/api/projects', auth, (req, res) => {
   const data = readData(PROJ_FILE);
@@ -516,7 +532,9 @@ app.get('/api/projects', auth, (req, res) => {
     giaTrungThau: p.giaTrungThau || null,
     nhaThauTrung: p.nhaThauTrung || null,
     bidPrice: p.bidPrice || null,
-    stepCode: p.stepCode || null
+    stepCode: p.stepCode || null,
+    stepCodeLabel: getStepCodeLabel(p.stepCode),
+    xepHang: p.xepHang || extractXepHang(p.items)
   })));
 });
 
@@ -524,7 +542,11 @@ app.get('/api/projects/:id', auth, (req, res) => {
   const data = readData(PROJ_FILE);
   const project = data.projects.find(p => p.id === req.params.id);
   if (!project) return res.status(404).json({ error: 'Không tìm thấy' });
-  res.json(project);
+  res.json({
+    ...project,
+    stepCodeLabel: getStepCodeLabel(project.stepCode),
+    xepHang: project.xepHang || extractXepHang(project.items)
+  });
 });
 
 app.post('/api/projects', auth, (req, res) => {
@@ -954,10 +976,18 @@ app.get('/api/fetch-bid-result/:ibCode', auth, async (req, res) => {
         if (p) return res.json({ bidPrice, giaTrungThau: p, nhaThauTrung: r.contractorName || r.winningBidder || r.winnerName || '', found: true, source: 'bidoPreNotifyContractorResult', projectInfo: searchProjInfo });
       }
       if (detailData.bidoInvBiddingDTO && detailData.bidoInvBiddingDTO.bidContractorResultList) {
-        const w = detailData.bidoInvBiddingDTO.bidContractorResultList.find(c => c.isWinner || c.result === 'win' || c.giaTrungThau)
-               || detailData.bidoInvBiddingDTO.bidContractorResultList[0];
+        const list = detailData.bidoInvBiddingDTO.bidContractorResultList;
+        const w = list.find(c => c.isWinner || c.result === 'win' || c.giaTrungThau)
+               || list[0];
         const p = w && (w.giaTrungThau || w.winningPrice || w.price);
-        if (p) return res.json({ bidPrice, giaTrungThau: p, nhaThauTrung: w.contractorName || w.winningBidder || '', found: true, source: 'bidoInvBiddingDTO', projectInfo: searchProjInfo });
+        if (p) {
+          const contractorResultList = list.map(c => ({
+            contractorName: c.contractorName || c.winningBidder || '',
+            price: c.giaTrungThau || c.winningPrice || c.price || null,
+            isWinner: !!c.isWinner
+          }));
+          return res.json({ bidPrice, giaTrungThau: p, nhaThauTrung: w.contractorName || w.winningBidder || '', contractorResultList, found: true, source: 'bidoInvBiddingDTO', projectInfo: searchProjInfo });
+        }
       }
     }
 
@@ -1019,12 +1049,27 @@ app.post('/api/projects/:id/fetch-bid-result', auth, adminOnly, async (req, res)
         if (result.projectInfo.diaDiem) project.projectInfo.diaDiem = result.projectInfo.diaDiem;
         project.projectInfo.portalFetchedAt = new Date().toISOString();
       }
-      // Auto-detect win/lose by comparing winning contractor with project suppliers
+      // Auto-detect win/lose by comparing winning contractor with company name from config
       if (result.nhaThauTrung && project.ketQuaTrungThau == null) {
-        const winnerNorm = normalizeSupplierName(result.nhaThauTrung);
-        if (winnerNorm) {
-          const supplierNames = (project.items || []).map(i => normalizeSupplierName(i.nhaCungCap || '')).filter(Boolean);
-          project.ketQuaTrungThau = (supplierNames.length > 0 && supplierNames.some(s => s === winnerNorm || s.includes(winnerNorm) || winnerNorm.includes(s))) ? 'win' : 'lose';
+        const cfg = readData(CONFIG_FILE);
+        const companyNorm = normalizeSupplierName(cfg.companyName || '');
+        if (companyNorm) {
+          const winnerNorm = normalizeSupplierName(result.nhaThauTrung);
+          project.ketQuaTrungThau = (winnerNorm && (winnerNorm === companyNorm || winnerNorm.includes(companyNorm) || companyNorm.includes(winnerNorm))) ? 'win' : 'lose';
+        }
+      }
+      // Extract company's bid price from contractor list (portal ranking data)
+      if (result.contractorResultList && Array.isArray(result.contractorResultList)) {
+        const cfg = readData(CONFIG_FILE);
+        const companyNorm = normalizeSupplierName(cfg.companyName || '');
+        if (companyNorm) {
+          const ourEntry = result.contractorResultList.find(c => {
+            const nameNorm = normalizeSupplierName(c.contractorName || '');
+            return nameNorm && (nameNorm === companyNorm || nameNorm.includes(companyNorm) || companyNorm.includes(nameNorm));
+          });
+          if (ourEntry) {
+            if (ourEntry.price != null) project.giaChaoCongTy = ourEntry.price;
+          }
         }
       }
     } else {
@@ -1043,6 +1088,25 @@ app.post('/api/projects/:id/fetch-bid-result', auth, adminOnly, async (req, res)
   }
 });
 
+function getStepCodeLabel(code) {
+  const labels = {
+    'notify-contractor-step-4-kqlcnt': 'Đã có kết quả thầu',
+    'reoffer-price-step-1': 'Đang chờ kết quả'
+  };
+  return labels[code] || code || '';
+}
+
+function extractXepHang(items) {
+  if (!items) return null;
+  for (const item of items) {
+    if (item.ghiChu) {
+      const m = String(item.ghiChu).match(/Xếp\s*hạng\s*:\s*(\d+\s*\/\s*\d+)/i);
+      if (m) return m[1];
+    }
+  }
+  return null;
+}
+
 function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function fmt(n) { if (n === 0 || !n) return '0'; return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
 function toDateStr(s) { if (!s) return ''; const d = new Date(s); if (isNaN(d)) return s; const dd = String(d.getDate()).padStart(2,'0'); const mm = String(d.getMonth()+1).padStart(2,'0'); const yyyy = d.getFullYear(); return dd+'/'+mm+'/'+yyyy; }
@@ -1051,6 +1115,8 @@ function toDateTimeStr(s) { if (!s) return ''; const d = new Date(s); if (isNaN(
 app.get('/share/:id', (req, res) => {
   const data = readData(PROJ_FILE);
   const p = data.projects.find(pr => pr.id === req.params.id);
+  const cfg = readData(CONFIG_FILE);
+  const companyName = cfg.companyName || 'CÔNG TY CỔ PHẦN THÔNG TIN HAPRO';
   if (!p) return res.status(404).send('<h1>Không tìm thấy dự án</h1>');
   const info = p.projectInfo || {};
   const params = p.params || {};
@@ -1094,7 +1160,7 @@ app.get('/share/:id', (req, res) => {
   h += '.status-badge{display:inline-block;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.3px}.status-draft{background:#e8e8e8;color:#666}.status-pending{background:#fff3cd;color:#856404}.status-approved{background:#d4edda;color:#155724}.status-rejected{background:#f8d7da;color:#721c24}';
   h += '@media print{body{margin:0 auto;max-width:100%;padding:0}button{display:none}}</style></head><body>';
 
-  h += '<h1>CÔNG TY CỔ PHẦN THÔNG TIN HAPRO</h1><h2>ĐỀ XUẤT GIÁ DỰ THẦU</h2>';
+  h += '<h1>' + esc(companyName) + '</h1><h2>ĐỀ XUẤT GIÁ DỰ THẦU</h2>';
   h += '<h3>I. Thông tin chung</h3><table class="i">';
   h += '<tr><td>Tên công trình / Dự án</td><td>' + esc(info.tenCongTrinh || p.name) + '</td></tr>';
   if (info.maDauThau) h += '<tr><td>Mã đấu thầu (IB)</td><td>' + esc(info.maDauThau) + '</td></tr>';

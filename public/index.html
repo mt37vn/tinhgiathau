@@ -26,6 +26,7 @@ body{font-family:'Segoe UI',sans-serif;background:#eef2f7;color:#2c3e50;font-siz
 .project-bar .pb-recent-list li .r-icon{color:#2a5a8c;flex-shrink:0}
 .project-bar .pb-recent-list li .r-name{flex:1;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .project-bar .pb-recent-list li .r-time{font-size:11px;color:#aaa;white-space:nowrap;flex-shrink:0}
+.project-bar .pb-recent-list li .r-rank{font-size:11px;font-weight:600;color:#2a5a8c;white-space:nowrap;flex-shrink:0;margin-left:2px}
 .project-bar .pb-recent-list li.active{background:#d4e4f7;font-weight:600}
 .project-bar .pb-status{font-size:12px;color:#888;text-align:right;display:flex;justify-content:space-between;align-items:center}
 .btn{padding:6px 16px;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:500;transition:all .2s;white-space:nowrap}
@@ -141,6 +142,7 @@ table .td-num input{text-align:right}
       <span class="auth-role" id="roleDisplay"></span>
       <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" onclick="showChangePassword()">🔑 Đổi mật khẩu</button>
       <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" id="userMgmtBtn" onclick="showUserManagement()">👥 Nhân viên</button>
+      <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" id="settingsBtn" onclick="showSettings()">⚙️</button>
       <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" onclick="showSupplierList()">🏭 Nhà cung cấp</button>
       <span style="width:1px;height:20px;background:rgba(255,255,255,.2);display:inline-block;margin:0 4px"></span>
       <button class="btn btn-danger btn-sm" onclick="doLogout()">Đăng xuất</button>
@@ -258,7 +260,7 @@ table .td-num input{text-align:right}
         </div>
         <div class="form-group" id="bidResultGroup" style="display:none;margin-top:8px;border-top:1px dashed #d0d5dd;padding-top:8px">
           <label style="font-weight:700;color:#1a3a5c">Kết quả thầu</label>
-          <div style="display:flex;gap:8px;margin-bottom:4px">
+          <div style="display:flex;gap:8px;margin-bottom:6px">
             <div style="flex:1;background:#f0f4f8;border-radius:4px;padding:6px 10px">
               <div style="font-size:10px;color:#888">Giá chào</div>
               <div id="bidResultGiaChao" style="font-size:13px;font-weight:600;color:#333">—</div>
@@ -271,6 +273,14 @@ table .td-num input{text-align:right}
               <div style="font-size:10px;color:#888">Trạng thái</div>
               <div id="bidResultStepCode" style="font-size:11px;font-weight:500;color:#888">—</div>
             </div>
+            <div style="flex:1;background:#f0f4f8;border-radius:4px;padding:6px 10px">
+              <div style="font-size:10px;color:#888">Xếp hạng</div>
+              <div id="bidResultXepHang" style="font-size:13px;font-weight:700;color:#1a3a5c">—</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;background:#f0f4f8;border-radius:4px;padding:6px 10px;margin-bottom:6px">
+            <div style="font-size:11px;color:#888;white-space:nowrap">Tên nhà thầu trúng</div>
+            <div id="bidResultNhaThauTrung" style="font-size:13px;font-weight:600;color:#1a3a5c;flex:1">—</div>
           </div>
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
             <select id="ketQuaTrungThau" onchange="onBidResultChange()" style="flex:1;padding:7px 10px;border:1px solid #d0d5dd;border-radius:4px;font-size:14px;background:#f5f7fa">
@@ -278,9 +288,8 @@ table .td-num input{text-align:right}
               <option value="win">✅ Trúng thầu</option>
               <option value="lose">❌ Trượt thầu</option>
             </select>
-            <input type="text" id="giaTrungThau" placeholder="Giá trúng thầu" oninput="formatCurrencyInput(this)" style="flex:1;padding:7px 10px;border:1px solid #d0d5dd;border-radius:4px;font-size:14px;background:#f5f7fa">
+            <input type="hidden" id="giaTrungThau">
           </div>
-          <input type="text" id="nhaThauTrung" placeholder="Nhà thầu trúng (tự động)" readonly style="width:100%;padding:7px 10px;border:1px solid #d0d5dd;border-radius:4px;font-size:13px;background:#f5f7fa;margin-bottom:6px;color:#888">
           <div style="display:flex;gap:4px;flex-wrap:wrap">
             <button id="btnFetchBidResult" class="btn btn-primary btn-sm" onclick="fetchBidResult()" style="font-size:12px">🔍 Lấy kết quả tự động</button>
             <span id="bidResultFetchStatus" style="font-size:11px;color:#888;line-height:28px"></span>
@@ -488,6 +497,18 @@ table .td-num input{text-align:right}
   </div>
 </div>
 
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal" style="min-width:450px">
+    <h3>⚙️ Cài đặt hệ thống</h3>
+    <div class="form-group"><label>Tên công ty</label><input type="text" id="settingsCompanyName" placeholder="Tên công ty"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeSettings()">Hủy</button>
+      <button class="btn btn-primary" onclick="saveSettings()">Lưu</button>
+    </div>
+  </div>
+</div>
+
 <!-- Supplier List Modal -->
 <div class="modal-overlay" id="supplierModal">
   <div class="modal" style="min-width:800px;max-width:900px;max-height:80vh;overflow-y:auto">
@@ -634,6 +655,7 @@ function updateAuthUI() {
   document.getElementById('userDisplay').textContent = currentUser.fullName;
   document.getElementById('roleDisplay').textContent = currentUser.role === 'admin' ? '(Admin)' : '(Nhân viên)';
   document.getElementById('userMgmtBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
+  document.getElementById('settingsBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
 }
 
 function initApp() { populateThoiGianDongThau(new Date()); loadProjectList(); applyPermissions(); }
@@ -744,6 +766,25 @@ async function deleteUser(id) {
   catch (e) { showToast(e.message, 'error'); }
 }
 
+// --- Settings ---
+async function showSettings() {
+  try {
+    const cfg = await api('GET', '/api/settings');
+    document.getElementById('settingsCompanyName').value = cfg.companyName || '';
+    document.getElementById('settingsModal').className = 'modal-overlay show';
+  } catch (e) { showToast(e.message, 'error'); }
+}
+function closeSettings() { document.getElementById('settingsModal').className = 'modal-overlay'; }
+async function saveSettings() {
+  const companyName = document.getElementById('settingsCompanyName').value.trim();
+  if (!companyName) { showToast('Nhập tên công ty', 'error'); return; }
+  try {
+    await api('PUT', '/api/settings', { companyName });
+    closeSettings();
+    showToast('Đã lưu cài đặt', 'success');
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
 // --- Project flow ---
 async function submitProject() {
   if (!currentProject) return;
@@ -850,7 +891,8 @@ async function loadProjectList() {
       const bm = p.benMoiThau ? ' - ' + escHtml(p.benMoiThau) : '';
       const dn = (ibStr ? '['+ibStr+'] ' : '') + escHtml(p.name) + bm;
       const ts = p.thoiGianDongThau ? toDateStr(p.thoiGianDongThau) : toDateTimeStr(p.updatedAt||p.createdAt);
-      li.innerHTML = '<span class="r-icon">' + icon + '</span><span class="r-name">' + dn + '</span><span class="r-time">' + ts + '</span>';
+      const xh = p.xepHang ? '<span class="r-rank">#' + escHtml(p.xepHang) + '</span>' : '';
+      li.innerHTML = '<span class="r-icon">' + icon + '</span><span class="r-name">' + dn + '</span><span class="r-time">' + ts + '</span>' + xh;
       li.addEventListener('click', () => selectProjectById(p.id));
       list.appendChild(li);
     }
@@ -1609,7 +1651,7 @@ async function showSupplierDetail(id) {
     if (projects.length === 0) {
       html += '<div style="text-align:center;padding:16px;color:#888">Chưa có dự án nào</div>';
     } else {
-      html += '<div class="table-wrap"><table><thead><tr><th>Dự án</th><th>Mã IB</th><th>Trạng thái</th><th>Kết quả thầu</th><th>Giá trúng thầu</th></tr></thead><tbody>';
+      html += '<div class="table-wrap"><table><thead><tr><th>Dự án</th><th>Mã IB</th><th>Trạng thái</th><th>Kết quả thầu</th><th>Xếp hạng</th><th>Giá trúng thầu</th></tr></thead><tbody>';
       const statusLabels = { draft:'Dự thảo', pending:'Chờ duyệt', approved:'Đã duyệt', rejected:'Không duyệt' };
       const krLabels = { win: '✅ Trúng thầu', lose: '❌ Trượt thầu' };
       for (const proj of projects) {
@@ -1620,6 +1662,7 @@ async function showSupplierDetail(id) {
           + '<td>' + escHtml(proj.maDauThau) + '</td>'
           + '<td>' + (statusLabels[proj.status] || proj.status) + '</td>'
           + '<td style="color:' + krColor + ';font-weight:600">' + kr + '</td>'
+          + '<td class="td-num">' + (proj.xepHang || '—') + '</td>'
           + '<td class="td-num">' + (proj.giaTrungThau ? formatNumber(proj.giaTrungThau) + ' ₫' : '—') + '</td>'
           + '</tr>';
       }
@@ -1757,10 +1800,11 @@ async function fetchBidResult() {
   try {
     const project = await api('POST', '/api/projects/' + currentProject.id + '/fetch-bid-result');
     document.getElementById('giaTrungThau').value = project.giaTrungThau ? formatNumber(project.giaTrungThau) : '';
-    document.getElementById('nhaThauTrung').value = project.nhaThauTrung || '';
-    document.getElementById('bidResultGiaChao').textContent = project.bidPrice ? formatNumber(project.bidPrice) + ' ₫' : '—';
+    document.getElementById('bidResultNhaThauTrung').textContent = project.nhaThauTrung || '—';
+    document.getElementById('bidResultGiaChao').textContent = project.giaChaoCongTy ? formatNumber(project.giaChaoCongTy) + ' ₫' : '—';
     document.getElementById('bidResultGiaTrung').textContent = project.giaTrungThau ? formatNumber(project.giaTrungThau) + ' ₫' : '—';
-    document.getElementById('bidResultStepCode').textContent = project.stepCode || (project.source === 'bidOnline' ? 'Chào giá trực tuyến' : project.found ? 'Có kết quả' : '—');
+    document.getElementById('bidResultStepCode').textContent = project.stepCodeLabel || project.stepCode || (project.source === 'bidOnline' ? 'Chào giá trực tuyến' : project.found ? 'Có kết quả' : '—');
+    document.getElementById('bidResultXepHang').textContent = project.xepHang || '—';
     if (project.giaTrungThau) {
       statusEl.style.color = '#2980b9';
       showToast('Đã lấy thông tin từ cổng đấu thầu', 'info');
@@ -1813,11 +1857,13 @@ loadProjectToForm = function(p) {
   const kr = p.ketQuaTrungThau || '';
   document.getElementById('ketQuaTrungThau').value = kr;
   document.getElementById('giaTrungThau').value = p.giaTrungThau ? formatNumber(p.giaTrungThau) : '';
-  document.getElementById('nhaThauTrung').value = p.nhaThauTrung || '';
+  document.getElementById('bidResultNhaThauTrung').textContent = p.nhaThauTrung || '—';
   document.getElementById('bidResultGroup').style.display = p.status === 'approved' ? '' : 'none';
-  document.getElementById('bidResultGiaChao').textContent = p.bidPrice ? formatNumber(p.bidPrice) + ' ₫' : (p.items?.length > 0 ? formatNumber(p.items.reduce((s,i) => s + (i.donGiaChao||0), 0)) + ' ₫' : '—');
+  const giaChaoFromItems = p.items?.length > 0 ? p.items.reduce((s,i) => s + (i.donGiaChao||0), 0) : 0;
+  document.getElementById('bidResultGiaChao').textContent = p.giaChaoCongTy ? formatNumber(p.giaChaoCongTy) + ' ₫' : (giaChaoFromItems ? formatNumber(giaChaoFromItems) + ' ₫' : '—');
   document.getElementById('bidResultGiaTrung').textContent = p.giaTrungThau ? formatNumber(p.giaTrungThau) + ' ₫' : '—';
-  document.getElementById('bidResultStepCode').textContent = p.stepCode || (p.source === 'bidOnline' ? 'Chào giá trực tuyến' : p.found ? 'Có kết quả' : '—');
+  document.getElementById('bidResultStepCode').textContent = p.stepCodeLabel || p.stepCode || (p.source === 'bidOnline' ? 'Chào giá trực tuyến' : p.found ? 'Có kết quả' : '—');
+  document.getElementById('bidResultXepHang').textContent = p.xepHang || '—';
   const statusEl = document.getElementById('bidResultFetchStatus');
   if (p.bidResultFetchedAt && p.giaTrungThau) {
     const prefix = p.nhaThauTrung ? '📄 Nhà thầu: ' + esc(p.nhaThauTrung) + ' — ' : '';
@@ -1848,7 +1894,7 @@ clearForm = function() {
   _origClearForm();
   document.getElementById('ketQuaTrungThau').value = '';
   document.getElementById('giaTrungThau').value = '';
-  document.getElementById('nhaThauTrung').value = '';
+  document.getElementById('bidResultNhaThauTrung').textContent = '—';
   document.getElementById('bidResultGroup').style.display = 'none';
   document.getElementById('bidResultFetchStatus').textContent = '';
 };
