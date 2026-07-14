@@ -506,7 +506,7 @@ app.delete('/api/users/:id', auth, adminOnly, (req, res) => {
 app.get('/api/projects', auth, (req, res) => {
   const data = readData(PROJ_FILE);
   res.json(data.projects.map(p => ({
-    id: p.id, name: p.name, createdAt: p.createdAt, updatedAt: p.updatedAt,
+    id: p.id, name: (p.projectInfo && p.projectInfo.tenCongTrinh) || p.name || '', createdAt: p.createdAt, updatedAt: p.updatedAt,
     status: p.status || 'draft', approvedBy: p.approvedBy || null, approvedAt: p.approvedAt || null,
     createdBy: p.createdBy || null,
     maDauThau: (p.projectInfo && p.projectInfo.maDauThau) || null,
