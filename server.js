@@ -857,13 +857,31 @@ app.get('/api/fetch-bid-result/:ibCode', auth, async (req, res) => {
       return res.status(404).json({ error: 'Không tìm thấy thông tin cho mã IB: ' + ibCode });
     }
 
+    // Extract project info from search result
+    const searchProjInfo = {
+      tenCongTrinh: extractValue(searchResult.bidName),
+      benMoiThau: extractValue(searchResult.investorName),
+      thoiGianDongThau: extractValue(searchResult.bidCloseDate),
+      diaDiem: '',
+    };
+    // Try to get location from search result
+    if (searchResult.locations?.length > 0) {
+      const loc = searchResult.locations[0];
+      const parts = [];
+      if (loc.wardName) parts.push(loc.wardName);
+      if (loc.districtName) parts.push(loc.districtName);
+      if (loc.provName) parts.push(loc.provName);
+      searchProjInfo.diaDiem = parts.join(', ');
+    }
+
     // Check search result for bid winning data (avoids unnecessary detail page navigation)
     if (searchResult.bidWinningPrice && Array.isArray(searchResult.bidWinningPrice) && searchResult.bidWinningPrice.length > 0) {
       return res.json({
         giaTrungThau: extractPrice(searchResult.bidWinningPrice),
         nhaThauTrung: extractValue(searchResult.contractorName),
         found: true,
-        source: 'searchResult'
+        source: 'searchResult',
+        projectInfo: searchProjInfo
       });
     }
 
@@ -924,13 +942,13 @@ app.get('/api/fetch-bid-result/:ibCode', auth, async (req, res) => {
       if (detailData.bidoPreNotifyContractorResult) {
         const r = detailData.bidoPreNotifyContractorResult;
         const p = r.giaTrungThau || r.winningPrice || r.resultPrice || r.price || null;
-        if (p) return res.json({ giaTrungThau: p, nhaThauTrung: r.contractorName || r.winningBidder || r.winnerName || '', found: true, source: 'bidoPreNotifyContractorResult' });
+        if (p) return res.json({ giaTrungThau: p, nhaThauTrung: r.contractorName || r.winningBidder || r.winnerName || '', found: true, source: 'bidoPreNotifyContractorResult', projectInfo: searchProjInfo });
       }
       if (detailData.bidoInvBiddingDTO && detailData.bidoInvBiddingDTO.bidContractorResultList) {
         const w = detailData.bidoInvBiddingDTO.bidContractorResultList.find(c => c.isWinner || c.result === 'win' || c.giaTrungThau)
                || detailData.bidoInvBiddingDTO.bidContractorResultList[0];
         const p = w && (w.giaTrungThau || w.winningPrice || w.price);
-        if (p) return res.json({ giaTrungThau: p, nhaThauTrung: w.contractorName || w.winningBidder || '', found: true, source: 'bidoInvBiddingDTO' });
+        if (p) return res.json({ giaTrungThau: p, nhaThauTrung: w.contractorName || w.winningBidder || '', found: true, source: 'bidoInvBiddingDTO', projectInfo: searchProjInfo });
       }
     }
 
@@ -944,12 +962,12 @@ app.get('/api/fetch-bid-result/:ibCode', auth, async (req, res) => {
       if (priceMatch) {
         const price = parseInt(priceMatch[1]);
         if (price > 100000 && price < 9999999999 && price !== 434639350) {
-          return res.json({ giaTrungThau: price, nhaThauTrung: nameMatch ? nameMatch[1] : '', found: true, source: 'bidOnline' });
+          return res.json({ giaTrungThau: price, nhaThauTrung: nameMatch ? nameMatch[1] : '', found: true, source: 'bidOnline', projectInfo: searchProjInfo });
         }
       }
     }
 
-    return res.json({ giaTrungThau: null, nhaThauTrung: null, found: false, error: 'Chưa có kết quả thầu công bố trên cổng thông tin' });
+    return res.json({ giaTrungThau: null, nhaThauTrung: null, found: false, error: 'Chưa có kết quả thầu công bố trên cổng thông tin', projectInfo: searchProjInfo });
   } catch (error) {
     console.error('Fetch bid result error:', error);
     return res.status(500).json({ error: 'Lỗi kết nối đến trang đấu thầu: ' + error.message });
@@ -978,6 +996,15 @@ app.post('/api/projects/:id/fetch-bid-result', auth, adminOnly, async (req, res)
       project.nhaThauTrung = result.nhaThauTrung || null;
       project.bidResultFetchedAt = new Date().toISOString();
       project.bidResultFetchError = null;
+      // Update project info from portal search result
+      if (result.projectInfo) {
+        if (!project.projectInfo) project.projectInfo = {};
+        if (result.projectInfo.tenCongTrinh) project.projectInfo.tenCongTrinh = result.projectInfo.tenCongTrinh;
+        if (result.projectInfo.benMoiThau) project.projectInfo.benMoiThau = result.projectInfo.benMoiThau;
+        if (result.projectInfo.thoiGianDongThau) project.projectInfo.thoiGianDongThau = result.projectInfo.thoiGianDongThau;
+        if (result.projectInfo.diaDiem) project.projectInfo.diaDiem = result.projectInfo.diaDiem;
+        project.projectInfo.portalFetchedAt = new Date().toISOString();
+      }
       // Auto-detect win/lose by comparing winning contractor with project suppliers
       if (result.nhaThauTrung && project.ketQuaTrungThau == null) {
         const winnerNorm = normalizeSupplierName(result.nhaThauTrung);
