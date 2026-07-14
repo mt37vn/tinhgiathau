@@ -999,7 +999,10 @@ app.post('/api/projects/:id/fetch-bid-result', auth, adminOnly, async (req, res)
       // Update project info from portal search result
       if (result.projectInfo) {
         if (!project.projectInfo) project.projectInfo = {};
-        if (result.projectInfo.tenCongTrinh) project.projectInfo.tenCongTrinh = result.projectInfo.tenCongTrinh;
+        if (result.projectInfo.tenCongTrinh) {
+          project.projectInfo.tenCongTrinh = result.projectInfo.tenCongTrinh;
+          project.name = result.projectInfo.tenCongTrinh;
+        }
         if (result.projectInfo.benMoiThau) project.projectInfo.benMoiThau = result.projectInfo.benMoiThau;
         if (result.projectInfo.thoiGianDongThau) project.projectInfo.thoiGianDongThau = result.projectInfo.thoiGianDongThau;
         if (result.projectInfo.diaDiem) project.projectInfo.diaDiem = result.projectInfo.diaDiem;
