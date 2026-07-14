@@ -258,6 +258,20 @@ table .td-num input{text-align:right}
         </div>
         <div class="form-group" id="bidResultGroup" style="display:none;margin-top:8px;border-top:1px dashed #d0d5dd;padding-top:8px">
           <label style="font-weight:700;color:#1a3a5c">Kết quả thầu</label>
+          <div style="display:flex;gap:8px;margin-bottom:4px">
+            <div style="flex:1;background:#f0f4f8;border-radius:4px;padding:6px 10px">
+              <div style="font-size:10px;color:#888">Giá chào</div>
+              <div id="bidResultGiaChao" style="font-size:13px;font-weight:600;color:#333">—</div>
+            </div>
+            <div style="flex:1;background:#f0f4f8;border-radius:4px;padding:6px 10px">
+              <div style="font-size:10px;color:#888">Giá trúng thầu</div>
+              <div id="bidResultGiaTrung" style="font-size:13px;font-weight:600;color:#27ae60">—</div>
+            </div>
+            <div style="flex:1;background:#f0f4f8;border-radius:4px;padding:6px 10px">
+              <div style="font-size:10px;color:#888">Trạng thái</div>
+              <div id="bidResultStepCode" style="font-size:11px;font-weight:500;color:#888">—</div>
+            </div>
+          </div>
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
             <select id="ketQuaTrungThau" onchange="onBidResultChange()" style="flex:1;padding:7px 10px;border:1px solid #d0d5dd;border-radius:4px;font-size:14px;background:#f5f7fa">
               <option value="">-- Chưa có kết quả --</option>
@@ -267,9 +281,9 @@ table .td-num input{text-align:right}
             <input type="text" id="giaTrungThau" placeholder="Giá trúng thầu" oninput="formatCurrencyInput(this)" style="flex:1;padding:7px 10px;border:1px solid #d0d5dd;border-radius:4px;font-size:14px;background:#f5f7fa">
           </div>
           <input type="text" id="nhaThauTrung" placeholder="Nhà thầu trúng (tự động)" readonly style="width:100%;padding:7px 10px;border:1px solid #d0d5dd;border-radius:4px;font-size:13px;background:#f5f7fa;margin-bottom:6px;color:#888">
-          <div style="display:flex;gap:8px;align-items:center">
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
             <button id="btnFetchBidResult" class="btn btn-primary btn-sm" onclick="fetchBidResult()" style="font-size:12px">🔍 Lấy kết quả tự động</button>
-            <span id="bidResultFetchStatus" style="font-size:11px;color:#888"></span>
+            <span id="bidResultFetchStatus" style="font-size:11px;color:#888;line-height:28px"></span>
           </div>
         </div>
       </div>
@@ -1744,10 +1758,10 @@ async function fetchBidResult() {
     const project = await api('POST', '/api/projects/' + currentProject.id + '/fetch-bid-result');
     document.getElementById('giaTrungThau').value = project.giaTrungThau ? formatNumber(project.giaTrungThau) : '';
     document.getElementById('nhaThauTrung').value = project.nhaThauTrung || '';
+    document.getElementById('bidResultGiaChao').textContent = project.bidPrice ? formatNumber(project.bidPrice) + ' ₫' : '—';
+    document.getElementById('bidResultGiaTrung').textContent = project.giaTrungThau ? formatNumber(project.giaTrungThau) + ' ₫' : '—';
+    document.getElementById('bidResultStepCode').textContent = project.stepCode || (project.source === 'bidOnline' ? 'Chào giá trực tuyến' : project.found ? 'Có kết quả' : '—');
     if (project.giaTrungThau) {
-      const isSearch = project.bidResultFetchError === null && !project.ketQuaTrungThau;
-      const prefix = project.nhaThauTrung ? '📄 Nhà thầu: ' + project.nhaThauTrung + ' — ' : '';
-      statusEl.textContent = prefix + '💰 ' + formatNumber(project.giaTrungThau) + ' ₫';
       statusEl.style.color = '#2980b9';
       showToast('Đã lấy thông tin từ cổng đấu thầu', 'info');
     } else if (project.bidResultFetchError) {
@@ -1801,6 +1815,9 @@ loadProjectToForm = function(p) {
   document.getElementById('giaTrungThau').value = p.giaTrungThau ? formatNumber(p.giaTrungThau) : '';
   document.getElementById('nhaThauTrung').value = p.nhaThauTrung || '';
   document.getElementById('bidResultGroup').style.display = p.status === 'approved' ? '' : 'none';
+  document.getElementById('bidResultGiaChao').textContent = p.bidPrice ? formatNumber(p.bidPrice) + ' ₫' : (p.items?.length > 0 ? formatNumber(p.items.reduce((s,i) => s + (i.donGiaChao||0), 0)) + ' ₫' : '—');
+  document.getElementById('bidResultGiaTrung').textContent = p.giaTrungThau ? formatNumber(p.giaTrungThau) + ' ₫' : '—';
+  document.getElementById('bidResultStepCode').textContent = p.stepCode || (p.source === 'bidOnline' ? 'Chào giá trực tuyến' : p.found ? 'Có kết quả' : '—');
   const statusEl = document.getElementById('bidResultFetchStatus');
   if (p.bidResultFetchedAt && p.giaTrungThau) {
     const prefix = p.nhaThauTrung ? '📄 Nhà thầu: ' + esc(p.nhaThauTrung) + ' — ' : '';

@@ -512,7 +512,11 @@ app.get('/api/projects', auth, (req, res) => {
     maDauThau: (p.projectInfo && p.projectInfo.maDauThau) || null,
     benMoiThau: (p.projectInfo && p.projectInfo.benMoiThau) || null,
     thoiGianDongThau: (p.projectInfo && p.projectInfo.thoiGianDongThau) || null,
-    ketQuaTrungThau: p.ketQuaTrungThau || null
+    ketQuaTrungThau: p.ketQuaTrungThau || null,
+    giaTrungThau: p.giaTrungThau || null,
+    nhaThauTrung: p.nhaThauTrung || null,
+    bidPrice: p.bidPrice || null,
+    stepCode: p.stepCode || null
   })));
 });
 
@@ -874,11 +878,16 @@ app.get('/api/fetch-bid-result/:ibCode', auth, async (req, res) => {
       searchProjInfo.diaDiem = parts.join(', ');
     }
 
+    // Common response data
+    const bidPrice = extractPrice(searchResult.bidPrice || searchResult.bidEstimatePrice || searchResult.planItemPrice);
+
     // Check search result for bid winning data (avoids unnecessary detail page navigation)
     if (searchResult.bidWinningPrice && Array.isArray(searchResult.bidWinningPrice) && searchResult.bidWinningPrice.length > 0) {
       return res.json({
+        bidPrice,
         giaTrungThau: extractPrice(searchResult.bidWinningPrice),
         nhaThauTrung: extractValue(searchResult.contractorName),
+        stepCode: extractValue(searchResult.stepCode),
         found: true,
         source: 'searchResult',
         projectInfo: searchProjInfo
@@ -942,13 +951,13 @@ app.get('/api/fetch-bid-result/:ibCode', auth, async (req, res) => {
       if (detailData.bidoPreNotifyContractorResult) {
         const r = detailData.bidoPreNotifyContractorResult;
         const p = r.giaTrungThau || r.winningPrice || r.resultPrice || r.price || null;
-        if (p) return res.json({ giaTrungThau: p, nhaThauTrung: r.contractorName || r.winningBidder || r.winnerName || '', found: true, source: 'bidoPreNotifyContractorResult', projectInfo: searchProjInfo });
+        if (p) return res.json({ bidPrice, giaTrungThau: p, nhaThauTrung: r.contractorName || r.winningBidder || r.winnerName || '', found: true, source: 'bidoPreNotifyContractorResult', projectInfo: searchProjInfo });
       }
       if (detailData.bidoInvBiddingDTO && detailData.bidoInvBiddingDTO.bidContractorResultList) {
         const w = detailData.bidoInvBiddingDTO.bidContractorResultList.find(c => c.isWinner || c.result === 'win' || c.giaTrungThau)
                || detailData.bidoInvBiddingDTO.bidContractorResultList[0];
         const p = w && (w.giaTrungThau || w.winningPrice || w.price);
-        if (p) return res.json({ giaTrungThau: p, nhaThauTrung: w.contractorName || w.winningBidder || '', found: true, source: 'bidoInvBiddingDTO', projectInfo: searchProjInfo });
+        if (p) return res.json({ bidPrice, giaTrungThau: p, nhaThauTrung: w.contractorName || w.winningBidder || '', found: true, source: 'bidoInvBiddingDTO', projectInfo: searchProjInfo });
       }
     }
 
@@ -962,12 +971,12 @@ app.get('/api/fetch-bid-result/:ibCode', auth, async (req, res) => {
       if (priceMatch) {
         const price = parseInt(priceMatch[1]);
         if (price > 100000 && price < 9999999999 && price !== 434639350) {
-          return res.json({ giaTrungThau: price, nhaThauTrung: nameMatch ? nameMatch[1] : '', found: true, source: 'bidOnline', projectInfo: searchProjInfo });
+          return res.json({ bidPrice, giaTrungThau: price, nhaThauTrung: nameMatch ? nameMatch[1] : '', found: true, source: 'bidOnline', projectInfo: searchProjInfo });
         }
       }
     }
 
-    return res.json({ giaTrungThau: null, nhaThauTrung: null, found: false, error: 'Chưa có kết quả thầu công bố trên cổng thông tin', projectInfo: searchProjInfo });
+    return res.json({ bidPrice, giaTrungThau: null, nhaThauTrung: null, found: false, error: 'Chưa có kết quả thầu công bố trên cổng thông tin', projectInfo: searchProjInfo });
   } catch (error) {
     console.error('Fetch bid result error:', error);
     return res.status(500).json({ error: 'Lỗi kết nối đến trang đấu thầu: ' + error.message });
@@ -994,6 +1003,8 @@ app.post('/api/projects/:id/fetch-bid-result', auth, adminOnly, async (req, res)
     if (result.found && result.giaTrungThau) {
       project.giaTrungThau = result.giaTrungThau;
       project.nhaThauTrung = result.nhaThauTrung || null;
+      if (result.bidPrice != null) project.bidPrice = result.bidPrice;
+      if (result.stepCode) project.stepCode = result.stepCode;
       project.bidResultFetchedAt = new Date().toISOString();
       project.bidResultFetchError = null;
       // Update project info from portal search result
