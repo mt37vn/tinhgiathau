@@ -979,15 +979,13 @@ app.post('/api/projects/:id/fetch-bid-result', auth, adminOnly, async (req, res)
       project.bidResultFetchedAt = new Date().toISOString();
       project.bidResultFetchError = null;
       // Auto-detect win/lose by comparing winning contractor with project suppliers
-      if (result.nhaThauTrung) {
+      if (result.nhaThauTrung && project.ketQuaTrungThau == null) {
         const winnerNorm = normalizeSupplierName(result.nhaThauTrung);
-        if (!winnerNorm) {
-          // Masked name (**********) = đang xét thầu, chưa có kết quả
-          project.ketQuaTrungThau = null;
-        } else {
+        if (winnerNorm) {
           const supplierNames = (project.items || []).map(i => normalizeSupplierName(i.nhaCungCap || '')).filter(Boolean);
           project.ketQuaTrungThau = (supplierNames.length > 0 && supplierNames.some(s => s === winnerNorm || s.includes(winnerNorm) || winnerNorm.includes(s))) ? 'win' : 'lose';
         }
+      }
       } else {
         project.ketQuaTrungThau = null;
       }
