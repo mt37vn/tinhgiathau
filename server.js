@@ -823,6 +823,11 @@ app.get('/api/fetch-bidding-info/:ibCode', auth, async (req, res) => {
       return res.status(404).json({ error: 'Không tìm thấy thông tin cho mã IB: ' + ibCode });
     }
 
+    const bidForm = extractValue(responseData.bidForm);
+    const processApply = extractValue(responseData.processApply);
+    const isRutGon = bidForm === 'CGTTRG' || bidForm === 'CHTRG' || (bidForm && (bidForm.toLowerCase().includes('rút gọn') || bidForm.toLowerCase().includes('rut gon')));
+    const bidFormLabels = { 'CGTTRG': 'Chào hàng cạnh tranh rút gọn', 'CHTRG': 'Chào hàng cạnh tranh rút gọn', 'DTRR': 'Đấu thầu rộng rãi', 'DTHC': 'Đấu thầu hạn chế', 'DTTH': 'Đấu thầu thường', 'CHTH': 'Chào hàng cạnh tranh thường', 'MSTT': 'Mua sắm trực tiếp', 'CDH': 'Chỉ định thầu' };
+    const bidFormLabel = bidFormLabels[bidForm] || ('Hình thức: ' + bidForm);
     const result = {
       tenCongTrinh: extractValue(responseData.bidName),
       benMoiThau: extractValue(responseData.investorName),
@@ -831,20 +836,38 @@ app.get('/api/fetch-bidding-info/:ibCode', auth, async (req, res) => {
       bidNo: extractValue(responseData.notifyNo || responseData.bidNo) || ibCode,
       diaDiem: '',
       giaTrungThau: extractPrice(responseData.bidWinningPrice),
-      nhaThauTrung: extractValue(responseData.contractorName)
+      nhaThauTrung: extractValue(responseData.contractorName),
+      bidForm,
+      bidFormLabel,
+      hinhThucLCNT: 'Hình thức LCNT: ' + bidFormLabel,
+      processApply,
+      isRutGon
     };
 
     // Step 2: Fetch detail page for location and construction time
+    let items = [];
     const tbmtId = extractValue(responseData.id);
     if (tbmtId) {
       try {
-        const detailUrl =
-          'https://muasamcong.mpi.gov.vn/web/guest/contractor-selection?' +
-          'p_p_id=egpportalcontractorselectionv2_WAR_egpportalcontractorselectionv2' +
-          '&p_p_lifecycle=0&p_p_state=normal&p_p_mode=view' +
-          '&_egpportalcontractorselectionv2_WAR_egpportalcontractorselectionv2_render=detail-v2' +
-          '&type=es-notify-contractor&step=tbmt' +
-          '&id=' + tbmtId + '&notifyId=' + tbmtId;
+        const qs = new URLSearchParams();
+        qs.set('p_p_id', 'egpportalcontractorselectionv2_WAR_egpportalcontractorselectionv2');
+        qs.set('p_p_lifecycle', '0');
+        qs.set('p_p_state', 'normal');
+        qs.set('p_p_mode', 'view');
+        qs.set('_egpportalcontractorselectionv2_WAR_egpportalcontractorselectionv2_render', 'detail-v2');
+        qs.set('type', 'es-notify-contractor');
+        qs.set('step', 'tbmt');
+        qs.set('id', tbmtId);
+        qs.set('notifyId', tbmtId);
+        // Pass through all available fields from search result
+        const passThroughParams = ['notifyNo','bidNo','stepCode','processApply','bidMode','planNo','bidForm','bidOpenId','inputResultId','bidPreOpenId','techReqId','bidPreNotifyResultId','pno','caseKHKQ','isInternet'];
+        for (const param of passThroughParams) {
+          const val = responseData[param];
+          if (val != null && val !== '' && String(val) !== 'undefined') {
+            qs.set(param, String(val));
+          }
+        }
+        const detailUrl = 'https://muasamcong.mpi.gov.vn/web/guest/contractor-selection?' + qs.toString();
 
         let detailData = null;
         const detailHandler = async (r) => {
@@ -861,6 +884,80 @@ app.get('/api/fetch-bidding-info/:ibCode', auth, async (req, res) => {
         await page.goto(detailUrl, { waitUntil: 'networkidle', timeout: 15000 });
         await page.waitForTimeout(3000);
         page.removeListener('response', detailHandler);
+
+        // Only parse items table for rút gọn packages (CGTTRG)
+        if (isRutGon) {
+        try {
+          items = await page.evaluate(() => {
+            // Find all table-expand tables
+            const allTables = document.querySelectorAll('table.table-expand');
+            // Look for the one inside card-body.item-table (Mẫu 02A)
+            for (const t of allTables) {
+              const wrapper = t.closest('.card-body.item-table, .item-table');
+              if (wrapper) {
+                const rows = t.querySelectorAll('tbody tr');
+                return Array.from(rows).map((row) => {
+                  const cells = row.querySelectorAll('td');
+                  if (cells.length < 4) return null;
+                  const clean = (cell) => (cell?.textContent || '').trim();
+                  const rawQty = clean(cells[3]).replace(/[.,\s]/g, '');
+                  return {
+                    tenHangHoa: clean(cells[1]),
+                    donViTinh: clean(cells[2]),
+                    soLuong: parseFloat(rawQty) || 1,
+                    ghiChu: clean(cells[9]),
+                    portalKyMaHieu: clean(cells[4]),
+                    portalNhanHieu: clean(cells[5]),
+                    portalHangSanXuat: clean(cells[6]),
+                    portalXuatXu: clean(cells[7]),
+                    portalNamSanXuat: clean(cells[8]),
+                    portalDiaDiemDuAn: clean(cells[10]),
+                    portalNgayGiaoSomNhat: clean(cells[11]),
+                    portalNgayGiaoMuonNhat: clean(cells[12]),
+                    portalYeuCauKhac: clean(cells[13])
+                  };
+                }).filter(Boolean);
+              }
+            }
+            // Fallback: any table-expand with enough columns
+            for (const t of allTables) {
+              const cells = t.querySelectorAll('thead th, thead td');
+              const headerTexts = Array.from(cells).map(c => (c.textContent || '').trim());
+              const hasItemHeader = headerTexts.some(h => h.includes('Danh mục hàng hóa') || h.includes('Đơn vị tính') || h.includes('Khối lượng'));
+              if (hasItemHeader || cells.length >= 10) {
+                const rows = t.querySelectorAll('tbody tr');
+                return Array.from(rows).map((row) => {
+                  const cells = row.querySelectorAll('td');
+                  if (cells.length < 4) return null;
+                  const clean = (cell) => (cell?.textContent || '').trim();
+                  const rawQty = clean(cells[3]).replace(/[.,\s]/g, '');
+                  return {
+                    tenHangHoa: clean(cells[1]),
+                    donViTinh: clean(cells[2]),
+                    soLuong: parseFloat(rawQty) || 1,
+                    ghiChu: clean(cells[9]),
+                    portalKyMaHieu: clean(cells[4]),
+                    portalNhanHieu: clean(cells[5]),
+                    portalHangSanXuat: clean(cells[6]),
+                    portalXuatXu: clean(cells[7]),
+                    portalNamSanXuat: clean(cells[8]),
+                    portalDiaDiemDuAn: clean(cells[10]),
+                    portalNgayGiaoSomNhat: clean(cells[11]),
+                    portalNgayGiaoMuonNhat: clean(cells[12]),
+                    portalYeuCauKhac: clean(cells[13])
+                  };
+                }).filter(Boolean);
+              }
+            }
+            return [];
+          });
+          console.log('[fetch-bidding-info] detailUrl:', detailUrl);
+          console.log('[fetch-bidding-info] items found:', items.length);
+        } catch (e) {
+          console.error('[fetch-bidding-info] items parse error:', e.message);
+          items = [];
+        }
+        } // end if (isRutGon)
 
         if (detailData) {
           // Extract địa điểm from bidpBidLocationList
@@ -888,6 +985,12 @@ app.get('/api/fetch-bidding-info/:ibCode', auth, async (req, res) => {
       }
     }
 
+    result.items = items;
+    if (isRutGon) {
+      result.itemsStatus = items.length > 0 ? 'fetched' : 'not-found';
+    } else {
+      result.itemsStatus = 'not-rut-gon';
+    }
     return res.json(result);
   } catch (error) {
     console.error('Fetch IB error:', error);
@@ -1418,16 +1521,37 @@ app.get('/share/:id', (req, res) => {
   h += '<tr><td>Tên công trình / Dự án</td><td>' + esc(info.tenCongTrinh || p.name) + '</td></tr>';
   if (info.maDauThau) h += '<tr><td>Mã đấu thầu (IB)</td><td>' + esc(info.maDauThau) + '</td></tr>';
   if (info.benMoiThau) h += '<tr><td>Bên mời thầu</td><td>' + esc(info.benMoiThau) + '</td></tr>';
+  var hinhThuc = info.hinhThucLCNT || '';
+  if (!hinhThuc && items && items.some(function(it) { return it.portalKyMaHieu || it.portalNhanHieu || it.portalHangSanXuat; })) {
+    hinhThuc = 'Hình thức LCNT: Chào hàng cạnh tranh rút gọn';
+  }
+  if (hinhThuc) h += '<tr><td>Hình thức LCNT</td><td>' + esc(hinhThuc) + '</td></tr>';
   if (info.diaDiem) h += '<tr><td>Địa điểm thi công</td><td>' + esc(info.diaDiem) + '</td></tr>';
 
   if (info.thoiGianDongThau) h += '<tr><td>Thời gian đóng thầu</td><td>' + esc(toDateTimeStr(info.thoiGianDongThau)) + '</td></tr>';
   h += '</table>';
 
-  h += '<h3>II. Danh mục hàng hóa</h3><table><tr><th>STT</th><th>Tên hàng hóa</th><th>Thông số kỹ thuật</th><th>ĐVT</th><th>SL</th><th>Đơn giá nhập</th><th>Giá nhập</th><th>Nhà cung cấp</th><th>Giá chào</th><th>Trọng số</th></tr>';
+  h += '<h3>II. Danh mục hàng hóa</h3><table><tr><th>STT</th><th>Tên hàng hóa</th><th>ĐVT</th><th>SL</th><th>Đơn giá nhập</th><th>Giá nhập</th><th>Nhà cung cấp</th><th>Giá chào</th><th>Trọng số</th></tr>';
   for (const item of items) {
     const gn = (item.soLuong || 0) * (item.donGiaNhap || 0);
     const dgc = tongTrongSo > 0 && (firstGiaNhap > 0 ? gn / firstGiaNhap : 0) > 0 ? Math.round(giaChaoToiThieu * (firstGiaNhap > 0 ? gn / firstGiaNhap : 0) / tongTrongSo) : 0;
-    h += '<tr><td>' + (item.stt || '') + '</td><td>' + esc(item.tenHangHoa) + '</td><td>' + esc(item.ghiChu || '') + '</td><td>' + esc(item.donViTinh) + '</td>';
+    // Build full item info: name + portal fields + specs
+    let nameCell = '<strong>' + esc(item.tenHangHoa) + '</strong>';
+    const infoLines = [];
+    if (item.portalNhanHieu && item.portalNhanHieu !== 'Không có') infoLines.push('Nhãn hiệu: ' + esc(item.portalNhanHieu));
+    if (item.portalHangSanXuat && item.portalHangSanXuat !== 'Không có') infoLines.push('Hãng SX: ' + esc(item.portalHangSanXuat));
+    if (item.portalKyMaHieu && item.portalKyMaHieu !== 'Không có') infoLines.push('Ký mã hiệu: ' + esc(item.portalKyMaHieu));
+    if (item.portalXuatXu && item.portalXuatXu !== 'Không có') infoLines.push('Xuất xứ: ' + esc(item.portalXuatXu));
+    if (item.portalNamSanXuat && item.portalNamSanXuat !== 'Không có') infoLines.push('Năm SX: ' + esc(item.portalNamSanXuat));
+    if (item.portalDiaDiemDuAn) infoLines.push('Địa điểm: ' + esc(item.portalDiaDiemDuAn));
+    if (item.ghiChu) infoLines.push('Thông số KT: ' + esc(item.ghiChu));
+    if (item.portalNgayGiaoSomNhat) infoLines.push('Giao sớm nhất: ' + esc(item.portalNgayGiaoSomNhat));
+    if (item.portalNgayGiaoMuonNhat) infoLines.push('Giao muộn nhất: ' + esc(item.portalNgayGiaoMuonNhat));
+    if (item.portalYeuCauKhac) infoLines.push('Yêu cầu khác: ' + esc(item.portalYeuCauKhac));
+    if (infoLines.length > 0) {
+      nameCell += '<br><small style="color:#444">' + infoLines.join('<br>') + '</small>';
+    }
+    h += '<tr><td>' + (item.stt || '') + '</td><td>' + nameCell + '</td><td>' + esc(item.donViTinh) + '</td>';
     h += '<td class="n">' + (item.soLuong || 0) + '</td><td class="n">' + fmt(item.donGiaNhap) + '</td>';
     h += '<td class="n">' + fmt(gn) + '</td><td>' + esc(item.nhaCungCap || '') + '</td>';
     const ts = firstGiaNhap > 0 ? gn / firstGiaNhap : 0;
@@ -1435,7 +1559,7 @@ app.get('/share/:id', (req, res) => {
   }
   let tongGN = 0, tongGC = 0;
   for (const item of items) { tongGN += (item.soLuong || 0) * (item.donGiaNhap || 0); const dgc2 = tongTrongSo > 0 && (firstGiaNhap > 0 ? (item.soLuong || 0) * (item.donGiaNhap || 0) / firstGiaNhap : 0) > 0 ? Math.round(giaChaoToiThieu * (firstGiaNhap > 0 ? (item.soLuong || 0) * (item.donGiaNhap || 0) / firstGiaNhap : 0) / tongTrongSo) : 0; tongGC += dgc2; }
-  h += '<tr style="background:#eef2f7;font-weight:600"><td colspan="4" style="text-align:right">Tổng cộng</td><td class="n"></td><td class="n"></td><td class="n">' + fmt(tongGN) + '</td><td></td><td class="n">' + fmt(tongGC) + '</td><td class="n"></td></tr>';
+  h += '<tr style="background:#eef2f7;font-weight:600"><td colspan="3" style="text-align:right">Tổng cộng</td><td class="n"></td><td class="n"></td><td class="n">' + fmt(tongGN) + '</td><td></td><td class="n">' + fmt(tongGC) + '</td><td class="n"></td></tr>';
   h += '</table>';
 
   h += '<h3>III. Hiệu quả dự án</h3><table class="s">';

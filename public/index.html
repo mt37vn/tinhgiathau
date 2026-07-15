@@ -61,6 +61,7 @@ table td input[readonly]{background:transparent;border-color:transparent;color:#
 table td input[readonly]:focus{box-shadow:none}
 table .td-num{text-align:right}
 table .td-num input{text-align:right}
+.portal-info-inline{font-size:11px;line-height:1.5;max-height:140px;overflow-y:auto;padding:3px 5px;color:#333;word-break:break-word}
 .split-panel{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 @media(max-width:900px){.split-panel{grid-template-columns:1fr}}
 .param-group{display:flex;flex-direction:column;gap:10px}
@@ -209,7 +210,7 @@ table .td-num input{text-align:right}
     <div class="card" id="projectInfoCard" style="margin-bottom:0">
       <h2>Thông tin dự án <span id="statusBadge" style="margin-left:8px"></span></h2>
       <div style="display:flex;flex-direction:column;gap:8px">
-        <div class="form-group">
+          <div class="form-group">
           <label>Mã đấu thầu (IB) <span style="color:#e74c3c">*</span></label>
           <div style="display:flex;gap:4px">
             <input type="text" id="maDauThau" oninput="onProjectInfoChange();checkDuplicateIB()" placeholder="Nhập mã đấu thầu" style="flex:1">
@@ -223,6 +224,10 @@ table .td-num input{text-align:right}
         <div class="form-group">
           <label>Bên mời thầu</label>
           <input type="text" id="benMoiThau" oninput="onProjectInfoChange()" placeholder="Nhập tên bên mời thầu">
+        </div>
+        <div class="form-group" id="hinhThucLCNT" style="display:none">
+          <label>Hình thức LCNT</label>
+          <input type="text" id="hinhThucLCNTInput" readonly>
         </div>
         <div class="form-group">
           <label>Thời gian đóng thầu</label>
@@ -307,7 +312,7 @@ table .td-num input{text-align:right}
           <tr>
             <th style="width:40px">STT</th>
             <th style="min-width:180px">Tên hàng hóa</th>
-            <th style="min-width:120px">Thông số kỹ thuật</th>
+            <th style="min-width:120px">Thông tin hàng hóa</th>
             <th style="width:70px">ĐVT</th>
             <th style="width:70px">Số lượng</th>
             <th style="width:130px">Đơn giá nhập</th>
@@ -916,7 +921,7 @@ async function loadProjectList() {
   const isOpen = p => !p.thoiGianDongThau || new Date(p.thoiGianDongThau) >= now;
   renderList('recentList', p => p.status === 'draft' && isOpen(p), '📄');
   const hasPending = renderList('pendingList', p => p.status === 'pending' && isOpen(p), '⏳');
-  const hasRejected = renderList('rejectedList', p => p.status === 'rejected' && isOpen(p), '✗');
+  const hasRejected = renderList('rejectedList', p => p.status === 'rejected', '✗');
   const hasApproved = renderList('approvedList', p => p.status === 'approved' && p.ketQuaTrungThau == null && (!p.thoiGianDongThau || new Date(p.thoiGianDongThau) >= now), '✓');
   const hasPendingResult = renderList('pendingResultList', p => p.ketQuaTrungThau == null && p.status !== 'pending' && p.status !== 'rejected', '⏳');
   const hasWin = renderList('winList', p => p.ketQuaTrungThau === 'win', '🏆');
@@ -1037,6 +1042,12 @@ function clearForm() {
   document.getElementById('ngayDuyet').value = '';
   document.getElementById('itemsBody').innerHTML = '';
   const el0 = document.getElementById('itemCount'); if (el0) el0.textContent = '0 mặt hàng';
+  document.getElementById('bidFormBadge') && (document.getElementById('bidFormBadge').style.display = 'none');
+  document.getElementById('hinhThucLCNT').style.display = 'none';
+  document.getElementById('hinhThucLCNTInput').value = '';
+  document.getElementById('hinhThucLCNTInput').dataset.label = '';
+  document.getElementById('hinhThucLCNTInput').dataset.rutgon = '0';
+  lockProjectPortalFields(false);
   document.getElementById('noiDungTrinh').value = '';
   document.getElementById('tiLeLNG').value = '';
   document.getElementById('phiDuThau').value = '';
@@ -1076,6 +1087,26 @@ function loadProjectToForm(p) {
   setThoiGianDongThau(info.thoiGianDongThau);
   document.getElementById('nguoiDuyet').value = info.nguoiDuyet || currentProject.approvedBy || '';
   document.getElementById('ngayDuyet').value = toDateStr(info.ngayDuyet) || (currentProject.approvedAt ? toDateStr(currentProject.approvedAt) : '');
+  // Restore Hình thức LCNT
+  const hlcntDiv = document.getElementById('hinhThucLCNT');
+  const hlcntInput = document.getElementById('hinhThucLCNTInput');
+  const hasPortalItems = !!(p.items && p.items.some(i => i.portalKyMaHieu || i.portalNhanHieu || i.portalHangSanXuat));
+  let savedLabel = info.hinhThucLCNT || info.bidForm || '';
+  if (!savedLabel && hasPortalItems) savedLabel = 'Chào hàng cạnh tranh rút gọn';
+  if (savedLabel) {
+    const text = savedLabel.startsWith('Hình thức') ? savedLabel : 'Hình thức LCNT: ' + savedLabel;
+    hlcntInput.value = text.replace('Hình thức LCNT: ', '');
+    hlcntInput.dataset.label = text;
+    hlcntInput.dataset.rutgon = (info.isRutGon || hasPortalItems) ? '1' : '0';
+    hlcntDiv.style.display = '';
+  } else {
+    hlcntInput.value = '';
+    hlcntInput.dataset.label = '';
+    hlcntInput.dataset.rutgon = '0';
+    hlcntDiv.style.display = 'none';
+  }
+  // Lock bid close time if project has auto-fetched portal data
+  lockProjectPortalFields(hasPortalItems);
   const params = p.params || {};
   document.getElementById('giaDuToan').value = params.giaDuToan ? formatNumber(params.giaDuToan) : '';
   document.getElementById('tiLeLNG').value = params.tiLeLNG != null && params.tiLeLNG !== '' ? params.tiLeLNG : '';
@@ -1101,18 +1132,61 @@ function addRowToTable(item) {
   const tbody = document.getElementById('itemsBody');
   const tr = document.createElement('tr');
   tr.dataset.id = item.id || crypto.randomUUID();
-  const canEdit = true;
+  const hasPortal = !!(item.portalKyMaHieu || item.portalHangSanXuat || item.portalNhanHieu ||
+                       item.portalXuatXu || item.portalNamSanXuat || item.portalDiaDiemDuAn ||
+                       item.portalNgayGiaoSomNhat || item.portalNgayGiaoMuonNhat || item.portalYeuCauKhac);
+  if (hasPortal) {
+    tr.dataset.portalFields = JSON.stringify({
+      ghiChu: item.ghiChu || '',
+      portalKyMaHieu: item.portalKyMaHieu || '',
+      portalNhanHieu: item.portalNhanHieu || '',
+      portalHangSanXuat: item.portalHangSanXuat || '',
+      portalXuatXu: item.portalXuatXu || '',
+      portalNamSanXuat: item.portalNamSanXuat || '',
+      portalDiaDiemDuAn: item.portalDiaDiemDuAn || '',
+      portalNgayGiaoSomNhat: item.portalNgayGiaoSomNhat || '',
+      portalNgayGiaoMuonNhat: item.portalNgayGiaoMuonNhat || '',
+      portalYeuCauKhac: item.portalYeuCauKhac || ''
+    });
+  }
+  // Portal-sourced items are locked for everyone; only price/supplier editable
+  const isAdmin = !!(currentUser && currentUser.role === 'admin');
+  const itemLocked = hasPortal;
+  const ro = (locked) => locked ? ' readonly' : '';
+
+  const nameCell = '<input class="ten-input" type="text" value="' + escHtml(item.tenHangHoa||'') + '" placeholder="Tên hàng hóa" oninput="onItemChange(this)" ' + ro(itemLocked) + ' style="width:100%">';
+
+  // "Thông tin hàng hóa" cell: full inline portal data, or editable input for manual items
+  let infoCell;
+  if (hasPortal) {
+    let h = '<div class="portal-info-inline">';
+    if (item.portalNhanHieu && item.portalNhanHieu !== 'Không có') h += '<b>Nhãn hiệu:</b> ' + escHtml(item.portalNhanHieu) + '<br>';
+    if (item.portalHangSanXuat && item.portalHangSanXuat !== 'Không có') h += '<b>Hãng SX:</b> ' + escHtml(item.portalHangSanXuat) + '<br>';
+    if (item.portalKyMaHieu && item.portalKyMaHieu !== 'Không có') h += '<b>Ký hiệu:</b> ' + escHtml(item.portalKyMaHieu) + '<br>';
+    if (item.portalXuatXu && item.portalXuatXu !== 'Không có') h += '<b>Xuất xứ:</b> ' + escHtml(item.portalXuatXu) + '<br>';
+    if (item.portalNamSanXuat && item.portalNamSanXuat !== 'Không có') h += '<b>Năm SX:</b> ' + escHtml(item.portalNamSanXuat) + '<br>';
+    if (item.ghiChu) h += '<b>Thông số KT:</b> ' + escHtml(item.ghiChu) + '<br>';
+    if (item.portalDiaDiemDuAn) h += '<b>Địa điểm:</b> ' + escHtml(item.portalDiaDiemDuAn) + '<br>';
+    if (item.portalNgayGiaoSomNhat) h += '<b>Giao sớm:</b> ' + escHtml(item.portalNgayGiaoSomNhat) + '<br>';
+    if (item.portalNgayGiaoMuonNhat) h += '<b>Giao muộn:</b> ' + escHtml(item.portalNgayGiaoMuonNhat) + '<br>';
+    if (item.portalYeuCauKhac) h += '<b>Yêu cầu khác:</b> ' + escHtml(item.portalYeuCauKhac) + '<br>';
+    h += '</div>';
+    infoCell = h;
+  } else {
+    infoCell = '<input class="thongso-input" type="text" value="' + escHtml(item.ghiChu||'') + '" placeholder="Thông tin hàng hóa" oninput="onItemChange(this)" ' + ro(itemLocked) + ' style="width:100%">';
+  }
+
   tr.innerHTML = '<td class="td-center"><input class="stt-input" type="text" value="' + (item.stt || tbody.children.length + 1) + '" readonly style="text-align:center"></td>'
-    + '<td><input class="ten-input" type="text" value="' + escHtml(item.tenHangHoa||'') + '" placeholder="Tên hàng hóa" oninput="onItemChange(this)" ' + (canEdit?'':'readonly') + '></td>'
-    + '<td><input class="thongso-input" type="text" value="' + escHtml(item.ghiChu||'') + '" placeholder="Thông số kỹ thuật" oninput="onItemChange(this)" ' + (canEdit?'':'readonly') + '></td>'
-    + '<td><input class="dvt-input" type="text" value="' + escHtml(item.donViTinh||'Gói') + '" placeholder="ĐVT" oninput="onItemChange(this)" ' + (canEdit?'':'readonly') + '></td>'
-    + '<td class="td-num"><input class="sl-input" type="number" value="' + (item.soLuong||1) + '" min="0" step="1" oninput="onItemChange(this)" ' + (canEdit?'':'readonly') + '></td>'
-    + '<td class="td-num"><input class="dg-input" type="text" value="' + (item.donGiaNhap?formatNumber(item.donGiaNhap):'') + '" placeholder="0" oninput="formatCurrencyInput(this);onItemChange(this)" style="text-align:right" ' + (canEdit?'':'readonly') + '></td>'
+    + '<td>' + nameCell + '</td>'
+    + '<td>' + infoCell + '</td>'
+    + '<td><input class="dvt-input" type="text" value="' + escHtml(item.donViTinh||'Gói') + '" placeholder="ĐVT" oninput="onItemChange(this)" ' + ro(itemLocked) + '></td>'
+    + '<td class="td-num"><input class="sl-input" type="number" value="' + (item.soLuong||1) + '" min="0" step="1" oninput="onItemChange(this)" ' + ro(itemLocked) + '></td>'
+    + '<td class="td-num"><input class="dg-input" type="text" value="' + (item.donGiaNhap?formatNumber(item.donGiaNhap):'') + '" placeholder="0" oninput="formatCurrencyInput(this);onItemChange(this)" style="text-align:right"></td>'
     + '<td class="td-num"><input class="gn-input" type="text" readonly value="' + (item.giaNhap?formatNumber(item.giaNhap):'0') + '" style="text-align:right"></td>'
-    + '<td><input class="ncc-input" type="text" list="nccDatalist" value="' + escHtml(item.nhaCungCap||'') + '" placeholder="Nhà cung cấp" oninput="onItemChange(this);onNccInput(this)" ' + (canEdit?'':'readonly') + '></td>'
+    + '<td><input class="ncc-input" type="text" list="nccDatalist" value="' + escHtml(item.nhaCungCap||'') + '" placeholder="Nhà cung cấp" oninput="onItemChange(this);onNccInput(this)"></td>'
     + '<td class="td-num"><input class="dgc-input" type="text" readonly value="' + (item.donGiaChao?formatNumber(item.donGiaChao):'0') + '" style="text-align:right"></td>'
     + '<td class="td-num"><input class="ts-input" type="text" readonly value="' + (item.trongSo||1) + '" style="text-align:right"></td>'
-    + '<td>' + (canEdit?'<button class="btn-icon danger" onclick="deleteRow(this)" title="Xóa">✕</button>':'') + '</td>';
+    + '<td>' + (isAdmin || !itemLocked ? '<button class="btn-icon danger" onclick="deleteRow(this)" title="Xóa">✕</button>' : '') + '</td>';
   const actionRow = tbody.querySelector('.action-row');
   if (actionRow) tbody.insertBefore(tr, actionRow);
   else tbody.appendChild(tr);
@@ -1187,10 +1261,36 @@ function removeRow() {
   // Find last item row (before action-row and total-row)
   const itemRows = [...tbody.children].filter(tr => tr.querySelector('.ten-input'));
   if (itemRows.length <= 1) { showToast('Cần ít nhất 1 mặt hàng', 'error'); return; }
-  itemRows[itemRows.length - 1].remove();
+  const lastRow = itemRows[itemRows.length - 1];
+  const isAdmin = !!(currentUser && currentUser.role === 'admin');
+  if (lastRow.dataset.portalFields && !isAdmin) {
+    showToast('Không thể xóa mặt hàng từ cổng đấu thầu', 'error');
+    return;
+  }
+  lastRow.remove();
   const el = document.getElementById('itemCount'); if (el) el.textContent = countItemRows() + ' mặt hàng';
   calculate(); scheduleAutoSave();
 }
+function lockProjectPortalFields(locked) {
+  // Portal-sourced project fields
+  var fields = ['tenCongTrinh', 'benMoiThau', 'diaDiem', 'giaDuToan'];
+  fields.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) {
+      if (locked) el.setAttribute('readonly', '');
+      else el.removeAttribute('readonly');
+    }
+  });
+  // Time selects
+  ['tgdtGio', 'tgdtNgay', 'tgdtThang', 'tgdtNam'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) {
+      if (locked) el.setAttribute('disabled', '');
+      else el.removeAttribute('disabled');
+    }
+  });
+}
+
 function deleteRow(btn) {
   const tr = btn.closest('tr');
   const tbody = document.getElementById('itemsBody');
@@ -1203,18 +1303,38 @@ function deleteRow(btn) {
 
 function getItemsFromTable() {
   const tbody = document.getElementById('itemsBody');
-  return [...tbody.children].filter(tr => tr.querySelector('.ten-input')).map((tr, idx) => ({
-    id: tr.dataset.id, stt: idx + 1,
-    tenHangHoa: tr.querySelector('.ten-input').value,
-    ghiChu: tr.querySelector('.thongso-input').value,
-    donViTinh: tr.querySelector('.dvt-input').value,
-    soLuong: parseFloat(tr.querySelector('.sl-input').value) || 0,
-    donGiaNhap: parseNumber(tr.querySelector('.dg-input').value),
-    giaNhap: parseNumber(tr.querySelector('.gn-input').value),
-    nhaCungCap: tr.querySelector('.ncc-input').value,
-    donGiaChao: parseNumber(tr.querySelector('.dgc-input').value),
-    trongSo: parseFloat(tr.querySelector('.ts-input').value) || 0
-  }));
+  return [...tbody.children].filter(tr => tr.querySelector('.ten-input')).map((tr, idx) => {
+    // Get ghiChu: from portal dataset if available, otherwise from thongso-input
+    let ghiChu = '';
+    if (tr.dataset.portalFields) {
+      try {
+        const pf = JSON.parse(tr.dataset.portalFields);
+        ghiChu = pf.ghiChu || '';
+      } catch (e) {}
+    } else {
+      const thongsoEl = tr.querySelector('.thongso-input');
+      ghiChu = thongsoEl ? thongsoEl.value : '';
+    }
+    const item = {
+      id: tr.dataset.id, stt: idx + 1,
+      tenHangHoa: tr.querySelector('.ten-input').value,
+      ghiChu,
+      donViTinh: tr.querySelector('.dvt-input').value,
+      soLuong: parseFloat(tr.querySelector('.sl-input').value) || 0,
+      donGiaNhap: parseNumber(tr.querySelector('.dg-input').value),
+      giaNhap: parseNumber(tr.querySelector('.gn-input').value),
+      nhaCungCap: tr.querySelector('.ncc-input').value,
+      donGiaChao: parseNumber(tr.querySelector('.dgc-input').value),
+      trongSo: parseFloat(tr.querySelector('.ts-input').value) || 0
+    };
+    if (tr.dataset.portalFields) {
+      try {
+        const pf = JSON.parse(tr.dataset.portalFields);
+        Object.assign(item, pf);
+      } catch (e) {}
+    }
+    return item;
+  });
 }
 
 function onItemChange(el) { calculate(); setFormDirty(); scheduleAutoSave(); }
@@ -1421,7 +1541,9 @@ function collectFormData() {
       ngayLap: fromDateStr(document.getElementById('ngayLap').value),
       thoiGianDongThau: getThoiGianDongThau(),
       nguoiDuyet: document.getElementById('nguoiDuyet').value,
-      ngayDuyet: fromDateStr(document.getElementById('ngayDuyet').value)
+      ngayDuyet: fromDateStr(document.getElementById('ngayDuyet').value),
+      hinhThucLCNT: document.getElementById('hinhThucLCNTInput').dataset.label || '',
+      isRutGon: document.getElementById('hinhThucLCNTInput').dataset.rutgon === '1'
     },
     items: items,
     params: {
@@ -1504,10 +1626,47 @@ async function fetchBiddingInfo() {
     if (data.thoiGianDongThau) setThoiGianDongThau(data.thoiGianDongThau);
     if (data.giaDuToan) document.getElementById('giaDuToan').value = formatNumber(data.giaDuToan);
     if (data.diaDiem) document.getElementById('diaDiem').value = data.diaDiem;
+
+    // Show Hình thức LCNT below Bên mời thầu
+    const hlcntDiv = document.getElementById('hinhThucLCNT');
+    const hlcntInput = document.getElementById('hinhThucLCNTInput');
+    if (data.hinhThucLCNT) {
+      hlcntInput.value = data.hinhThucLCNT.replace('Hình thức LCNT: ', '');
+      hlcntInput.dataset.label = data.hinhThucLCNT;
+      hlcntInput.dataset.rutgon = data.isRutGon ? '1' : '0';
+      hlcntDiv.style.display = '';
+    } else {
+      hlcntInput.value = '';
+      hlcntInput.dataset.label = '';
+      hlcntInput.dataset.rutgon = '0';
+      hlcntDiv.style.display = 'none';
+    }
+
+    // Lock portal-fetched project fields (all info from portal is read-only)
+    var fetchSucceeded = !!(data.tenCongTrinh || data.benMoiThau);
+    lockProjectPortalFields(fetchSucceeded);
+
+    if (data.items && data.items.length > 0) {
+      const portalItems = data.items.map((item, idx) => ({
+        id: crypto.randomUUID(),
+        stt: idx + 1,
+        ...item,
+        donGiaNhap: 0,
+        giaNhap: 0,
+        nhaCungCap: '',
+        donGiaChao: 0,
+        trongSo: 1
+      }));
+      renderItems(portalItems);
+      showToast('Đã tìm thấy ' + portalItems.length + ' mặt hàng từ cổng đấu thầu', 'success');
+    } else if (data.itemsStatus === 'not-rut-gon') {
+      showToast('Gói ' + (data.bidFormLabel || 'này') + ' — tải file đính kèm để xem danh mục hàng hóa', 'warning');
+    } else {
+      showToast('Đã tìm thấy thông tin dự án', 'success');
+    }
     calculate();
     setFormDirty();
     scheduleAutoSave();
-    showToast('Đã tìm thấy thông tin dự án', 'success');
   } catch (e) {
     showToast(e.message, 'error');
   } finally {
@@ -1943,7 +2102,7 @@ loadProjectToForm = function(p) {
   document.getElementById('ketQuaTrungThau').value = kr;
   document.getElementById('giaTrungThau').value = p.giaTrungThau ? formatNumber(p.giaTrungThau) : '';
   document.getElementById('bidResultNhaThauTrung').textContent = p.nhaThauTrung || '—';
-  document.getElementById('bidResultGroup').style.display = p.status === 'approved' ? '' : 'none';
+  document.getElementById('bidResultGroup').style.display = '';
   // Giá chào thực tế: ưu tiên giaChaoCongTy (portal hoặc nhập tay) > giaTrungThau nếu thắng
   const actualBidPrice = p.giaChaoCongTy || (p.ketQuaTrungThau === 'win' ? p.giaTrungThau : 0);
   const sourceEl = document.getElementById('bidResultGiaChaoSource');
