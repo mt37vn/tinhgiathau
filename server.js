@@ -269,36 +269,7 @@ function computeSupplierStats() {
       }
     }
 
-    const w1 = 0.6, w2 = 0.2, w3 = 0.2;
     const discountScore = avgDiscountRate != null ? Math.min(avgDiscountRate, 100) : 0;
-
-    let priceScore = 0;
-    if (totalItems > 0 && sumDonGiaNhap > 0) {
-      const supplierAvgPrice = sumDonGiaNhap / totalItems;
-      let totalIndustryAvg = 0, avgCount = 0;
-      const allPrices = {};
-      for (const proj of pData.projects) {
-        if (!proj.items) continue;
-        for (const item of proj.items) {
-          if (item.donGiaNhap && item.tenHangHoa) {
-            const key = normalizeSupplierName(item.tenHangHoa);
-            if (!allPrices[key]) allPrices[key] = [];
-            allPrices[key].push(item.donGiaNhap);
-          }
-        }
-      }
-      for (const key of Object.keys(itemHistory)) {
-        if (allPrices[key]) {
-          const avg = allPrices[key].reduce((s, p) => s + p, 0) / allPrices[key].length;
-          totalIndustryAvg += avg;
-          avgCount++;
-        }
-      }
-      if (avgCount > 0 && totalIndustryAvg > 0) {
-        const industryAvg = totalIndustryAvg / avgCount;
-        priceScore = Math.max(0, (1 - supplierAvgPrice / industryAvg) * 100);
-      }
-    }
 
     const maxProjects = Math.max(1, sData.suppliers.reduce((max, sup) => {
       const supAliases = [sup.name, ...(sup.aliases || [])].map(a => normalizeSupplierName(a));
@@ -309,7 +280,23 @@ function computeSupplierStats() {
     }, 1));
     const experienceScore = (projectIds.size / maxProjects) * 100;
 
-    const score = w1 * discountScore + w2 * priceScore + w3 * experienceScore;
+    const maxWinCount = Math.max(1, sData.suppliers.reduce((max, sup) => {
+      const supAliases = [sup.name, ...(sup.aliases || [])].map(a => normalizeSupplierName(a));
+      let count = 0;
+      for (const proj of pData.projects) {
+        if (!proj.items || proj.ketQuaTrungThau !== 'win') continue;
+        if (proj.items.some(item =>
+          item.nhaCungCap && supAliases.includes(normalizeSupplierName(item.nhaCungCap))
+        )) count++;
+      }
+      return Math.max(max, count);
+    }, 1));
+
+    const winScore = totalDecided > 0
+      ? 0.5 * Math.min(winRate, 100) + 0.5 * (winCount / maxWinCount * 100)
+      : 0;
+
+    const score = 0.40 * winScore + 0.35 * discountScore + 0.25 * experienceScore;
 
     stats[s.id] = {
       supplierId: s.id,
