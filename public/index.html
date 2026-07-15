@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Phần Mềm Tính Giá Chào Thầu v2</title>
+<title>Phần Mềm Tính Giá Chào Thầu</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Segoe UI',sans-serif;background:#eef2f7;color:#2c3e50;font-size:14px}
@@ -135,7 +135,7 @@ table .td-num input{text-align:right}
 </div>
 
 <div class="topbar">
-  <h1>📊 <span>Tính Giá Chào Thầu</span> <span style="font-size:11px;background:rgba(255,255,255,.15);padding:2px 8px;border-radius:8px;font-weight:400;vertical-align:middle">v1.7</span></h1>
+  <h1>📊 <span>Tính Giá Chào Thầu</span> <span id="appVersion" style="font-size:11px;background:rgba(255,255,255,.15);padding:2px 8px;border-radius:8px;font-weight:400;vertical-align:middle">...</span></h1>
   <div class="topbar-right">
     <div class="auth-bar" id="authBar">
       <span class="user-name" id="userDisplay"></span>
@@ -664,7 +664,17 @@ function updateAuthUI() {
   document.getElementById('settingsBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
 }
 
-function initApp() { populateThoiGianDongThau(new Date()); loadProjectList(); applyPermissions(); }
+async function loadVersion() {
+  try {
+    const res = await fetch('/api/version');
+    if (!res.ok) return;
+    const data = await res.json();
+    document.getElementById('appVersion').textContent = data.version;
+    document.title = 'Phần Mềm Tính Giá Chào Thầu ' + data.version;
+  } catch { /* ignore */ }
+}
+
+function initApp() { loadVersion(); populateThoiGianDongThau(new Date()); loadProjectList(); applyPermissions(); }
 
 async function loadEmployeeList() {
   try {

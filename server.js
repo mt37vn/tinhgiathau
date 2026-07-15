@@ -4,6 +4,7 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
+const { execSync } = require('child_process');
 const { chromium } = require('playwright');
 
 const app = express();
@@ -512,6 +513,22 @@ app.delete('/api/users/:id', auth, adminOnly, (req, res) => {
   data.users.splice(idx, 1);
   writeData(USER_FILE, data);
   res.json({ ok: true });
+});
+
+// --- Version ---
+app.get('/api/version', (req, res) => {
+  try {
+    const tag = execSync('git describe --tags --abbrev=0', { cwd: __dirname, encoding: 'utf8' }).trim();
+    res.json({ version: tag });
+  } catch {
+    // Fallback: use short commit hash if no tags
+    try {
+      const hash = execSync('git rev-parse --short HEAD', { cwd: __dirname, encoding: 'utf8' }).trim();
+      res.json({ version: hash });
+    } catch {
+      res.json({ version: 'unknown' });
+    }
+  }
 });
 
 // --- Settings ---
