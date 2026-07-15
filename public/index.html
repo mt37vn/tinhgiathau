@@ -262,8 +262,8 @@ table .td-num input{text-align:right}
           <label style="font-weight:700;color:#1a3a5c">Kết quả thầu</label>
           <div style="display:flex;gap:8px;margin-bottom:6px">
             <div style="flex:1;background:#f0f4f8;border-radius:4px;padding:6px 10px">
-              <div style="font-size:10px;color:#888">Giá chào</div>
-              <div id="bidResultGiaChao" style="font-size:13px;font-weight:600;color:#333">—</div>
+              <div style="font-size:10px;color:#888">Giá chào <span id="bidResultGiaChaoSource" style="font-size:9px;color:#999;font-weight:400"></span></div>
+              <input type="text" id="bidResultGiaChao" placeholder="—" style="width:100%;font-size:13px;font-weight:600;color:#333;border:none;background:transparent;text-align:right;padding:0;outline:none" onchange="onCompanyBidPriceChange(this)" onfocus="formatCurrencyInput(this)">
             </div>
             <div style="flex:1;background:#f0f4f8;border-radius:4px;padding:6px 10px">
               <div style="font-size:10px;color:#888">Giá trúng thầu</div>
@@ -575,6 +575,7 @@ table .td-num input{text-align:right}
   <button class="btn btn-warning btn-sm" onclick="unapproveProject()" id="btnUnapprove" style="display:none">↩ Huỷ duyệt</button>
   <button class="btn btn-primary btn-sm" style="background:#3498db;color:#fff;display:none" onclick="submitProject()" id="btnSubmit">📨 Trình duyệt</button>
   <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff;cursor:pointer" onclick="printProject()" id="btnShare">🖨 In</button>
+  <button class="btn btn-success btn-sm" onclick="autoProcessImported()" id="btnAutoProcess" style="display:none">📊 Tự động tính LNG & duyệt</button>
 </div>
 
 <datalist id="nccDatalist"></datalist>
@@ -606,6 +607,11 @@ async function api(method, url, body) {
   if (!res.ok) {
     let err;
     try { err = (await res.json()).error; } catch { err = 'Lỗi yêu cầu'; }
+    if (err === 'Chưa đăng nhập') {
+      currentUser = null;
+      showLogin();
+      throw new Error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
+    }
     throw new Error(err);
   }
   return res.json();
@@ -668,12 +674,16 @@ async function loadEmployeeList() {
     sel.innerHTML = '<option value="">-- Chọn --</option>';
     for (const u of data) {
       const opt = document.createElement('option');
-      opt.value = u.fullName;
+      opt.value = u.id;
+      opt.setAttribute('data-name', u.fullName);
       opt.textContent = u.fullName + (u.role === 'admin' ? ' (Admin)' : '');
       sel.appendChild(opt);
     }
-    if (currentProject && currentProject.projectInfo && currentProject.projectInfo.nguoiLap) {
-      sel.value = currentProject.projectInfo.nguoiLap;
+    if (currentProject && currentProject.projectInfo) {
+      // Prefer nguoiLapId (UUID), fallback to name lookup for legacy projects
+      const info = currentProject.projectInfo;
+      const id = info.nguoiLapId || (info.nguoiLap ? (users.find(u => u.fullName === info.nguoiLap) || {}).id : '') || '';
+      sel.value = id;
     }
   } catch {}
 }
@@ -936,6 +946,18 @@ document.getElementById('projectSearch').addEventListener('keydown', function(e)
   if (e.key === 'Escape') { this.value = currentProject ? (projects.find(p=>p.id===currentProject.id)?.name||'') : ''; this.blur(); }
 });
 
+function highlightProjectInList(id) {
+  document.querySelectorAll('.pb-recent-list li').forEach(li => {
+    if (li.getAttribute('data-id') === id) {
+      li.style.backgroundColor = '#ffeb3b';
+      li.style.fontWeight = '700';
+    } else {
+      li.style.backgroundColor = '';
+      li.style.fontWeight = '';
+    }
+  });
+}
+
 async function selectProjectById(id) {
   document.getElementById('projectSelect').value = id;
   await switchProject(id);
@@ -945,7 +967,10 @@ async function selectProjectById(id) {
 
 async function switchProject(id) {
   if (!id) { currentProject = null; clearForm(); applyPermissions(); return; }
+  document.getElementById('bottomBar').style.display = 'flex';
   currentProject = await api('GET', '/api/projects/' + id);
+  // Highlight selected project in sidebar
+  highlightProjectInList(id);
   await loadEmployeeList();
   loadProjectToForm(currentProject);
   calculate();
@@ -969,6 +994,7 @@ async function createProject() {
         benMoiThau: '', noiDungTrinh: '',
         diaDiem: '', nguoiPhuTrach: '',
         nguoiLap: currentUser.fullName,
+        nguoiLapId: currentUser.id,
         ngayLap: new Date().toISOString().split('T')[0],
         thoiGianDongThau: ''
       }
@@ -1040,7 +1066,9 @@ function loadProjectToForm(p) {
   document.getElementById('benMoiThau').value = info.benMoiThau || '';
   document.getElementById('noiDungTrinh').value = info.noiDungTrinh || '';
   document.getElementById('diaDiem').value = info.diaDiem || '';
-  document.getElementById('nguoiLap').value = info.nguoiLap || (currentUser ? currentUser.fullName : '') || '';
+  // nguoiLap: prefer ID from nguoiLapId, fallback to name lookup for legacy projects
+  const nguoiLapId = info.nguoiLapId || (info.nguoiLap && users.length > 0 ? (users.find(u => u.fullName === info.nguoiLap) || {}).id : '') || (currentUser ? currentUser.id : '') || '';
+  document.getElementById('nguoiLap').value = nguoiLapId;
   document.getElementById('ngayLap').value = toDateStr(info.ngayLap) || toDateStr(new Date().toISOString());
   setThoiGianDongThau(info.thoiGianDongThau);
   document.getElementById('nguoiDuyet').value = info.nguoiDuyet || currentProject.approvedBy || '';
@@ -1054,6 +1082,8 @@ function loadProjectToForm(p) {
   document.getElementById('phiCongTac').value = params.phiCongTac != null && params.phiCongTac !== '' ? formatNumber(params.phiCongTac) : '';
   document.getElementById('hoaHongKD').value = params.hoaHongKD != null && params.hoaHongKD !== '' ? params.hoaHongKD : '';
   renderItems(p.items || []);
+  // Recalculate efficiency display after loading project data
+  calculate();
 }
 
 function renderItems(items) {
@@ -1068,9 +1098,7 @@ function addRowToTable(item) {
   const tbody = document.getElementById('itemsBody');
   const tr = document.createElement('tr');
   tr.dataset.id = item.id || crypto.randomUUID();
-  const isApproved = currentProject && currentProject.status === 'approved';
-  const isAdmin = currentUser && currentUser.role === 'admin';
-  const canEdit = isAdmin || !isApproved;
+  const canEdit = true;
   tr.innerHTML = '<td class="td-center"><input class="stt-input" type="text" value="' + (item.stt || tbody.children.length + 1) + '" readonly style="text-align:center"></td>'
     + '<td><input class="ten-input" type="text" value="' + escHtml(item.tenHangHoa||'') + '" placeholder="Tên hàng hóa" oninput="onItemChange(this)" ' + (canEdit?'':'readonly') + '></td>'
     + '<td><input class="thongso-input" type="text" value="' + escHtml(item.ghiChu||'') + '" placeholder="Thông số kỹ thuật" oninput="onItemChange(this)" ' + (canEdit?'':'readonly') + '></td>'
@@ -1301,7 +1329,7 @@ function updateSaveButtons() {
 
 function scheduleAutoSave() {
   if (!currentProject) return;
-  const canEdit = currentUser.role === 'admin' || currentProject.status !== 'approved';
+  const canEdit = true;
   if (!canEdit) return;
   if (autoSaveTimer) clearTimeout(autoSaveTimer);
   formDirty = true; updateSaveButtons();
@@ -1351,6 +1379,9 @@ async function cancelEdit() {
 
 function collectFormData() {
   const items = getItemsFromTable();
+  const selNguoiLap = document.getElementById('nguoiLap');
+  const selOpt = selNguoiLap.selectedOptions[0];
+  const nguoiLapName = selOpt ? (selOpt.getAttribute('data-name') || selOpt.textContent.split(' (')[0]) : '';
   return {
     name: document.getElementById('tenCongTrinh').value || currentProject.name,
     projectInfo: {
@@ -1359,7 +1390,8 @@ function collectFormData() {
       benMoiThau: document.getElementById('benMoiThau').value,
       noiDungTrinh: document.getElementById('noiDungTrinh').value,
       diaDiem: document.getElementById('diaDiem').value,
-      nguoiLap: document.getElementById('nguoiLap').value,
+      nguoiLap: nguoiLapName,
+      nguoiLapId: selNguoiLap.value,
       ngayLap: fromDateStr(document.getElementById('ngayLap').value),
       thoiGianDongThau: getThoiGianDongThau(),
       nguoiDuyet: document.getElementById('nguoiDuyet').value,
@@ -1380,24 +1412,33 @@ function collectFormData() {
 
 function applyPermissions() {
   const isAdmin = currentUser && currentUser.role === 'admin';
-  const nguoiLap = currentProject && currentProject.projectInfo && currentProject.projectInfo.nguoiLap;
-  const isOwner = currentProject && (currentProject.createdBy === currentUser.id || (nguoiLap === currentUser.fullName));
+  // Check ownership: first by createdBy, then by nguoiLapId (UUID), fallback to name match for legacy projects
+  const pinfo = currentProject && currentProject.projectInfo;
+  const nguoiLapId = pinfo && pinfo.nguoiLapId;
+  const nguoiLapName = pinfo && pinfo.nguoiLap;
+  const isOwnerByNgLap = nguoiLapId
+    ? (nguoiLapId === currentUser.id)
+    : (nguoiLapName === currentUser.fullName);
+  const isOwner = currentProject && (currentProject.createdBy === currentUser.id || isOwnerByNgLap);
+
   document.getElementById('btnNewProject').style.display = '';
   const canDelete = currentProject && (isAdmin || (isOwner && (currentProject.status === 'draft' || currentProject.status === 'rejected')));
   document.getElementById('btnDeleteProject').style.display = canDelete ? '' : 'none';
-  const employeeCanEdit = currentProject && isOwner && (currentProject.status === 'draft' || currentProject.status === 'rejected');
+  const employeeCanEdit = currentProject && isOwner;
   document.getElementById('btnAddRow').style.display = isAdmin || employeeCanEdit ? '' : 'none';
   document.getElementById('btnRemoveRow').style.display = isAdmin || employeeCanEdit ? '' : 'none';
-  document.getElementById('bottomBar').style.display = currentProject ? '' : 'none';
+  document.getElementById('bottomBar').style.display = currentProject ? 'flex' : 'none';
   const canSubmit = currentProject && (currentProject.status === 'draft' || currentProject.status === 'rejected');
   document.getElementById('btnSubmit').style.display = (isAdmin || isOwner) && canSubmit ? '' : 'none';
 
-  const canEditField = (isAdmin || employeeCanEdit) && currentProject && currentProject.status !== 'approved';
+  const canEditField = (isAdmin || employeeCanEdit) && currentProject;
   const editableFields = ['tenCongTrinh','maDauThau','benMoiThau','giaDuToan','diaDiem','tiLeLNG','phiDuThau','phiBaoHanh','phiBanHang','phiCongTac','hoaHongKD'];
   for (const id of editableFields) document.getElementById(id).readOnly = !canEditField;
   document.getElementById('nguoiLap').disabled = !isAdmin;
   document.getElementById('noiDungTrinh').readOnly = !canEditField;
   updateSaveButtons();
+
+  document.getElementById('btnAutoProcess').style.display = isAdmin ? '' : 'none';
 
   if (currentProject) updateBottomBarProjectInfo();
 
@@ -1767,6 +1808,23 @@ async function onNccInput(el) {
   }, 600);
 }
 
+// --- Company bid price manual entry ---
+async function onCompanyBidPriceChange(el) {
+  if (!currentProject) return;
+  const val = parseNumber(el.value);
+  if (val > 0) {
+    el.value = formatNumber(val);
+  } else {
+    el.value = '';
+  }
+  try {
+    await api('PUT', '/api/projects/' + currentProject.id, { giaChaoCongTy: val > 0 ? val : null });
+    currentProject.giaChaoCongTy = val > 0 ? val : null;
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
 // --- Bid Result ---
 function onBidResultChange() {
   setFormDirty();
@@ -1799,9 +1857,12 @@ async function fetchBidResult() {
   statusEl.textContent = '';
   try {
     const project = await api('POST', '/api/projects/' + currentProject.id + '/fetch-bid-result');
+    Object.assign(currentProject, project);
     document.getElementById('giaTrungThau').value = project.giaTrungThau ? formatNumber(project.giaTrungThau) : '';
     document.getElementById('bidResultNhaThauTrung').textContent = project.nhaThauTrung || '—';
-    document.getElementById('bidResultGiaChao').textContent = project.giaChaoCongTy ? formatNumber(project.giaChaoCongTy) + ' ₫' : '—';
+    const bidPrice = project.giaChaoCongTy || (project.ketQuaTrungThau === 'win' ? project.giaTrungThau : 0);
+    document.getElementById('bidResultGiaChao').value = bidPrice ? formatNumber(bidPrice) : '';
+    document.getElementById('bidResultGiaChaoSource').textContent = project.giaChaoCongTy ? (project.giaChaoCongTyPortal ? '(portal)' : '') : (bidPrice ? '(giá trúng)' : '');
     document.getElementById('bidResultGiaTrung').textContent = project.giaTrungThau ? formatNumber(project.giaTrungThau) + ' ₫' : '—';
     document.getElementById('bidResultStepCode').textContent = project.stepCodeLabel || project.stepCode || (project.source === 'bidOnline' ? 'Chào giá trực tuyến' : project.found ? 'Có kết quả' : '—');
     document.getElementById('bidResultXepHang').textContent = project.xepHang || '—';
@@ -1820,6 +1881,25 @@ async function fetchBidResult() {
   } finally {
     btn.disabled = false;
     btn.textContent = '🔍 Lấy kết quả tự động';
+  }
+}
+
+// --- Auto-process imported projects ---
+async function autoProcessImported() {
+  if (!confirm('Tự động tính tỷ lệ LNG từ giá chào đã nhập và duyệt tất cả dự án chưa được xử lý?\n\nThao tác này sẽ:\n1. Tính LNG dựa trên giá chào có sẵn\n2. Chuyển trạng thái thành Đã duyệt\n3. Chỉ áp dụng với dự án có giá nhập > 0')) return;
+  try {
+    const result = await api('POST', '/api/projects/auto-process-imported');
+    if (result.processed === 0) {
+      showToast('Không có dự án nào cần xử lý', 'info');
+    } else {
+      showToast('Đã xử lý ' + result.processed + ' dự án', 'success');
+      await loadProjectList();
+      if (currentProject && result.reports.some(r => r.id === currentProject.id)) {
+        await selectProjectById(currentProject.id);
+      }
+    }
+  } catch (e) {
+    showToast(e.message, 'error');
   }
 }
 
@@ -1859,8 +1939,16 @@ loadProjectToForm = function(p) {
   document.getElementById('giaTrungThau').value = p.giaTrungThau ? formatNumber(p.giaTrungThau) : '';
   document.getElementById('bidResultNhaThauTrung').textContent = p.nhaThauTrung || '—';
   document.getElementById('bidResultGroup').style.display = p.status === 'approved' ? '' : 'none';
-  const giaChaoFromItems = p.items?.length > 0 ? p.items.reduce((s,i) => s + (i.donGiaChao||0), 0) : 0;
-  document.getElementById('bidResultGiaChao').textContent = p.giaChaoCongTy ? formatNumber(p.giaChaoCongTy) + ' ₫' : (giaChaoFromItems ? formatNumber(giaChaoFromItems) + ' ₫' : '—');
+  // Giá chào thực tế: ưu tiên giaChaoCongTy (portal hoặc nhập tay) > giaTrungThau nếu thắng
+  const actualBidPrice = p.giaChaoCongTy || (p.ketQuaTrungThau === 'win' ? p.giaTrungThau : 0);
+  const sourceEl = document.getElementById('bidResultGiaChaoSource');
+  if (actualBidPrice) {
+    document.getElementById('bidResultGiaChao').value = formatNumber(actualBidPrice);
+    sourceEl.textContent = p.giaChaoCongTy ? (p.giaChaoCongTyPortal ? '(portal)' : '') : '(giá trúng)';
+  } else {
+    document.getElementById('bidResultGiaChao').value = '';
+    sourceEl.textContent = p.status === 'approved' ? '(nhập tay)' : '';
+  }
   document.getElementById('bidResultGiaTrung').textContent = p.giaTrungThau ? formatNumber(p.giaTrungThau) + ' ₫' : '—';
   document.getElementById('bidResultStepCode').textContent = p.stepCodeLabel || p.stepCode || (p.source === 'bidOnline' ? 'Chào giá trực tuyến' : p.found ? 'Có kết quả' : '—');
   document.getElementById('bidResultXepHang').textContent = p.xepHang || '—';
