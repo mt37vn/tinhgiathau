@@ -321,12 +321,6 @@ table .td-num input{text-align:right}
         <tbody id="itemsBody"></tbody>
       </table>
     </div>
-    <div class="toolbar" style="margin-bottom:0;margin-top:8px">
-      <button class="btn btn-primary btn-sm" id="btnAddRow" onclick="addRow()">+ Thêm dòng</button>
-      <button class="btn btn-danger btn-sm" id="btnRemoveRow" onclick="removeRow()">− Xóa dòng cuối</button>
-      <span class="spacer"></span>
-      <span style="font-size:12px;color:#888" id="itemCount">0 mặt hàng</span>
-    </div>
   </div>
 
   <div class="split-panel">
@@ -575,7 +569,6 @@ table .td-num input{text-align:right}
   <button class="btn btn-warning btn-sm" onclick="unapproveProject()" id="btnUnapprove" style="display:none">↩ Huỷ duyệt</button>
   <button class="btn btn-primary btn-sm" style="background:#3498db;color:#fff;display:none" onclick="submitProject()" id="btnSubmit">📨 Trình duyệt</button>
   <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff;cursor:pointer" onclick="printProject()" id="btnShare">🖨 In</button>
-  <button class="btn btn-success btn-sm" onclick="autoProcessImported()" id="btnAutoProcess" style="display:none">📊 Tự động tính LNG & duyệt</button>
 </div>
 
 <datalist id="nccDatalist"></datalist>
@@ -925,7 +918,7 @@ async function loadProjectList() {
   const hasPending = renderList('pendingList', p => p.status === 'pending' && isOpen(p), '⏳');
   const hasRejected = renderList('rejectedList', p => p.status === 'rejected' && isOpen(p), '✗');
   const hasApproved = renderList('approvedList', p => p.status === 'approved' && p.ketQuaTrungThau == null && (!p.thoiGianDongThau || new Date(p.thoiGianDongThau) >= now), '✓');
-  const hasPendingResult = renderList('pendingResultList', p => p.ketQuaTrungThau == null && p.status !== 'draft' && p.status !== 'pending' && p.status !== 'rejected', '⏳');
+  const hasPendingResult = renderList('pendingResultList', p => p.ketQuaTrungThau == null && p.status !== 'pending' && p.status !== 'rejected', '⏳');
   const hasWin = renderList('winList', p => p.ketQuaTrungThau === 'win', '🏆');
   const hasLose = renderList('loseList', p => p.ketQuaTrungThau === 'lose', '❌');
 
@@ -1043,7 +1036,7 @@ function clearForm() {
   document.getElementById('nguoiDuyet').value = '';
   document.getElementById('ngayDuyet').value = '';
   document.getElementById('itemsBody').innerHTML = '';
-  document.getElementById('itemCount').textContent = '0 mặt hàng';
+  const el0 = document.getElementById('itemCount'); if (el0) el0.textContent = '0 mặt hàng';
   document.getElementById('noiDungTrinh').value = '';
   document.getElementById('tiLeLNG').value = '';
   document.getElementById('phiDuThau').value = '';
@@ -1101,7 +1094,7 @@ function renderItems(items) {
   tbody.innerHTML = '';
   if (!items || items.length === 0) { addRow(); return; }
   for (const item of items) addRowToTable(item);
-  document.getElementById('itemCount').textContent = items.length + ' mặt hàng';
+  const ec1 = document.getElementById('itemCount'); if (ec1) ec1.textContent = items.length + ' mặt hàng';
 }
 
 function addRowToTable(item) {
@@ -1120,7 +1113,9 @@ function addRowToTable(item) {
     + '<td class="td-num"><input class="dgc-input" type="text" readonly value="' + (item.donGiaChao?formatNumber(item.donGiaChao):'0') + '" style="text-align:right"></td>'
     + '<td class="td-num"><input class="ts-input" type="text" readonly value="' + (item.trongSo||1) + '" style="text-align:right"></td>'
     + '<td>' + (canEdit?'<button class="btn-icon danger" onclick="deleteRow(this)" title="Xóa">✕</button>':'') + '</td>';
-  tbody.appendChild(tr);
+  const actionRow = tbody.querySelector('.action-row');
+  if (actionRow) tbody.insertBefore(tr, actionRow);
+  else tbody.appendChild(tr);
 }
 
 function populateThoiGianDongThau(baseDate) {
@@ -1176,25 +1171,33 @@ function getThoiGianDongThau() {
   if (!ngay || !thang || !nam || !gio) return '';
   return nam+'-'+thang+'-'+ngay+'T'+gio;
 }
+function countItemRows() {
+  const tbody = document.getElementById('itemsBody');
+  return [...tbody.children].filter(tr => tr.querySelector('.ten-input')).length;
+}
 function addRow() {
   if (!currentProject) { showToast('Vui lòng chọn dự án trước', 'error'); return; }
-  addRowToTable({ id: crypto.randomUUID(), stt: document.getElementById('itemsBody').children.length + 1, tenHangHoa: '', donViTinh:'Gói', soLuong:1, donGiaNhap:0, trongSo:1, ghiChu:'', nhaCungCap:'' });
-  document.getElementById('itemCount').textContent = document.getElementById('itemsBody').children.length + ' mặt hàng';
+  const tbody = document.getElementById('itemsBody');
+  addRowToTable({ id: crypto.randomUUID(), stt: countItemRows() + 1, tenHangHoa: '', donViTinh:'Gói', soLuong:1, donGiaNhap:0, trongSo:1, ghiChu:'', nhaCungCap:'' }, true);
+  const el = document.getElementById('itemCount'); if (el) el.textContent = countItemRows() + ' mặt hàng';
   calculate(); scheduleAutoSave();
 }
 function removeRow() {
   const tbody = document.getElementById('itemsBody');
-  if (tbody.children.length <= 1) { showToast('Cần ít nhất 1 mặt hàng', 'error'); return; }
-  tbody.removeChild(tbody.lastChild);
-  document.getElementById('itemCount').textContent = tbody.children.length + ' mặt hàng';
+  // Find last item row (before action-row and total-row)
+  const itemRows = [...tbody.children].filter(tr => tr.querySelector('.ten-input'));
+  if (itemRows.length <= 1) { showToast('Cần ít nhất 1 mặt hàng', 'error'); return; }
+  itemRows[itemRows.length - 1].remove();
+  const el = document.getElementById('itemCount'); if (el) el.textContent = countItemRows() + ' mặt hàng';
   calculate(); scheduleAutoSave();
 }
 function deleteRow(btn) {
   const tr = btn.closest('tr');
   const tbody = document.getElementById('itemsBody');
-  if (tbody.children.length <= 1) { showToast('Cần ít nhất 1 mặt hàng', 'error'); return; }
+  const itemRows = [...tbody.children].filter(r => r.querySelector('.ten-input'));
+  if (itemRows.length <= 1) { showToast('Cần ít nhất 1 mặt hàng', 'error'); return; }
   tr.remove();
-  document.getElementById('itemCount').textContent = tbody.children.length + ' mặt hàng';
+  const el = document.getElementById('itemCount'); if (el) el.textContent = countItemRows() + ' mặt hàng';
   calculate(); scheduleAutoSave();
 }
 
@@ -1256,10 +1259,23 @@ function calculate() {
     tr.querySelector('.dgc-input').value = formatNumber(items[i].donGiaChao);
   }
   let tongGiaChao = items.reduce((s, item) => s + (item.donGiaChao||0), 0);
+
+  // Action row (buttons) — insert before total row
+  let actionRow = tbody.querySelector('.action-row');
+  if (!actionRow) { actionRow = document.createElement('tr'); actionRow.className = 'action-row'; tbody.appendChild(actionRow); }
+  actionRow.innerHTML = '<td colspan="11" style="padding:8px 6px;border:none">'
+    + '<button class="btn btn-primary btn-sm" id="btnAddRow" onclick="addRow()">+ Thêm dòng</button> '
+    + '<button class="btn btn-danger btn-sm" id="btnRemoveRow" onclick="removeRow()">− Xóa dòng cuối</button> '
+    + '<span style="font-size:12px;color:#888;margin-left:12px" id="itemCount">' + items.length + ' mặt hàng</span>'
+    + '</td>';
+
+  // Total row — always after action row
   let totalRow = tbody.querySelector('.total-row');
   if (!totalRow) { totalRow = document.createElement('tr'); totalRow.className = 'total-row'; totalRow.style.background = '#eef2f7'; totalRow.style.fontWeight = '600'; tbody.appendChild(totalRow); }
   totalRow.innerHTML = '<td colspan="4" style="text-align:right;padding:6px;font-weight:600">Tổng cộng</td><td style="padding:6px"></td><td style="padding:6px"></td><td class="td-num" style="padding:6px;font-weight:600">' + formatNumber(tongGiaNhap) + '</td><td style="padding:6px"></td><td class="td-num" style="padding:6px;font-weight:600">' + formatNumber(tongGiaChao) + '</td><td style="padding:6px"></td><td style="padding:6px"></td>';
   totalRow.style.display = items.length > 0 && items[0].tenHangHoa ? '' : 'none';
+  // Ensure action row is right before total row
+  if (actionRow.nextElementSibling !== totalRow) tbody.insertBefore(actionRow, totalRow);
 
   document.getElementById('rTongGiaNhap').textContent = '-' + toVND(tongGiaNhap);
   document.getElementById('rTongGiaNhap').className = 'rvalue cost';
@@ -1304,7 +1320,7 @@ function calculate() {
   lnrVonEl.textContent = tongGiaNhap > 0 ? toPct(tiLeLNRVon) : '0%';
   lnrVonEl.className = 'rvalue profit' + (tiLeLNRVon >= 20 ? ' highlight' : '');
   if (tiLeLNRVon < 0) lnrVonEl.className = 'rvalue loss';
-  document.getElementById('itemCount').textContent = items.length + ' mặt hàng';
+  const el3 = document.getElementById('itemCount'); if (el3) el3.textContent = items.length + ' mặt hàng';
   updateBottomBarProjectInfo();
 }
 
@@ -1422,21 +1438,21 @@ function collectFormData() {
 
 function applyPermissions() {
   const isAdmin = currentUser && currentUser.role === 'admin';
-  // Check ownership: first by createdBy, then by nguoiLapId (UUID), fallback to name match for legacy projects
+  // Check ownership: nguoiLapId (UUID), fallback to name match for legacy projects
   const pinfo = currentProject && currentProject.projectInfo;
   const nguoiLapId = pinfo && pinfo.nguoiLapId;
   const nguoiLapName = pinfo && pinfo.nguoiLap;
   const isOwnerByNgLap = nguoiLapId
     ? (nguoiLapId === currentUser.id)
     : (nguoiLapName === currentUser.fullName);
-  const isOwner = currentProject && (currentProject.createdBy === currentUser.id || isOwnerByNgLap);
+  const isOwner = currentProject && isOwnerByNgLap;
 
   document.getElementById('btnNewProject').style.display = '';
   const canDelete = currentProject && (isAdmin || (isOwner && (currentProject.status === 'draft' || currentProject.status === 'rejected')));
   document.getElementById('btnDeleteProject').style.display = canDelete ? '' : 'none';
   const employeeCanEdit = currentProject && isOwner;
-  document.getElementById('btnAddRow').style.display = isAdmin || employeeCanEdit ? '' : 'none';
-  document.getElementById('btnRemoveRow').style.display = isAdmin || employeeCanEdit ? '' : 'none';
+  const btnAdd = document.getElementById('btnAddRow'); if (btnAdd) btnAdd.style.display = isAdmin || employeeCanEdit ? '' : 'none';
+  const btnRem = document.getElementById('btnRemoveRow'); if (btnRem) btnRem.style.display = isAdmin || employeeCanEdit ? '' : 'none';
   document.getElementById('bottomBar').style.display = currentProject ? 'flex' : 'none';
   const canSubmit = currentProject && (currentProject.status === 'draft' || currentProject.status === 'rejected');
   document.getElementById('btnSubmit').style.display = (isAdmin || isOwner) && canSubmit ? '' : 'none';
@@ -1447,8 +1463,6 @@ function applyPermissions() {
   document.getElementById('nguoiLap').disabled = !isAdmin;
   document.getElementById('noiDungTrinh').readOnly = !canEditField;
   updateSaveButtons();
-
-  document.getElementById('btnAutoProcess').style.display = isAdmin ? '' : 'none';
 
   if (currentProject) updateBottomBarProjectInfo();
 
@@ -1891,25 +1905,6 @@ async function fetchBidResult() {
   } finally {
     btn.disabled = false;
     btn.textContent = '🔍 Lấy kết quả tự động';
-  }
-}
-
-// --- Auto-process imported projects ---
-async function autoProcessImported() {
-  if (!confirm('Tự động tính tỷ lệ LNG từ giá chào đã nhập và duyệt tất cả dự án chưa được xử lý?\n\nThao tác này sẽ:\n1. Tính LNG dựa trên giá chào có sẵn\n2. Chuyển trạng thái thành Đã duyệt\n3. Chỉ áp dụng với dự án có giá nhập > 0')) return;
-  try {
-    const result = await api('POST', '/api/projects/auto-process-imported');
-    if (result.processed === 0) {
-      showToast('Không có dự án nào cần xử lý', 'info');
-    } else {
-      showToast('Đã xử lý ' + result.processed + ' dự án', 'success');
-      await loadProjectList();
-      if (currentProject && result.reports.some(r => r.id === currentProject.id)) {
-        await selectProjectById(currentProject.id);
-      }
-    }
-  } catch (e) {
-    showToast(e.message, 'error');
   }
 }
 

@@ -550,7 +550,6 @@ app.get('/api/projects', auth, (req, res) => {
   res.json(data.projects.map(p => ({
     id: p.id, name: (p.projectInfo && p.projectInfo.tenCongTrinh) || p.name || '', createdAt: p.createdAt, updatedAt: p.updatedAt,
     status: p.status || 'draft', approvedBy: p.approvedBy || null, approvedAt: p.approvedAt || null,
-    createdBy: p.createdBy || null,
     maDauThau: (p.projectInfo && p.projectInfo.maDauThau) || null,
     benMoiThau: (p.projectInfo && p.projectInfo.benMoiThau) || null,
     thoiGianDongThau: (p.projectInfo && p.projectInfo.thoiGianDongThau) || null,
@@ -586,7 +585,6 @@ app.post('/api/projects', auth, (req, res) => {
     name: req.body.name || 'Dự án mới',
     createdAt: now, updatedAt: now,
     status: 'draft',
-    createdBy: req.currentUser.id,
     projectInfo: req.body.projectInfo || {
       tenCongTrinh: req.body.name || '', maDauThau: '', benMoiThau: '', noiDungTrinh: '',
       diaDiem: '', nguoiPhuTrach: '',
@@ -612,8 +610,7 @@ app.put('/api/projects/:id', auth, (req, res) => {
     return res.status(400).json({ error: 'Mã đấu thầu đã tồn tại' });
   const project = data.projects[idx];
   if (req.currentUser.role !== 'admin') {
-    const isOwner = project.createdBy === req.currentUser.id
-      || (project.projectInfo && project.projectInfo.nguoiLapId === req.currentUser.id)
+    const isOwner = (project.projectInfo && project.projectInfo.nguoiLapId === req.currentUser.id)
       || (project.projectInfo && project.projectInfo.nguoiLap === req.currentUser.fullName);
     if (!isOwner)
       return res.status(403).json({ error: 'Chỉ sửa được dự án do mình tạo hoặc được phân công' });
@@ -632,8 +629,7 @@ app.patch('/api/projects/:id/submit', auth, (req, res) => {
   const project = data.projects[idx];
   if (project.status !== 'draft' && project.status !== 'rejected')
     return res.status(400).json({ error: 'Chỉ trình duyệt dự án ở trạng thái dự thảo hoặc không duyệt' });
-  const isOwner = project.createdBy === req.currentUser.id
-    || (project.projectInfo && project.projectInfo.nguoiLapId === req.currentUser.id)
+  const isOwner = (project.projectInfo && project.projectInfo.nguoiLapId === req.currentUser.id)
     || (project.projectInfo && project.projectInfo.nguoiLap === req.currentUser.fullName);
   if (!isOwner && req.currentUser.role !== 'admin')
     return res.status(403).json({ error: 'Chỉ người tạo mới được trình duyệt' });
@@ -699,8 +695,7 @@ app.delete('/api/projects/:id', auth, (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'Không tìm thấy' });
   const project = data.projects[idx];
   if (req.currentUser.role !== 'admin') {
-    const isOwner = project.createdBy === req.currentUser.id
-      || (project.projectInfo && project.projectInfo.nguoiLapId === req.currentUser.id)
+    const isOwner = (project.projectInfo && project.projectInfo.nguoiLapId === req.currentUser.id)
       || (project.projectInfo && project.projectInfo.nguoiLap === req.currentUser.fullName);
     if (!isOwner) return res.status(403).json({ error: 'Chỉ xoá được dự án do mình tạo' });
     if (project.status !== 'draft' && project.status !== 'rejected')
@@ -1530,7 +1525,8 @@ app.post('/api/projects/auto-process-imported', auth, adminOnly, (req, res) => {
     }
     if (targetBidPrice <= 0) continue;
 
-    const tiLeLNG = Math.round((1 - tongGiaNhap / targetBidPrice) * 1000) / 10;
+    // Floor instead of round: guarantee giaChaoToiThieu <= targetBidPrice
+    const tiLeLNG = Math.floor((1 - tongGiaNhap / targetBidPrice) * 1000) / 10;
     if (tiLeLNG < 0 || tiLeLNG >= 100) continue;
 
     if (!project.params) project.params = {};
@@ -1545,7 +1541,8 @@ app.post('/api/projects/auto-process-imported', auth, adminOnly, (req, res) => {
       item.trongSo = _firstGiaNhap > 0 ? item.giaNhap / _firstGiaNhap : 0;
     }
     const _tongTrongSo = items.reduce((s, i) => s + (i.trongSo || 0), 0);
-    const giaChaoToiThieu = Math.round(tongGiaNhap / (1 - tiLeLNG / 100));
+    // Floor to ensure sum of donGiaChao never exceeds targetBidPrice
+    const giaChaoToiThieu = Math.floor(tongGiaNhap / (1 - tiLeLNG / 100));
     for (const item of items) {
       item.donGiaChao = _tongTrongSo > 0 && item.trongSo > 0
         ? Math.round(giaChaoToiThieu * item.trongSo / _tongTrongSo) : 0;
