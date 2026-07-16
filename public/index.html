@@ -144,6 +144,7 @@ table .td-num input{text-align:right}
       <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" onclick="showChangePassword()">🔑 Đổi mật khẩu</button>
       <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" id="userMgmtBtn" onclick="showUserManagement()">👥 Nhân viên</button>
       <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" id="settingsBtn" onclick="showSettings()">⚙️</button>
+      <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" id="reportBtn" onclick="window.open('/admin/report')">📊 Báo cáo</button>
       <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" onclick="showSupplierList()">🏭 Nhà cung cấp</button>
       <span style="width:1px;height:20px;background:rgba(255,255,255,.2);display:inline-block;margin:0 4px"></span>
       <button class="btn btn-danger btn-sm" onclick="doLogout()">Đăng xuất</button>
@@ -660,6 +661,7 @@ function updateAuthUI() {
   document.getElementById('roleDisplay').textContent = currentUser.role === 'admin' ? '(Admin)' : '(Nhân viên)';
   document.getElementById('userMgmtBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
   document.getElementById('settingsBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
+  document.getElementById('reportBtn').style.display = '';
 }
 
 async function loadVersion() {
@@ -1272,20 +1274,21 @@ function removeRow() {
   calculate(); scheduleAutoSave();
 }
 function lockProjectPortalFields(locked) {
-  // Portal-sourced project fields
+  const isAdmin = currentUser && currentUser.role === 'admin';
+  // Portal-sourced project fields (admin có thể sửa)
   var fields = ['tenCongTrinh', 'benMoiThau', 'diaDiem', 'giaDuToan'];
   fields.forEach(function(id) {
     var el = document.getElementById(id);
     if (el) {
-      if (locked) el.setAttribute('readonly', '');
+      if (locked && !isAdmin) el.setAttribute('readonly', '');
       else el.removeAttribute('readonly');
     }
   });
-  // Time selects
+  // Time selects (admin có thể sửa)
   ['tgdtGio', 'tgdtNgay', 'tgdtThang', 'tgdtNam'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) {
-      if (locked) el.setAttribute('disabled', '');
+      if (locked && !isAdmin) el.setAttribute('disabled', '');
       else el.removeAttribute('disabled');
     }
   });

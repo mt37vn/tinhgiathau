@@ -8,6 +8,11 @@ const { execSync } = require('child_process');
 const { chromium } = require('playwright');
 
 const app = express();
+
+// Concurrent Playwright fetch control – avoid OOM on shared server
+let activeFetches = 0;
+const MAX_FETCHES = 1;
+
 const PORT = process.env.PORT || 3456;
 const DATA_DIR = path.join(__dirname, 'data');
 const PROJ_FILE = path.join(DATA_DIR, 'projects.json');
@@ -24,10 +29,14 @@ app.get('/', (req, res) => {
 });
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(session({
-  secret: 'dauthau-secret-key-2026',
+  secret: process.env.SESSION_SECRET || require('crypto').randomBytes(32).toString('hex'),
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 24 * 60 * 60 * 1000 }
+  cookie: {
+    maxAge: 24 * 60 * 60 * 1000,
+    httpOnly: true,
+    sameSite: 'lax'
+  }
 }));
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -504,17 +513,12 @@ app.delete('/api/users/:id', auth, adminOnly, (req, res) => {
 
 // --- Version ---
 app.get('/api/version', (req, res) => {
+  if (process.env.APP_VERSION) return res.json({ version: process.env.APP_VERSION });
   try {
-    const tag = execSync('git describe --tags --abbrev=0', { cwd: __dirname, encoding: 'utf8' }).trim();
-    res.json({ version: tag });
+    const v = execSync('git describe --tags --abbrev=0 2>nul || git rev-parse --short HEAD 2>nul || echo unknown', { cwd: __dirname, encoding: 'utf8', windowsHide: true }).trim();
+    res.json({ version: v || 'unknown' });
   } catch {
-    // Fallback: use short commit hash if no tags
-    try {
-      const hash = execSync('git rev-parse --short HEAD', { cwd: __dirname, encoding: 'utf8' }).trim();
-      res.json({ version: hash });
-    } catch {
-      res.json({ version: 'unknown' });
-    }
+    res.json({ version: 'unknown' });
   }
 });
 
@@ -561,6 +565,11 @@ app.get('/api/projects/:id', auth, (req, res) => {
   });
 });
 
+function getDefaultHoaHongKD(thoiGianDongThau) {
+  if (!thoiGianDongThau || thoiGianDongThau >= '2026-04-01') return 12.5;
+  return 10;
+}
+
 app.post('/api/projects', auth, (req, res) => {
   const data = readData(PROJ_FILE);
   const maDauThau = req.body.projectInfo && req.body.projectInfo.maDauThau ? req.body.projectInfo.maDauThau.trim() : '';
@@ -581,7 +590,7 @@ app.post('/api/projects', auth, (req, res) => {
       thoiGianDongThau: ''
     },
     items: [{ id: uuidv4(), stt: 1, tenHangHoa: '', donViTinh: 'Gói', soLuong: 1, donGiaNhap: 0, trongSo: 1, ghiChu: '', nhaCungCap: '' }],
-    params: { tiLeLNG: 30, phiDuThau: 330000, phiBaoHanh: 5, phiBanHang: 2, phiCongTac: 0, hoaHongKD: 12.5, giaDuToan: 0 }
+    params: { tiLeLNG: 30, phiDuThau: 330000, phiBaoHanh: 5, phiBanHang: 2, phiCongTac: 0, hoaHongKD: getDefaultHoaHongKD(req.body.projectInfo && req.body.projectInfo.thoiGianDongThau), giaDuToan: 0 }
   };
   data.projects.push(project);
   writeData(PROJ_FILE, data);
@@ -764,11 +773,17 @@ function extractContractorList(obj, depth = 0) {
 app.get('/api/fetch-bidding-info/:ibCode', auth, async (req, res) => {
   const ibCode = req.params.ibCode.trim();
   if (!ibCode) return res.status(400).json({ error: 'Mã IB không hợp lệ' });
+  if (activeFetches >= MAX_FETCHES) return res.status(429).json({ error: 'Hệ thống đang xử lý yêu cầu khác. Vui lòng thử lại sau 30 giây.' });
 
   const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
   let browser;
   try {
-    browser = await chromium.launch({ headless: true });
+    activeFetches++;
+    browser = await chromium.launch({
+      headless: true,
+      timeout: 30000,
+      args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--single-process', '--no-zygote', '--disable-extensions']
+    });
     const context = await browser.newContext({ userAgent: UA });
     const page = await context.newPage();
     page.setDefaultTimeout(30000);
@@ -983,6 +998,7 @@ app.get('/api/fetch-bidding-info/:ibCode', auth, async (req, res) => {
     console.error('Fetch IB error:', error);
     return res.status(500).json({ error: 'Lỗi kết nối đến trang đấu thầu: ' + error.message });
   } finally {
+    activeFetches--;
     if (browser) await browser.close();
   }
 });
@@ -991,11 +1007,17 @@ app.get('/api/fetch-bidding-info/:ibCode', auth, async (req, res) => {
 app.get('/api/fetch-bid-result/:ibCode', auth, async (req, res) => {
   const ibCode = req.params.ibCode.trim();
   if (!ibCode) return res.status(400).json({ error: 'Mã IB không hợp lệ' });
+  if (activeFetches >= MAX_FETCHES) return res.status(429).json({ error: 'Hệ thống đang xử lý yêu cầu khác. Vui lòng thử lại sau 30 giây.' });
 
   const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
   let browser;
   try {
-    browser = await chromium.launch({ headless: true });
+    activeFetches++;
+    browser = await chromium.launch({
+      headless: true,
+      timeout: 30000,
+      args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--single-process', '--no-zygote', '--disable-extensions']
+    });
     const context = await browser.newContext({ userAgent: UA });
     const page = await context.newPage();
     page.setDefaultTimeout(30000);
@@ -1351,6 +1373,7 @@ app.get('/api/fetch-bid-result/:ibCode', auth, async (req, res) => {
     console.error('Fetch bid result error:', error);
     return res.status(500).json({ error: 'Lỗi kết nối đến trang đấu thầu: ' + error.message });
   } finally {
+    activeFetches--;
     if (browser) await browser.close();
   }
 });
@@ -1683,6 +1706,190 @@ app.post('/api/projects/auto-process-imported', auth, adminOnly, (req, res) => {
 
   writeData(PROJ_FILE, data);
   res.json({ processed: reports.length, reports });
+});
+
+// --- Report ---
+app.get('/admin/report', auth, (req, res) => {
+  const data = readData(PROJ_FILE);
+  const cfg = readData(CONFIG_FILE);
+  const companyName = cfg.companyName || 'CÔNG TY CỔ PHẦN THÔNG TIN HAPRO';
+
+  function fmt(v) { if (v == null || v === '') return '-'; return Number(v).toLocaleString('vi-VN'); }
+  function pct(v) { if (v == null || isNaN(v)) return '-'; return v.toFixed(1) + '%'; }
+  function fmtChenh(a, b) {
+    if (a == null || b == null || b === 0) return '';
+    var c = (a - b) / b * 100;
+    return (c >= 0 ? '+' : '') + c.toFixed(0) + '%';
+  }
+
+  const now = new Date().toLocaleDateString('vi-VN');
+  let h = '<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">';
+  h += '<title>Phân tích kết quả đấu thầu</title>';
+  h += '<style>body{font-family:"Segoe UI",sans-serif;margin:16px auto;color:#222;font-size:11px;max-width:100%;padding:0 8px}';
+  h += 'h1{font-size:16px;color:#1a3a5c;text-align:center;margin-bottom:2px}h2{text-align:center;font-size:12px;color:#555;margin:0 0 12px;font-weight:400}';
+  h += 'table{width:100%;border-collapse:collapse;margin:0;font-size:10px}';
+  h += 'th{background:#1a3a5c;color:#fff;padding:5px 4px;text-align:left;white-space:nowrap;font-size:10px;position:sticky;top:0;z-index:1}';
+  h += 'td{padding:3px 4px;border:1px solid #d0d5dd;vertical-align:top}';
+  h += '.n{text-align:right;white-space:nowrap}';
+  h += '.win{color:#27ae60;font-weight:700}.lose{color:#e74c3c;font-weight:700}';
+  h += '.text-green{color:#27ae60;font-weight:600}.text-red{color:#e74c3c;font-weight:600}.text-yellow{color:#d68910;font-weight:600}';
+  h += 'tr:nth-child(even){background:#f7f9fc}';
+  h += '.summary{display:flex;gap:24px;justify-content:center;margin:8px 0 16px;font-size:12px;font-weight:600}';
+  h += '.summary span{padding:6px 16px;border-radius:6px}.s-win{background:#d4edda;color:#155724}.s-lose{background:#f8d7da;color:#721c24}.s-na{background:#e8e8e8;color:#666}';
+  h += '.footer{text-align:center;font-size:10px;color:#999;margin-top:16px}';
+  h += '@media print{body{margin:0;padding:0;font-size:9px}th{font-size:9px;padding:3px 2px}td{font-size:9px;padding:2px}';
+  h += 'button{display:none}@page{size:landscape;margin:8mm}}</style></head><body>';
+  h += '<h1>' + esc(companyName) + '</h1><h2>PHÂN TÍCH KẾT QUẢ ĐẤU THẦU — ' + now + '</h2>';
+  h += '<div style="text-align:center;margin-bottom:8px"><button onclick="window.print()" style="padding:6px 20px;background:#2a5a8c;color:#fff;border:none;border-radius:4px;font-size:13px;cursor:pointer">In báo cáo</button></div>';
+
+  var totalWin = 0, totalLose = 0, totalNa = 0;
+  var loseGiaNhap = 0, loseGiaChao = 0, loseKhac = 0;
+
+  h += '<table><thead><tr>';
+  h += '<th>STT</th><th>Tên gói thầu</th><th>Kết quả</th><th>Phân tích / Gợi ý</th><th>Chỉ số chính</th>';
+  h += '</tr></thead><tbody>';
+
+  var sortedProjects = (data.projects || []).slice().sort(function(a, b) {
+    var da = (a.projectInfo && a.projectInfo.thoiGianDongThau) || '';
+    var db = (b.projectInfo && b.projectInfo.thoiGianDongThau) || '';
+    if (da && !db) return -1;
+    if (!da && db) return 1;
+    return db.localeCompare(da);
+  });
+
+  let stt = 0;
+  for (const p of sortedProjects) {
+    stt++;
+    const info = p.projectInfo || {};
+    const params = p.params || {};
+    const items = p.items || [];
+
+    const tongGiaNhap = items.reduce((s, i) => s + (i.soLuong || 0) * (i.donGiaNhap || 0), 0);
+
+    // TiLeLNG: ưu tiên tính từ giaChaoCongTy nếu có (LNG thực tế), fallback params
+    var tiLeLNG = params.tiLeLNG || 0;
+
+    // Financial calculation: dùng giaTrungThau nếu trúng thầu, ngược lại dùng giaChaoToiThieu
+    var giaBan = 0;
+    if (p.ketQuaTrungThau === 'win' && p.giaTrungThau > 0) {
+      giaBan = p.giaTrungThau;
+      tiLeLNG = tongGiaNhap > 0 ? (1 - tongGiaNhap / giaBan) * 100 : 0;
+    } else {
+      const gc = p.giaChaoCongTy || items.reduce((s, i) => s + (i.donGiaChao || 0), 0);
+      tiLeLNG = gc > 0 && tongGiaNhap > 0
+        ? (1 - tongGiaNhap / gc) * 100
+        : (params.tiLeLNG || 0);
+      giaBan = tiLeLNG >= 100 ? 0 : (tiLeLNG > 0 ? Math.round(tongGiaNhap / (1 - tiLeLNG / 100)) : tongGiaNhap);
+    }
+    const giaChao = p.giaChaoCongTy || items.reduce((s, i) => s + (i.donGiaChao || 0), 0);
+
+    const loiNhuanGop = giaBan - tongGiaNhap;
+    const cpDuThau = params.phiDuThau || 0;
+    const cpBaoHanh = Math.round(giaBan * (params.phiBaoHanh || 0) / 100);
+    const cpBanHang = Math.round(giaBan * (params.phiBanHang || 0) / 100);
+    const cpCongTac = params.phiCongTac || 0;
+    const hoaHongKD = params.hoaHongKD || 0;
+    const loiNhuanGopKD = loiNhuanGop - cpDuThau - cpBaoHanh - cpBanHang - cpCongTac;
+    const hhKD = loiNhuanGopKD > 0 ? Math.round(loiNhuanGopKD * hoaHongKD / 100) : 0;
+    const loiNhuanRong = loiNhuanGopKD - hhKD;
+    const tiLeLNR = tongGiaNhap > 0 ? loiNhuanRong / tongGiaNhap * 100 : 0;
+
+    const giaTrungThau = p.giaTrungThau;
+
+    // Phân tích kết quả
+    var ketQuaIcon = '-', ketQuaCls = '', phanTich = '', chiSo = '', phanTichCls = '';
+
+    if (p.ketQuaTrungThau === 'win') {
+      totalWin++;
+      ketQuaIcon = '🟢 Trúng';
+      ketQuaCls = 'win';
+      var lnrLabel = '';
+      if (tiLeLNR >= 15) lnrLabel = 'hiệu quả tốt';
+      else if (tiLeLNR >= 5) lnrLabel = 'chấp nhận được';
+      else if (tiLeLNR >= 0) lnrLabel = 'biên lợi nhuận thấp';
+      else lnrLabel = 'lỗ (LNR âm)';
+      phanTich = 'LNR ' + pct(tiLeLNR) + ' — ' + lnrLabel;
+      phanTichCls = tiLeLNR >= 0 ? 'text-green' : 'text-red';
+      chiSo = 'Giá chào ' + fmt(giaChao) + ' / TT ' + fmt(giaTrungThau) + ', LNG ' + pct(tiLeLNG);
+    } else if (p.ketQuaTrungThau === 'lose' && giaTrungThau > 0) {
+      totalLose++;
+      ketQuaIcon = '🔴 Trượt';
+      ketQuaCls = 'lose';
+      if (tongGiaNhap >= giaTrungThau) {
+        loseGiaNhap++;
+        phanTich = 'Giá nhập cao hơn giá trúng thầu — không thể cạnh tranh';
+        phanTichCls = 'text-red';
+        chiSo = 'Nhập ' + fmt(tongGiaNhap) + ' / TT ' + fmt(giaTrungThau) + ' (' + fmtChenh(tongGiaNhap, giaTrungThau) + ')';
+      } else if (giaChao > giaTrungThau) {
+        loseGiaChao++;
+        phanTich = 'Giá chào cao hơn giá trúng thầu — bỏ thầu quá cao';
+        phanTichCls = 'text-yellow';
+        chiSo = 'Chào ' + fmt(giaChao) + ' / TT ' + fmt(giaTrungThau) + ' (' + fmtChenh(giaChao, giaTrungThau) + ')';
+      } else {
+        loseKhac++;
+        phanTich = 'Giá cạnh tranh — có thể do tiêu chí kỹ thuật / khác';
+        phanTichCls = 'text-yellow';
+        chiSo = 'Giá chào ' + fmt(giaChao) + ' / TT ' + fmt(giaTrungThau);
+      }
+    } else {
+      totalNa++;
+      phanTich = 'Chưa có kết quả thầu';
+      chiSo = '';
+    }
+
+    h += '<tr>';
+    h += '<td>' + stt + '</td>';
+    h += '<td>' + esc(info.tenCongTrinh || p.name || 'Chưa đặt tên') + '</td>';
+    h += '<td class="' + ketQuaCls + '">' + ketQuaIcon + '</td>';
+    h += '<td class="' + phanTichCls + '">' + esc(phanTich) + '</td>';
+    h += '<td class="n">' + esc(chiSo) + '</td>';
+    h += '</tr>';
+  }
+
+  h += '</tbody></table>';
+  h += '<div class="summary"><span class="s-win">🟢 Trúng: ' + totalWin + '</span><span class="s-lose">🔴 Trượt: ' + totalLose + '</span><span class="s-na">⏳ Chưa có KQ: ' + totalNa + '</span></div>';
+
+  // Pie chart
+  var cx = 120, cy = 120, r = 100, pr = 0;
+  function pieSlice(cx, cy, r, startAng, endAng, color, label) {
+    var sa = startAng * Math.PI / 180, ea = endAng * Math.PI / 180;
+    var x1 = cx + r * Math.cos(sa), y1 = cy + r * Math.sin(sa);
+    var x2 = cx + r * Math.cos(ea), y2 = cy + r * Math.sin(ea);
+    var large = (endAng - startAng) > 180 ? 1 : 0;
+    var d = 'M' + cx + ',' + cy + ' L' + x1.toFixed(1) + ',' + y1.toFixed(1) + ' A' + r + ',' + r + ' 0 ' + large + ' 1 ' + x2.toFixed(1) + ',' + y2.toFixed(1) + ' Z';
+    var midAng = (startAng + endAng) / 2 * Math.PI / 180;
+    var lx = cx + (r * 0.65) * Math.cos(midAng), ly = cy + (r * 0.65) * Math.sin(midAng);
+    return '<path d="' + d + '" fill="' + color + '" stroke="#fff" stroke-width="2"/>' +
+      '<text x="' + lx.toFixed(1) + '" y="' + ly.toFixed(1) + '" text-anchor="middle" dominant-baseline="central" fill="#fff" font-size="12" font-weight="700">' + label + '</text>';
+  }
+  var slices = [];
+  if (totalWin > 0) slices.push({ v: totalWin, c: '#27ae60', l: 'Trúng\n' + totalWin });
+  if (loseGiaNhap > 0) slices.push({ v: loseGiaNhap, c: '#e74c3c', l: 'Trượt/Giá nhập cao' });
+  if (loseGiaChao > 0) slices.push({ v: loseGiaChao, c: '#d68910', l: 'Trượt/Giá chào cao' });
+  if (loseKhac > 0) slices.push({ v: loseKhac, c: '#8e44ad', l: 'Trượt/Khác' });
+  var total = slices.reduce(function(s, sl) { return s + sl.v; }, 0);
+  if (total > 0) {
+    var pieSvg = '';
+    var curAng = -90;
+    for (var si = 0; si < slices.length; si++) {
+      var ang = slices[si].v / total * 360;
+      pieSvg += pieSlice(cx, cy, r, curAng, curAng + ang, slices[si].c, slices[si].v);
+      curAng += ang;
+    }
+    h += '<div style="display:flex;align-items:center;justify-content:center;gap:32px;margin:20px 0">';
+    h += '<svg width="260" height="260" viewBox="0 0 250 250">' + pieSvg + '</svg>';
+    h += '<div style="font-size:11px;line-height:2">';
+    var legendColors = { 'Trúng': '#27ae60', 'Giá nhập': '#e74c3c', 'Giá chào': '#d68910', 'Kỹ thuật': '#8e44ad' };
+    for (var li = 0; li < slices.length; li++) {
+      var pctVal = (slices[li].v / total * 100).toFixed(1);
+      var lname = slices[li].l;
+      h += '<div><span style="display:inline-block;width:12px;height:12px;background:' + slices[li].c + ';border-radius:2px;vertical-align:middle;margin-right:6px"></span><strong>' + lname + '</strong>: ' + slices[li].v + ' (' + pctVal + '%)</div>';
+    }
+    h += '</div></div>';
+  }
+
+  h += '<div class="footer">Phần Mềm Tính Giá Chào Thầu — Phân tích kết quả đấu thầu</div></body></html>';
+  res.send(h);
 });
 
 app.listen(PORT, () => {
