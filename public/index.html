@@ -922,7 +922,7 @@ async function loadProjectList() {
   const now = new Date();
   const isOpen = p => !p.thoiGianDongThau || new Date(p.thoiGianDongThau) >= now;
   renderList('recentList', p => p.status === 'draft' && isOpen(p), '📄');
-  const hasPending = renderList('pendingList', p => p.status === 'pending' && isOpen(p), '⏳');
+  const hasPending = renderList('pendingList', p => p.status === 'pending', '⏳');
   const hasRejected = renderList('rejectedList', p => p.status === 'rejected', '✗');
   const hasApproved = renderList('approvedList', p => p.status === 'approved' && p.ketQuaTrungThau == null && (!p.thoiGianDongThau || new Date(p.thoiGianDongThau) >= now), '✓');
   const hasPendingResult = renderList('pendingResultList', p => p.ketQuaTrungThau == null && p.status !== 'pending' && p.status !== 'rejected', '⏳');
