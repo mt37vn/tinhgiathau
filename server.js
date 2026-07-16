@@ -29,14 +29,10 @@ app.get('/', (req, res) => {
 });
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(session({
-  secret: process.env.SESSION_SECRET || require('crypto').randomBytes(32).toString('hex'),
+  secret: 'dauthau-secret-key-2026',
   resave: false,
   saveUninitialized: false,
-  cookie: {
-    maxAge: 24 * 60 * 60 * 1000,
-    httpOnly: true,
-    sameSite: 'lax'
-  }
+  cookie: { maxAge: 24 * 60 * 60 * 1000 }
 }));
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -515,7 +511,10 @@ app.delete('/api/users/:id', auth, adminOnly, (req, res) => {
 app.get('/api/version', (req, res) => {
   if (process.env.APP_VERSION) return res.json({ version: process.env.APP_VERSION });
   try {
-    const v = execSync('git describe --tags --abbrev=0 2>nul || git rev-parse --short HEAD 2>nul || echo unknown', { cwd: __dirname, encoding: 'utf8', windowsHide: true }).trim();
+    const v = execSync(
+      'git describe --tags --abbrev=0 || git rev-parse --short HEAD || echo unknown',
+      { cwd: __dirname, encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }
+    ).trim();
     res.json({ version: v || 'unknown' });
   } catch {
     res.json({ version: 'unknown' });
@@ -779,11 +778,7 @@ app.get('/api/fetch-bidding-info/:ibCode', auth, async (req, res) => {
   let browser;
   try {
     activeFetches++;
-    browser = await chromium.launch({
-      headless: true,
-      timeout: 30000,
-      args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--single-process', '--no-zygote', '--disable-extensions']
-    });
+    browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({ userAgent: UA });
     const page = await context.newPage();
     page.setDefaultTimeout(30000);
@@ -1013,11 +1008,7 @@ app.get('/api/fetch-bid-result/:ibCode', auth, async (req, res) => {
   let browser;
   try {
     activeFetches++;
-    browser = await chromium.launch({
-      headless: true,
-      timeout: 30000,
-      args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--single-process', '--no-zygote', '--disable-extensions']
-    });
+    browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({ userAgent: UA });
     const page = await context.newPage();
     page.setDefaultTimeout(30000);
