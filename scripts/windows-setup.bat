@@ -1,13 +1,32 @@
 @echo off
-REM Chay voi quyen Administrator
 title Cai dat Dauthau Windows Service
+
+REM Kiem tra quyen Administrator
+net session >nul 2>&1
+if %ERRORLEVEL% NEQ 0 (
+    color 4F
+    echo.
+    echo ============================================
+    echo  CANH BAO: Thieu quyen Administrator!
+    echo ============================================
+    echo.
+    echo  Script nay CAN quyen Administrator de tao service.
+    echo.
+    echo  CACH 1: Chuot phai - Run as Administrator
+    echo  CACH 2: Mo CMD Admin roi g:
+    echo      cd /d C:\dauthau\scripts
+    echo      windows-setup.bat
+    echo.
+    pause
+    exit /b 1
+)
 
 echo ============================================
 echo  Cai dat Phan mem Tinh Gia Chao Thau
 echo  Phuong an: Windows native + NSSM
 echo ============================================
 echo.
-echo Chay script nay voi quyen Administrator.
+echo  Administrator: OK
 echo.
 pause
 
@@ -89,8 +108,12 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b 1
 )
 
-nssm stop Dauthau >nul 2>&1
-nssm remove Dauthau confirm >nul 2>&1
+REM Xoa service cu neu co (suppress all errors)
+nssm status Dauthau >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    nssm stop Dauthau >nul 2>&1
+    nssm remove Dauthau confirm >nul 2>&1
+)
 nssm install Dauthau "C:\Program Files\nodejs\node.exe" "%CD%\server.js"
 nssm set Dauthau AppDirectory "%CD%"
 nssm set Dauthau AppEnvironmentExtra PORT=%PORT% SESSION_SECRET=%SESS_SECRET% APP_VERSION=%APP_VERSION%
