@@ -1,4 +1,12 @@
 node_modules/
+__pycache__/
+pycache/
+*.pyc
+*.pyo
+*.pyd
+venv/
+.venv/
+env/
 *.log
 .DS_Store
 .kilo/
@@ -6,4 +14,11 @@ AGENTS.md
 logs/
 backup/
 data/
-.env/
+.env
+.env.*
+processed_ids.txt
+discarded_ids.txt
+.playwright/
+pyrightconfig.json
+requirements.txt
+.vscode/settings.json

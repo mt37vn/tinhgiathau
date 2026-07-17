@@ -15,7 +15,7 @@ const app = express();
 let activeFetches = 0;
 const MAX_FETCHES = 1;
 
-const PORT = process.env.PORT || 3457;
+const PORT = process.env.PORT || 3456;
 const DATA_DIR = path.join(__dirname, 'data');
 const PROJ_FILE = path.join(DATA_DIR, 'projects.json');
 const USER_FILE = path.join(DATA_DIR, 'users.json');
