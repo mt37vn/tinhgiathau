@@ -1,31 +1,32 @@
-name: Bot Mua Sam Cong Daily
+name: Daily Bot & Portal Sync
 
 on:
   schedule:
-    - cron: '0 1 * * *'
+    - cron: '30 1 * * *'
   workflow_dispatch:
 
-jobs:
-  run-bot:
-    runs-on: ubuntu-latest
-    # THÊM DÒNG NÀY ĐỂ CẤP QUYỀN GHI
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+permissions:
+  contents: write
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+jobs:
+  run-all:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # === Scan bids (Python bot) ===
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: |
           pip install requests playwright
           python -m playwright install chromium
-
-      - name: Run Bot
+      - name: Scan for new bids
         env:
           TRELLO_API_KEY: ${{ secrets.TRELLO_API_KEY }}
           TRELLO_TOKEN: ${{ secrets.TRELLO_TOKEN }}
@@ -33,10 +34,48 @@ jobs:
           TINHGIA_API_URL: ${{ secrets.TINHGIA_API_URL }}
         run: python bot_thau.py
 
+      # === Sync portal items (Node.js) ===
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+      - name: Install Node dependencies
+        run: npm ci && npx playwright install chromium
+      - name: Pull current data from VPS
+        if: env.VPS_HOST != ''
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: /opt/dauthau/data/projects.json
+          target: data/
+      - name: Fetch portal items
+        run: node scripts/gh-fetch.js
+      - name: Push updated data to VPS
+        if: env.VPS_HOST != ''
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: data/projects.json
+          target: /opt/dauthau/data/
+      - name: Restart app on VPS
+        if: env.VPS_HOST != ''
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: nssm restart Dauthau
+
+      # === Commit all changes ===
       - name: Commit and push changes
         run: |
-          git config --global user.name "GitHub Action"
-          git config --global user.email "action@github.com"
-          git add processed_ids.txt discarded_ids.txt
-          git commit -m "Update processed bidding IDs" || exit 0
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add processed_ids.txt discarded_ids.txt data/sync-report.json
+          git diff --staged --quiet || git commit -m "chore: daily update $(date +%Y-%m-%d)"
+          git pull --rebase
           git push
