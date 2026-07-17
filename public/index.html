@@ -2194,7 +2194,7 @@ loadProjectToForm = function(p) {
   document.getElementById('bidResultXepHang').textContent = p.xepHang || '—';
   const statusEl = document.getElementById('bidResultFetchStatus');
   if (p.bidResultFetchedAt && p.giaTrungThau) {
-    const prefix = p.nhaThauTrung ? '📄 Nhà thầu: ' + esc(p.nhaThauTrung) + ' — ' : '';
+    const prefix = p.nhaThauTrung ? '📄 Nhà thầu: ' + escHtml(p.nhaThauTrung) + ' — ' : '';
     statusEl.textContent = prefix + '💰 ' + formatNumber(p.giaTrungThau) + ' ₫';
     statusEl.style.color = '#2980b9';
   } else if (p.bidResultFetchError) {
