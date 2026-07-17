@@ -1,0 +1,50 @@
+IB2600344987 | expired
+IB2600294562 | expired
+IB2600355408 | expired
+IB2600285319 | expired
+IB2600345855 | expired
+IB2600342915 | expired
+IB2600371017 | keyword mismatch
+IB2600364511 | keyword mismatch
+IB2600327284 | expired
+IB2600299981 | expired
+IB2600278112 | expired
+IB2600258882 | expired
+IB2600211769 | expired
+IB2600217854 | expired
+IB2600345906 | expired
+IB2600329182 | expired
+IB2600320606 | expired
+IB2600279716 | expired
+IB2600334581 | expired
+IB2600335318 | expired
+IB2600270667 | expired
+IB2600273429 | expired
+IB2600057534 | expired
+IB2500534741 | expired
+IB2500543574 | expired
+IB2500417108 | expired
+IB2500335307 | expired
+IB2500281154 | expired
+IB2500021702 | expired
+IB2400568154 | expired
+IB2400561795 | expired
+IB2600119961 | expired
+IB2500544041 | expired
+IB2500524445 | expired
+IB2500435376 | expired
+IB2500413675 | expired
+IB2500352886 | expired
+IB2500228660 | expired
+IB2500196709 | expired
+IB2500141741 | expired
+IB2500001217 | expired
+IB2600347834 | keyword mismatch
+IB2600367946 | keyword mismatch
+IB2600366614 | keyword mismatch
+IB2600281382 | keyword mismatch
+IB2600362217 | keyword mismatch
+IB2600314636 | keyword mismatch
+IB2600336194 | keyword mismatch
+IB2600354563 | expired
+IB2600343748 | expired

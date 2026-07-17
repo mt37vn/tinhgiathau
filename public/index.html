@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Phần Mềm Tính Giá Chào Thầu</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -31,6 +34,7 @@ body{font-family:'Segoe UI',sans-serif;background:#eef2f7;color:#2c3e50;font-siz
 .project-bar .pb-status{font-size:12px;color:#888;text-align:right;display:flex;justify-content:space-between;align-items:center}
 .btn{padding:6px 16px;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:500;transition:all .2s;white-space:nowrap}
 .btn:disabled{opacity:.5;cursor:not-allowed}
+.source-badge-local{background:#d4edda;color:#155724}.source-badge-portal{background:#fff3cd;color:#856404}
 .btn-primary{background:#2a5a8c;color:#fff}
 .btn-primary:hover:not(:disabled){background:#1a3a5c}
 .btn-success{background:#27ae60;color:#fff}
@@ -93,6 +97,7 @@ table .td-num input{text-align:right}
 .toast.error{background:#e74c3c}
 .status-badge{display:inline-block;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
 .status-draft{background:#e8e8e8;color:#666}
+.status-upcoming{background:#d4e8f7;color:#2980b9}
 .status-pending{background:#f8d7da;color:#721c24}
 .status-approved{background:#d4e8f7;color:#1a5c8c}
 .status-rejected{background:#f8d7da;color:#721c24}
@@ -164,8 +169,13 @@ table .td-num input{text-align:right}
         </div>
       </div>
       <hr class="pb-divider">
+      <div class="pb-section" id="upcomingSection" style="display:none">
+        <span class="pb-recent-label" style="color:#2980b9">🔜 Sắp mở thầu</span>
+        <ul class="pb-recent-list" id="upcomingList" style="max-height:120px"></ul>
+      </div>
+      <hr class="pb-divider" id="upcomingDivider" style="display:none">
       <div class="pb-section">
-        <span class="pb-recent-label">📝 Dự thảo</span>
+        <span class="pb-recent-label">📝 Đang chuẩn bị hồ sơ</span>
         <ul class="pb-recent-list" id="recentList"></ul>
       </div>
       <hr class="pb-divider" id="pendingDivider" style="display:none">
@@ -216,6 +226,7 @@ table .td-num input{text-align:right}
           <div style="display:flex;gap:4px">
             <input type="text" id="maDauThau" oninput="onProjectInfoChange();checkDuplicateIB()" placeholder="Nhập mã đấu thầu" style="flex:1">
             <button class="btn btn-primary btn-sm" id="btnFetchIB" onclick="fetchBiddingInfo()" style="white-space:nowrap">🔍 Tìm</button>
+            <span id="fetchSourceBadge" style="display:none;font-size:11px;padding:3px 8px;border-radius:10px;font-weight:600;white-space:nowrap;align-self:center"></span>
           </div>
         </div>
         <div class="form-group">
@@ -499,9 +510,27 @@ table .td-num input{text-align:right}
 
 <!-- Settings Modal -->
 <div class="modal-overlay" id="settingsModal">
-  <div class="modal" style="min-width:450px">
+  <div class="modal" style="min-width:550px;max-height:80vh;overflow-y:auto">
     <h3>⚙️ Cài đặt hệ thống</h3>
-    <div class="form-group"><label>Tên công ty</label><input type="text" id="settingsCompanyName" placeholder="Tên công ty"></div>
+    <div class="form-group" style="margin-bottom:10px"><label>Tên công ty</label><input type="text" id="settingsCompanyName" placeholder="Tên công ty"></div>
+    <div class="form-group" style="margin-bottom:10px">
+      <label>Từ khóa cào dữ liệu (mỗi dòng 1 từ khóa)</label>
+      <textarea id="settingsKeywords" rows="6" style="width:100%;padding:7px 10px;border:1px solid #d0d5dd;border-radius:4px;font-size:14px;background:#f5f7fa;font-family:inherit" placeholder="âm thanh&#10;máy tính&#10;màn hình led"></textarea>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:10px">
+      <div class="form-group" style="flex:1">
+        <label>Giá tối đa (VND)</label>
+        <input type="text" id="settingsMaxBidPrice" oninput="formatCurrencyInput(this)" placeholder="2.000.000.000">
+      </div>
+      <div class="form-group" style="flex:1">
+        <label>Card tối đa / từ khóa</label>
+        <input type="number" id="settingsMaxCards" min="1" max="20" placeholder="5">
+      </div>
+    </div>
+    <div style="margin-bottom:10px;display:flex;align-items:center;gap:8px">
+      <input type="checkbox" id="settingsOnlyRutGon" style="width:auto;accent-color:#2a5a8c" checked>
+      <label for="settingsOnlyRutGon" style="font-size:13px;font-weight:500;cursor:pointer">Chỉ lấy gói rút gọn (có sẵn danh mục hàng hóa)</label>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeSettings()">Hủy</button>
       <button class="btn btn-primary" onclick="saveSettings()">Lưu</button>
@@ -791,15 +820,29 @@ async function showSettings() {
   try {
     const cfg = await api('GET', '/api/settings');
     document.getElementById('settingsCompanyName').value = cfg.companyName || '';
+    document.getElementById('settingsKeywords').value = (cfg.scraperKeywords || []).join('\n');
+    document.getElementById('settingsMaxBidPrice').value = cfg.scraperMaxBidPrice ? formatNumber(cfg.scraperMaxBidPrice) : '';
+    document.getElementById('settingsMaxCards').value = cfg.scraperMaxCardsPerKeyword || 5;
+    document.getElementById('settingsOnlyRutGon').checked = cfg.scraperOnlyRutGon !== false;
     document.getElementById('settingsModal').className = 'modal-overlay show';
   } catch (e) { showToast(e.message, 'error'); }
 }
 function closeSettings() { document.getElementById('settingsModal').className = 'modal-overlay'; }
 async function saveSettings() {
   const companyName = document.getElementById('settingsCompanyName').value.trim();
+  const keywordsRaw = document.getElementById('settingsKeywords').value.trim();
+  const maxBidPrice = parseNumber(document.getElementById('settingsMaxBidPrice').value);
+  const maxCards = parseInt(document.getElementById('settingsMaxCards').value) || 5;
   if (!companyName) { showToast('Nhập tên công ty', 'error'); return; }
+  const keywords = keywordsRaw ? keywordsRaw.split('\n').map(k => k.trim()).filter(Boolean) : [];
   try {
-    await api('PUT', '/api/settings', { companyName });
+    await api('PUT', '/api/settings', {
+      companyName,
+      scraperKeywords: keywords,
+      scraperMaxBidPrice: maxBidPrice || 2000000000,
+      scraperMaxCardsPerKeyword: maxCards,
+      scraperOnlyRutGon: document.getElementById('settingsOnlyRutGon').checked
+    });
     closeSettings();
     showToast('Đã lưu cài đặt', 'success');
   } catch (e) { showToast(e.message, 'error'); }
@@ -862,10 +905,10 @@ function updateStatusUI() {
     document.getElementById('ngayDuyetGroup').style.display = 'none';
     return;
   }
-  const labels = { draft:'Dự thảo', pending:'Chờ duyệt', approved:'Đã duyệt', rejected:'Không duyệt' };
-  const classes = { draft:'status-draft', pending:'status-pending', approved:'status-approved', rejected:'status-rejected' };
+  const labels = { draft:'Đang chuẩn bị hồ sơ', pending:'Chờ duyệt', approved:'Đã duyệt', rejected:'Không duyệt', upcoming:'Sắp mở thầu' };
+  const classes = { draft:'status-draft', pending:'status-pending', approved:'status-approved', rejected:'status-rejected', upcoming:'status-upcoming' };
   const st = currentProject.status || 'draft';
-  document.getElementById('statusBadge').innerHTML = '<span class="status-badge ' + (classes[st]||'status-draft') + '">' + (labels[st]||'Dự thảo') + '</span>';
+  document.getElementById('statusBadge').innerHTML = '<span class="status-badge ' + (classes[st]||'status-draft') + '">' + (labels[st]||'Đang chuẩn bị hồ sơ') + '</span>';
   const info = currentProject.projectInfo || {};
   if (st === 'approved' && (info.nguoiDuyet || currentProject.approvedBy)) {
     document.getElementById('nguoiDuyet').value = info.nguoiDuyet || currentProject.approvedBy || '';
@@ -922,15 +965,18 @@ async function loadProjectList() {
   const now = new Date();
   const isOpen = p => !p.thoiGianDongThau || new Date(p.thoiGianDongThau) >= now;
   renderList('recentList', p => p.status === 'draft' && isOpen(p), '📄');
+  const hasUpcoming = renderList('upcomingList', p => p.status === 'upcoming', '🔜');
   const hasPending = renderList('pendingList', p => p.status === 'pending', '⏳');
   const hasRejected = renderList('rejectedList', p => p.status === 'rejected', '✗');
   const hasApproved = renderList('approvedList', p => p.status === 'approved' && p.ketQuaTrungThau == null && (!p.thoiGianDongThau || new Date(p.thoiGianDongThau) >= now), '✓');
-  const hasPendingResult = renderList('pendingResultList', p => p.ketQuaTrungThau == null && p.status !== 'pending' && p.status !== 'rejected', '⏳');
+  const hasPendingResult = renderList('pendingResultList', p => p.ketQuaTrungThau == null && p.status !== 'pending' && p.status !== 'rejected' && p.thoiGianDongThau && new Date(p.thoiGianDongThau) < now, '⏳');
   const hasWin = renderList('winList', p => p.ketQuaTrungThau === 'win', '🏆');
   const hasLose = renderList('loseList', p => p.ketQuaTrungThau === 'lose', '❌');
 
   document.getElementById('pendingDivider').style.display = hasPending ? '' : 'none';
   document.getElementById('pendingSection').style.display = hasPending ? '' : 'none';
+  document.getElementById('upcomingDivider').style.display = hasUpcoming ? '' : 'none';
+  document.getElementById('upcomingSection').style.display = hasUpcoming ? '' : 'none';
   document.getElementById('rejectedDivider').style.display = hasRejected ? '' : 'none';
   document.getElementById('rejectedSection').style.display = hasRejected ? '' : 'none';
   document.getElementById('approvedDivider').style.display = hasApproved ? '' : 'none';
@@ -1073,6 +1119,7 @@ function clearForm() {
   document.getElementById('statusBadge').innerHTML = '';
   document.getElementById('nguoiDuyetGroup').style.display = 'none';
   document.getElementById('ngayDuyetGroup').style.display = 'none';
+  document.getElementById('fetchSourceBadge').style.display = 'none';
 }
 
 function loadProjectToForm(p) {
@@ -1449,8 +1496,8 @@ function calculate() {
 
 function updateBottomBarProjectInfo() {
   if (!currentProject) return;
-  const statusLabels = { draft:'Dự thảo', pending:'Chờ duyệt', approved:'Đã duyệt', rejected:'Không duyệt' };
-  const classes = { draft:'status-draft', pending:'status-pending', approved:'status-approved', rejected:'status-rejected' };
+  const statusLabels = { draft:'Đang chuẩn bị hồ sơ', pending:'Chờ duyệt', approved:'Đã duyệt', rejected:'Không duyệt', upcoming:'Sắp mở thầu' };
+  const classes = { draft:'status-draft', pending:'status-pending', approved:'status-approved', rejected:'status-rejected', upcoming:'status-upcoming' };
   const st = currentProject.status || 'draft';
   const info = currentProject.projectInfo || {};
   const params = currentProject.params || {};
@@ -1464,7 +1511,7 @@ function updateBottomBarProjectInfo() {
   if (giaChao > 0) extra += '<span style="color:rgba(255,255,255,.8);margin-right:12px">Giá chào: ' + formatNumber(giaChao) + ' ₫</span>';
   const namePart = ib ? '[' + ib + '] ' + escHtml(currentProject.name) : escHtml(currentProject.name);
   const displayName = benMT ? namePart + ' - ' + benMT : namePart;
-  document.getElementById('bbProjectName').innerHTML = '<div><span style="font-weight:600;vertical-align:middle">' + displayName + '</span> <span class="status-badge ' + (classes[st]||'status-draft') + '" style="font-size:10px;flex-shrink:0">' + (statusLabels[st]||'Dự thảo') + '</span></div>' + (extra ? '<div style="margin-top:2px">' + extra + '</div>' : '');
+  document.getElementById('bbProjectName').innerHTML = '<div><span style="font-weight:600;vertical-align:middle">' + displayName + '</span> <span class="status-badge ' + (classes[st]||'status-draft') + '" style="font-size:10px;flex-shrink:0">' + (statusLabels[st]||'Đang chuẩn bị hồ sơ') + '</span></div>' + (extra ? '<div style="margin-top:2px">' + extra + '</div>' : '');
 }
 
 function setFormDirty() { formDirty = true; updateSaveButtons(); }
@@ -1573,7 +1620,7 @@ function applyPermissions() {
   const isOwner = currentProject && isOwnerByNgLap;
 
   document.getElementById('btnNewProject').style.display = '';
-  const canDelete = currentProject && (isAdmin || (isOwner && (currentProject.status === 'draft' || currentProject.status === 'rejected')));
+  const canDelete = currentProject && (isAdmin || (isOwner && (currentProject.status === 'draft' || currentProject.status === 'upcoming' || currentProject.status === 'rejected')));
   document.getElementById('btnDeleteProject').style.display = canDelete ? '' : 'none';
   const employeeCanEdit = currentProject && isOwner;
   const btnAdd = document.getElementById('btnAddRow'); if (btnAdd) btnAdd.style.display = isAdmin || employeeCanEdit ? '' : 'none';
@@ -1620,6 +1667,8 @@ async function fetchBiddingInfo() {
   const ib = document.getElementById('maDauThau').value.trim();
   if (!ib) { showToast('Nhập mã đấu thầu (IB)', 'error'); return; }
   const btn = document.getElementById('btnFetchIB');
+  const badge = document.getElementById('fetchSourceBadge');
+  badge.style.display = 'none';
   btn.disabled = true;
   btn.textContent = '⏳ Đang tìm...';
   try {
@@ -1649,6 +1698,19 @@ async function fetchBiddingInfo() {
     var fetchSucceeded = !!(data.tenCongTrinh || data.benMoiThau);
     lockProjectPortalFields(fetchSucceeded);
 
+    // Show data source badge
+    if (data.source === 'scraper') {
+      badge.textContent = '📦 Dữ liệu nội bộ';
+      badge.className = 'source-badge-local';
+      badge.style.display = '';
+    } else if (data.source === 'portal') {
+      badge.textContent = '🌐 Cổng đấu thầu';
+      badge.className = 'source-badge-portal';
+      badge.style.display = '';
+    } else {
+      badge.style.display = 'none';
+    }
+
     if (data.items && data.items.length > 0) {
       const portalItems = data.items.map((item, idx) => ({
         id: crypto.randomUUID(),
@@ -1661,7 +1723,18 @@ async function fetchBiddingInfo() {
         trongSo: 1
       }));
       renderItems(portalItems);
-      showToast('Đã tìm thấy ' + portalItems.length + ' mặt hàng từ cổng đấu thầu', 'success');
+      showToast('Đã tìm thấy ' + portalItems.length + ' mặt hàng', 'success');
+
+      // Save trello_card_id to project if received
+      if (data.trello_card_id && currentProject && currentProject.id) {
+        try {
+          await api('PUT', '/api/projects/' + currentProject.id, { trello_card_id: data.trello_card_id });
+          currentProject.trello_card_id = data.trello_card_id;
+        } catch (e) { /* silent */ }
+      }
+    } else if (data.source === 'scraper') {
+      // Scraper sent project info but no items — that's OK for non-rut-gon packages
+      showToast('Đã tìm thấy thông tin dự án từ dữ liệu nội bộ', 'info');
     } else if (data.itemsStatus === 'not-rut-gon') {
       showToast('Gói ' + (data.bidFormLabel || 'này') + ' — tải file đính kèm để xem danh mục hàng hóa', 'warning');
     } else {
@@ -1879,7 +1952,7 @@ async function showSupplierDetail(id) {
       html += '<div style="text-align:center;padding:16px;color:#888">Chưa có dự án nào</div>';
     } else {
       html += '<div class="table-wrap"><table><thead><tr><th>Dự án</th><th>Mã IB</th><th>Trạng thái</th><th>Kết quả thầu</th><th>Xếp hạng</th><th>Giá trúng thầu</th></tr></thead><tbody>';
-      const statusLabels = { draft:'Dự thảo', pending:'Chờ duyệt', approved:'Đã duyệt', rejected:'Không duyệt' };
+      const statusLabels = { draft:'Đang chuẩn bị hồ sơ', pending:'Chờ duyệt', approved:'Đã duyệt', rejected:'Không duyệt' };
       const krLabels = { win: '✅ Trúng thầu', lose: '❌ Trượt thầu' };
       for (const proj of projects) {
         const kr = proj.ketQuaTrungThau ? krLabels[proj.ketQuaTrungThau] : '—';

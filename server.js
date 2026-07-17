@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -6,6 +7,7 @@ const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const { execSync } = require('child_process');
 const { chromium } = require('playwright');
+const trelloSync = require('./scripts/trello-sync');
 
 const app = express();
 
@@ -13,12 +15,13 @@ const app = express();
 let activeFetches = 0;
 const MAX_FETCHES = 1;
 
-const PORT = process.env.PORT || 3456;
+const PORT = process.env.PORT || 3457;
 const DATA_DIR = path.join(__dirname, 'data');
 const PROJ_FILE = path.join(DATA_DIR, 'projects.json');
 const USER_FILE = path.join(DATA_DIR, 'users.json');
 const SUPPLIER_FILE = path.join(DATA_DIR, 'suppliers.json');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
+const SCRAPED_BIDS_FILE = path.join(DATA_DIR, 'scraped-bids.json');
 
 app.use(express.json());
 app.get('/', (req, res) => {
@@ -39,6 +42,26 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(PROJ_FILE)) fs.writeFileSync(PROJ_FILE, JSON.stringify({ projects: [] }, null, 2));
 if (!fs.existsSync(SUPPLIER_FILE)) fs.writeFileSync(SUPPLIER_FILE, JSON.stringify({ suppliers: [] }, null, 2));
 if (!fs.existsSync(CONFIG_FILE)) fs.writeFileSync(CONFIG_FILE, JSON.stringify({ companyName: 'CÔNG TY CỔ PHẦN THÔNG TIN HAPRO' }, null, 2));
+if (!fs.existsSync(SCRAPED_BIDS_FILE)) fs.writeFileSync(SCRAPED_BIDS_FILE, JSON.stringify({ entries: [] }, null, 2));
+
+function cleanupExpiredUpcoming() {
+  try {
+    const projData = readData(PROJ_FILE);
+    const now = new Date();
+    const before = projData.projects.length;
+    projData.projects = projData.projects.filter(p => {
+      if (p.status !== 'upcoming') return true;
+      const closeDate = p.projectInfo && p.projectInfo.thoiGianDongThau ? new Date(p.projectInfo.thoiGianDongThau) : null;
+      if (!closeDate) return true;
+      return closeDate >= now;
+    });
+    if (projData.projects.length !== before) {
+      writeData(PROJ_FILE, projData);
+      console.log(`[cleanup] Removed ${before - projData.projects.length} expired upcoming projects`);
+    }
+  } catch (e) { console.error('[cleanup] Error:', e.message); }
+}
+cleanupExpiredUpcoming();
 // Sync existing suppliers from projects on startup
 try {
   const existingProj = JSON.parse(fs.readFileSync(PROJ_FILE, 'utf-8'));
@@ -525,17 +548,179 @@ app.get('/api/version', (req, res) => {
 app.get('/api/settings', (req, res) => {
   if (!req.session.user) return res.status(401).json({ error: 'Chưa đăng nhập' });
   const config = readData(CONFIG_FILE);
-  res.json({ companyName: config.companyName || '' });
+  res.json({
+    companyName: config.companyName || '',
+    scraperKeywords: config.scraperKeywords || [],
+    scraperLocations: config.scraperLocations || [],
+    scraperMaxBidPrice: config.scraperMaxBidPrice || 2000000000,
+    scraperMaxCardsPerKeyword: config.scraperMaxCardsPerKeyword || 5,
+    scraperOnlyRutGon: config.scraperOnlyRutGon !== false
+  });
 });
 app.put('/api/settings', auth, adminOnly, (req, res) => {
   const config = readData(CONFIG_FILE);
   if (req.body.companyName !== undefined) config.companyName = req.body.companyName;
+  if (req.body.scraperKeywords !== undefined) config.scraperKeywords = req.body.scraperKeywords;
+  if (req.body.scraperLocations !== undefined) config.scraperLocations = req.body.scraperLocations;
+  if (req.body.scraperMaxBidPrice !== undefined) config.scraperMaxBidPrice = req.body.scraperMaxBidPrice;
+  if (req.body.scraperMaxCardsPerKeyword !== undefined) config.scraperMaxCardsPerKeyword = req.body.scraperMaxCardsPerKeyword;
+  if (req.body.scraperOnlyRutGon !== undefined) config.scraperOnlyRutGon = req.body.scraperOnlyRutGon;
   writeData(CONFIG_FILE, config);
-  res.json({ companyName: config.companyName });
+  res.json({ ok: true });
+});
+
+// --- Scraper Config (no auth – called by GitHub Actions) ---
+app.get('/api/scraper-config', (req, res) => {
+  const config = readData(CONFIG_FILE);
+  res.json({
+    keywords: config.scraperKeywords || [
+      "âm thanh", "hội nghị truyền hình", "phòng họp", "màn hình led",
+      "thiết bị hội thảo", "micro", "máy tính", "thiết bị công nghệ thông tin",
+      "phần mềm", "máy chủ"
+    ],
+    locations: config.scraperLocations || [],
+    maxBidPrice: config.scraperMaxBidPrice || 2000000000,
+    maxCardsPerKeyword: config.scraperMaxCardsPerKeyword || 5,
+    onlyRutGon: config.scraperOnlyRutGon !== false
+  });
+});
+
+// --- Receive Bid Data (no auth – called by GitHub Actions) ---
+app.post('/api/receive-bid', (req, res) => {
+  const { trello_card_id, bid_no, bid_name, items, projectInfo, scrapedAt } = req.body;
+  if (!trello_card_id || !bid_no) {
+    return res.status(400).json({ error: 'Thiếu trello_card_id hoặc bid_no' });
+  }
+
+  const data = readData(SCRAPED_BIDS_FILE);
+  if (!data.entries) data.entries = [];
+
+  const existingIdx = data.entries.findIndex(e =>
+    e.trello_card_id === trello_card_id || e.bid_no === bid_no
+  );
+
+  const entry = {
+    trello_card_id,
+    bid_no,
+    bid_name: bid_name || '',
+    items: items || [],
+    projectInfo: projectInfo || {},
+    scrapedAt: scrapedAt || new Date().toISOString(),
+    receivedAt: new Date().toISOString()
+  };
+
+  if (existingIdx >= 0) {
+    entry.receivedAt = data.entries[existingIdx].receivedAt;
+    data.entries[existingIdx] = entry;
+  } else {
+    data.entries.push(entry);
+  }
+
+  writeData(SCRAPED_BIDS_FILE, data);
+
+  // Auto-link to existing project by maDauThau
+  const projData = readData(PROJ_FILE);
+  const matchingProj = projData.projects.find(p =>
+    p.projectInfo && p.projectInfo.maDauThau === bid_no
+  );
+  if (matchingProj) {
+    matchingProj.trello_card_id = trello_card_id;
+    matchingProj.updatedAt = new Date().toISOString();
+    writeData(PROJ_FILE, projData);
+  } else {
+    // Auto-create project with status 'upcoming' if close date hasn't passed
+    const closeDate = projectInfo && projectInfo.thoiGianDongThau ? new Date(projectInfo.thoiGianDongThau) : null;
+    if (!closeDate || closeDate >= new Date()) {
+      const now = new Date().toISOString();
+      const defaultItems = items && items.length > 0
+        ? items.map((it, idx) => ({
+            id: uuidv4(), stt: idx + 1,
+            tenHangHoa: it.tenHangHoa || '',
+            donViTinh: it.donViTinh || 'Gói',
+            soLuong: it.soLuong || 1,
+            donGiaNhap: 0, giaNhap: 0, nhaCungCap: '', donGiaChao: 0, trongSo: 1,
+            ghiChu: it.ghiChu || '',
+            portalKyMaHieu: it.portalKyMaHieu || '',
+            portalNhanHieu: it.portalNhanHieu || '',
+            portalHangSanXuat: it.portalHangSanXuat || '',
+            portalXuatXu: it.portalXuatXu || '',
+            portalNamSanXuat: it.portalNamSanXuat || '',
+            portalDiaDiemDuAn: it.portalDiaDiemDuAn || '',
+            portalNgayGiaoSomNhat: it.portalNgayGiaoSomNhat || '',
+            portalNgayGiaoMuonNhat: it.portalNgayGiaoMuonNhat || '',
+            portalYeuCauKhac: it.portalYeuCauKhac || ''
+          }))
+        : [{ id: uuidv4(), stt: 1, tenHangHoa: '', donViTinh: 'Gói', soLuong: 1, donGiaNhap: 0, trongSo: 1, ghiChu: '', nhaCungCap: '' }];
+
+      const newProject = {
+        id: uuidv4(),
+        name: projectInfo && projectInfo.tenCongTrinh ? projectInfo.tenCongTrinh : (bid_name || bid_no),
+        createdAt: now, updatedAt: now,
+        status: 'upcoming',
+        trello_card_id,
+        projectInfo: {
+          tenCongTrinh: projectInfo && projectInfo.tenCongTrinh ? projectInfo.tenCongTrinh : (bid_name || ''),
+          maDauThau: bid_no,
+          benMoiThau: projectInfo && projectInfo.benMoiThau ? projectInfo.benMoiThau : '',
+          thoiGianDongThau: projectInfo && projectInfo.thoiGianDongThau ? projectInfo.thoiGianDongThau : '',
+          diaDiem: projectInfo && projectInfo.diaDiem ? projectInfo.diaDiem : '',
+          giaDuToan: projectInfo && projectInfo.giaDuToan ? projectInfo.giaDuToan : 0
+        },
+        items: defaultItems,
+        params: { tiLeLNG: 30, phiDuThau: 330000, phiBaoHanh: 5, phiBanHang: 2, phiCongTac: 0, hoaHongKD: 12.5, giaDuToan: 0 }
+      };
+      projData.projects.push(newProject);
+      writeData(PROJ_FILE, projData);
+    }
+  }
+
+  // Cleanup expired upcoming projects
+  cleanupExpiredUpcoming();
+
+  res.json({ ok: true });
+});
+
+const TRELLO_TARGET_LIST_ID = process.env.TRELLO_LIST_PREPARING || '68d3612e827180de2333db25';
+
+// --- Trello Butler Webhook (move card → sync project status) ---
+app.post('/api/trello/butler-webhook', async (req, res) => {
+  const { trello_card_id } = req.body;
+  if (!trello_card_id) return res.status(400).json({ error: 'Thiếu trello_card_id' });
+
+  try {
+    // Fetch card info from Trello API
+    const url = `https://api.trello.com/1/cards/${trello_card_id}?key=${process.env.TRELLO_API_KEY || ''}&token=${process.env.TRELLO_TOKEN || ''}`;
+    const r = await fetch(url);
+    if (!r.ok) return res.status(502).json({ error: 'Trello API error', status: r.status });
+
+    const card = await r.json();
+    const listId = card.idList;
+
+    if (listId === TRELLO_TARGET_LIST_ID) {
+      // Card moved to "Đang chuẩn bị hồ sơ" → update project
+      const projData = readData(PROJ_FILE);
+      const project = projData.projects.find(p => p.trello_card_id === trello_card_id);
+      if (project && project.status === 'upcoming') {
+        project.status = 'draft';
+        project.updatedAt = new Date().toISOString();
+        if (!project.projectInfo) project.projectInfo = {};
+        writeData(PROJ_FILE, projData);
+        console.log(`[trello-webhook] Card ${trello_card_id} → project ${project.projectInfo.maDauThau || project.id} status: upcoming → draft`);
+        return res.json({ ok: true, projectId: project.id, status: 'draft' });
+      }
+      return res.json({ ok: true, message: 'No matching upcoming project found' });
+    }
+
+    res.json({ ok: true, message: `Card is in list ${listId}, not target ${TRELLO_TARGET_LIST_ID}` });
+  } catch (error) {
+    console.error('[trello-webhook] Error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // --- Projects ---
 app.get('/api/projects', auth, (req, res) => {
+  cleanupExpiredUpcoming();
   const data = readData(PROJ_FILE);
   res.json(data.projects.map(p => ({
     id: p.id, name: (p.projectInfo && p.projectInfo.tenCongTrinh) || p.name || '', createdAt: p.createdAt, updatedAt: p.updatedAt,
@@ -611,10 +796,15 @@ app.put('/api/projects/:id', auth, (req, res) => {
       return res.status(403).json({ error: 'Chỉ sửa được dự án do mình tạo hoặc được phân công' });
   }
   const updated = { ...project, ...req.body, id: req.params.id, updatedAt: new Date().toISOString() };
+  // Transition upcoming to draft on first human interaction
+  if (project.status === 'upcoming' && updated.status === 'upcoming') {
+    updated.status = 'draft';
+  }
   data.projects[idx] = updated;
   writeData(PROJ_FILE, data);
   if (updated.items) syncSuppliersFromItems(updated.items);
   res.json(data.projects[idx]);
+  trelloSync.syncProjectToTrello(data.projects[idx]).catch(() => {});
 });
 
 app.patch('/api/projects/:id/submit', auth, (req, res) => {
@@ -651,6 +841,7 @@ app.patch('/api/projects/:id/approve', auth, adminOnly, (req, res) => {
   project.projectInfo.ngayDuyet = now.split('T')[0];
   writeData(PROJ_FILE, data);
   res.json(project);
+  trelloSync.syncProjectToTrello(project).catch(() => {});
 });
 
 app.patch('/api/projects/:id/reject', auth, adminOnly, (req, res) => {
@@ -663,6 +854,7 @@ app.patch('/api/projects/:id/reject', auth, adminOnly, (req, res) => {
   project.updatedAt = new Date().toISOString();
   writeData(PROJ_FILE, data);
   res.json(project);
+  trelloSync.syncProjectToTrello(project).catch(() => {});
 });
 
 app.patch('/api/projects/:id/unapprove', auth, adminOnly, (req, res) => {
@@ -682,6 +874,7 @@ app.patch('/api/projects/:id/unapprove', auth, adminOnly, (req, res) => {
   project.updatedAt = new Date().toISOString();
   writeData(PROJ_FILE, data);
   res.json(project);
+  trelloSync.syncProjectToTrello(project).catch(() => {});
 });
 
 app.delete('/api/projects/:id', auth, (req, res) => {
@@ -717,6 +910,7 @@ app.patch('/api/projects/:id/bid-result', auth, adminOnly, (req, res) => {
   project.updatedAt = new Date().toISOString();
   writeData(PROJ_FILE, data);
   res.json(project);
+  trelloSync.syncProjectToTrello(project).catch(() => {});
 });
 
 function extractValue(v) {
@@ -772,6 +966,28 @@ function extractContractorList(obj, depth = 0) {
 app.get('/api/fetch-bidding-info/:ibCode', auth, async (req, res) => {
   const ibCode = req.params.ibCode.trim();
   if (!ibCode) return res.status(400).json({ error: 'Mã IB không hợp lệ' });
+
+  // Local-first: check scraped-bids.json before hitting the portal
+  try {
+    const scrapedData = readData(SCRAPED_BIDS_FILE);
+    const localEntry = scrapedData.entries && scrapedData.entries.find(e => e.bid_no === ibCode);
+    if (localEntry) {
+      const info = localEntry.projectInfo || {};
+      return res.json({
+        tenCongTrinh: info.tenCongTrinh || localEntry.bid_name || '',
+        benMoiThau: info.benMoiThau || '',
+        thoiGianDongThau: info.thoiGianDongThau || '',
+        giaDuToan: info.giaDuToan || null,
+        diaDiem: info.diaDiem || '',
+        bidNo: ibCode,
+        items: localEntry.items || [],
+        itemsStatus: localEntry.items && localEntry.items.length > 0 ? 'fetched' : 'not-found',
+        source: 'scraper',
+        trello_card_id: localEntry.trello_card_id
+      });
+    }
+  } catch (e) { /* ignore local check errors, fall through to portal */ }
+
   if (activeFetches >= MAX_FETCHES) return res.status(429).json({ error: 'Hệ thống đang xử lý yêu cầu khác. Vui lòng thử lại sau 30 giây.' });
 
   const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
@@ -966,6 +1182,17 @@ app.get('/api/fetch-bidding-info/:ibCode', auth, async (req, res) => {
             if (loc.provName) parts.push(loc.provName);
             result.diaDiem = parts.join(', ');
           }
+          // Extract giá dự toán from detailData if not already set from search result
+          if (!result.giaDuToan) {
+            const dataObj = detailData.data || detailData;
+            const planDetail = dataObj.bidpPlanDetail;
+            if (planDetail) {
+              const price = planDetail.bidPrice || planDetail.bidEstimatePrice || planDetail.planItemPrice || planDetail.price || planDetail.totalPrice || planDetail.planPrice || planDetail.sumPrice || planDetail.estimatedPrice || planDetail.amount || planDetail.totalPlanPrice || planDetail.projectPrice || planDetail.bidPlanPrice;
+              if (price != null) {
+                result.giaDuToan = extractPrice(price);
+              }
+            }
+          }
         }
 
         // Fallback: extract địa điểm từ search result (cho gói rút gọn)
@@ -982,11 +1209,59 @@ app.get('/api/fetch-bidding-info/:ibCode', auth, async (req, res) => {
       }
     }
 
+    // Fallback: extract giá dự toán from page HTML if JSON APIs didn't have it
+    if (!result.giaDuToan && items.length > 0 && isRutGon) {
+      try {
+        const priceFromPage = await page.evaluate(() => {
+          const pricePatterns = ['Giá gói thầu', 'Giá dự toán', 'Giá kế hoạch', 'Giá KHLCNT', 'Giá ước tính', 'Tổng giá', 'Tổng dự toán', 'Giá TBMT', 'Giá thông báo', 'Giá gói thầu (VND)'];
+          const text = document.body.innerText;
+          for (const pattern of pricePatterns) {
+            const regex = new RegExp(pattern + '\\s*[:\\s]*\\s*([\\d.,]+)', 'i');
+            const match = text.match(regex);
+            if (match) {
+              const cleaned = match[1].replace(/,/g, '');
+              const num = parseFloat(cleaned);
+              if (!isNaN(num) && num > 10000) return num;
+            }
+          }
+          const spans = document.querySelectorAll('.detail-view span, .tbmt-info span, .info-row span, .content-row span');
+          for (const span of spans) {
+            const t = (span.textContent || '').trim();
+            for (const pattern of pricePatterns) {
+              if (t.includes(pattern)) {
+                const parent = span.closest('div, tr, .row');
+                if (parent) {
+                  const text2 = parent.textContent || '';
+                  const m = text2.match(/([\d.,]+)\s*(VND|₫|đồng)?/);
+                  if (m) {
+                    const cleaned = m[1].replace(/,/g, '');
+                    const num = parseFloat(cleaned);
+                    if (!isNaN(num) && num > 10000) return num;
+                  }
+                }
+              }
+            }
+          }
+          return null;
+        });
+        if (priceFromPage) {
+          result.giaDuToan = Math.round(priceFromPage);
+        }
+      } catch (e) { /* ignore html price extraction errors */ }
+    }
+
     result.items = items;
     if (isRutGon) {
       result.itemsStatus = items.length > 0 ? 'fetched' : 'not-found';
     } else {
       result.itemsStatus = 'not-rut-gon';
+    }
+    result.source = 'portal';
+    // Attach trello_card_id if project has one linked
+    const projData = readData(PROJ_FILE);
+    const linkedProj = projData.projects.find(p => p.projectInfo && p.projectInfo.maDauThau === ibCode);
+    if (linkedProj && linkedProj.trello_card_id) {
+      result.trello_card_id = linkedProj.trello_card_id;
     }
     return res.json(result);
   } catch (error) {
@@ -1435,6 +1710,7 @@ app.post('/api/projects/:id/fetch-bid-result', auth, adminOnly, async (req, res)
     }
     project.updatedAt = new Date().toISOString();
     writeData(PROJ_FILE, data);
+    trelloSync.syncProjectToTrello(project).catch(() => {});
     return res.json(project);
   } catch (error) {
     project.bidResultFetchedAt = new Date().toISOString();
@@ -1597,10 +1873,10 @@ app.get('/share/:id', (req, res) => {
   }
 
   h += '<h3>' + ['IV','V','VI'][secIdx] + '. Thông tin ký duyệt</h3>';
-  const statusLabels = { draft: 'Dự thảo', pending: 'Chờ duyệt', approved: 'Đã duyệt', rejected: 'Không duyệt' };
+  const statusLabels = { draft: 'Đang chuẩn bị hồ sơ', pending: 'Chờ duyệt', approved: 'Đã duyệt', rejected: 'Không duyệt' };
   const statusClasses = { draft: 'status-draft', pending: 'status-pending', approved: 'status-approved', rejected: 'status-rejected' };
   const st = p.status || 'draft';
-  h += '<div style="text-align:center;margin-bottom:12px"><span class="status-badge ' + (statusClasses[st] || 'status-draft') + '">' + (statusLabels[st] || 'Dự thảo') + '</span></div>';
+  h += '<div style="text-align:center;margin-bottom:12px"><span class="status-badge ' + (statusClasses[st] || 'status-draft') + '">' + (statusLabels[st] || 'Đang chuẩn bị hồ sơ') + '</span></div>';
   h += '<table style="border:none;width:100%"><tr style="border:none">';
   h += '<td style="border:none;width:50%;vertical-align:top;padding:10px">';
   h += '<table class="i"><tr><td style="font-weight:600;width:160px">Người lập đề xuất</td><td>' + esc(info.nguoiLap || '') + '</td></tr>';
