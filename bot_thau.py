@@ -750,6 +750,16 @@ def run_bot():
                     except:
                         pass
                     raise
+                # SNIFFER: log all POST requests to capture the search API
+                def sniff_request(request):
+                    if request.method == "POST" and "contractor-selection" in request.url:
+                        print(f"   🔎 [SNIFFER] POST URL: {request.url}")
+                        try:
+                            print(f"   🔎 [SNIFFER] POST body: {request.post_data[:300] if request.post_data else 'EMPTY'}")
+                        except:
+                            pass
+                page.on("request", sniff_request)
+                
                 # Define predicate to ensure we catch the actual JSON API, not other requests
                 # Update: Check payload must contain keyword to avoid stale results
                 def is_tbmt_api(r):
