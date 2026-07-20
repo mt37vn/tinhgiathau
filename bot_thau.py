@@ -717,113 +717,23 @@ def run_bot():
             
             # --- LOOP KEYWORDS ---
             INDEX_URL = "https://muasamcong.mpi.gov.vn/web/guest/contractor-selection?render=index"
-            API_BASE = "https://muasamcong.mpi.gov.vn/o/egp-portal-contractor-selection-v2/services/smart/search"
-            api_token = None
-            search_session = requests.Session()
-            search_session.headers.update({
-                'User-Agent': UA,
-                'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7',
-                'Accept': 'application/json, text/plain, */*',
-                'Content-Type': 'application/json',
-            })
-            
-            # 0. Load index page once to get API token
-            print(f"\n🔑 Getting API token from index page...")
+            KEYWORD_SELECTOR = 'input[name="keyword"]'
+            # Load index page once for browser-based searches
+            print(f"\n📄 Loading index page for browser search...")
             page.goto(INDEX_URL, wait_until="domcontentloaded")
-            page.wait_for_timeout(3000)
-            # Try to extract token from the page (Liferay auth token or p_auth)
+            page.wait_for_timeout(2000)
+
+            # Prime the search field
             try:
-                api_token = page.evaluate("""() => {
-                    // Try Liferay authToken
-                    if (typeof Liferay !== 'undefined' && Liferay.authToken) return Liferay.authToken;
-                    // Try hidden input p_auth
-                    const el = document.querySelector('input[name="p_auth"]');
-                    if (el) return el.value;
-                    return null;
-                }""")
-                if api_token:
-                    print(f"   ✅ Got auth token from page")
-                else:
-                    print(f"   ⚠️ No auth token found via JS, will try page sniffer")
-            except Exception as e:
-                print(f"   ⚠️ Token extraction via JS failed: {e}")
-            
-            # If JS extraction failed, try to capture token from API requests made by the page
-            if not api_token:
-                captured_tokens = []
-                def capture_token_from_request(request):
-                    if "services/smart/search" in request.url and "?token=" in request.url:
-                        try:
-                            from urllib.parse import urlparse, parse_qs
-                            qs = parse_qs(urlparse(request.url).query)
-                            t = qs.get('token', [None])[0]
-                            if t and t not in captured_tokens:
-                                captured_tokens.append(t)
-                        except:
-                            pass
-                page.on("request", capture_token_from_request)
-                # Fill keyword and press Enter to trigger search which reveals token
-                KEYWORD_SELECTOR = 'input[name="keyword"]'
-                try:
-                    page.fill(KEYWORD_SELECTOR, keywords[0] if keywords else "test")
-                    page.keyboard.press("Enter")
-                    page.wait_for_timeout(3000)
-                except Exception as e:
-                    print(f"   ⚠️ Trigger search failed: {e}")
-                try:
-                    page.remove_listener("request", capture_token_from_request)
-                except:
-                    pass
-                if captured_tokens:
-                    api_token = captured_tokens[0]
-                    print(f"   ✅ Captured token from API request")
-            else:
-                # We already got the token; trigger one search to make page ready
-                KEYWORD_SELECTOR = 'input[name="keyword"]'
-                try:
-                    page.fill(KEYWORD_SELECTOR, keywords[0] if keywords else "test")
-                except:
-                    pass
-            
-            if not api_token:
-                print("   ❌ Cannot obtain API token. Falling back to browser-based search.")
-            
+                page.fill(KEYWORD_SELECTOR, keywords[0] if keywords else "test")
+            except:
+                pass
+
             for keyword in keywords:
                 print(f"\n🔎 Searching TBMT: '{keyword}'")
                 
-                # Try API-based search first
-                if api_token:
-                    try:
-                        payload = json.dumps([{
-                            "pageSize": 10,
-                            "pageNumber": 0,
-                            "query": [{
-                                "index": "es-contractor-selection",
-                                "keyWord": keyword,
-                                "matchType": "all-1",
-                                "matchFields": ["notifyNo", "bidName"],
-                                "filters": [
-                                    {"fieldName": "type", "searchType": "in", "fieldValues": ["es-notify-contractor"]},
-                                    {"fieldName": "caseKHKQ", "searchType": "not_in", "fieldValues": ["isKhongDat"]}
-                                ]
-                            }]
-                        }])
-                        api_url = f"{API_BASE}?token={api_token}"
-                        r = search_session.post(api_url, data=payload, timeout=30)
-                        if r.status_code == 200:
-                            data = r.json()
-                            # Handle both dict and list responses
-                            if isinstance(data, list):
-                                data = {"data": data}
-                            print(f"      📡 API search OK")
-                        else:
-                            print(f"      ⚠️ API search returned {r.status_code}, falling back to browser")
-                            data = None
-                    except Exception as e:
-                        print(f"      ⚠️ API search failed: {e}, falling back to browser")
-                        data = None
-                else:
-                    data = None
+                # Browser-based search (API disabled due to SSL DH_KEY_TOO_SMALL errors)
+                data = None
                 
                 # Fallback: browser-based search
                 if data is None:
