@@ -716,83 +716,141 @@ def run_bot():
             page.set_default_timeout(60000)
             
             # --- LOOP KEYWORDS ---
+            INDEX_URL = "https://muasamcong.mpi.gov.vn/web/guest/contractor-selection?render=index"
+            API_BASE = "https://muasamcong.mpi.gov.vn/o/egp-portal-contractor-selection-v2/services/smart/search"
+            api_token = None
+            search_session = requests.Session()
+            search_session.headers.update({
+                'User-Agent': UA,
+                'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7',
+                'Accept': 'application/json, text/plain, */*',
+                'Content-Type': 'application/json',
+            })
+            
+            # 0. Load index page once to get API token
+            print(f"\n🔑 Getting API token from index page...")
+            page.goto(INDEX_URL, wait_until="domcontentloaded")
+            page.wait_for_timeout(3000)
+            # Try to extract token from the page (Liferay auth token or p_auth)
+            try:
+                api_token = page.evaluate("""() => {
+                    // Try Liferay authToken
+                    if (typeof Liferay !== 'undefined' && Liferay.authToken) return Liferay.authToken;
+                    // Try hidden input p_auth
+                    const el = document.querySelector('input[name="p_auth"]');
+                    if (el) return el.value;
+                    return null;
+                }""")
+                if api_token:
+                    print(f"   ✅ Got auth token from page")
+                else:
+                    print(f"   ⚠️ No auth token found via JS, will try page sniffer")
+            except Exception as e:
+                print(f"   ⚠️ Token extraction via JS failed: {e}")
+            
+            # If JS extraction failed, try to capture token from API requests made by the page
+            if not api_token:
+                captured_tokens = []
+                def capture_token_from_request(request):
+                    if "services/smart/search" in request.url and "?token=" in request.url:
+                        try:
+                            from urllib.parse import urlparse, parse_qs
+                            qs = parse_qs(urlparse(request.url).query)
+                            t = qs.get('token', [None])[0]
+                            if t and t not in captured_tokens:
+                                captured_tokens.append(t)
+                        except:
+                            pass
+                page.on("request", capture_token_from_request)
+                # Fill keyword and press Enter to trigger search which reveals token
+                KEYWORD_SELECTOR = 'input[name="keyword"]'
+                try:
+                    page.fill(KEYWORD_SELECTOR, keywords[0] if keywords else "test")
+                    page.keyboard.press("Enter")
+                    page.wait_for_timeout(3000)
+                except Exception as e:
+                    print(f"   ⚠️ Trigger search failed: {e}")
+                try:
+                    page.remove_listener("request", capture_token_from_request)
+                except:
+                    pass
+                if captured_tokens:
+                    api_token = captured_tokens[0]
+                    print(f"   ✅ Captured token from API request")
+            else:
+                # We already got the token; trigger one search to make page ready
+                KEYWORD_SELECTOR = 'input[name="keyword"]'
+                try:
+                    page.fill(KEYWORD_SELECTOR, keywords[0] if keywords else "test")
+                except:
+                    pass
+            
+            if not api_token:
+                print("   ❌ Cannot obtain API token. Falling back to browser-based search.")
+            
             for keyword in keywords:
                 print(f"\n🔎 Searching TBMT: '{keyword}'")
                 
-                # 1. Search TBMT
-                INDEX_URL = "https://muasamcong.mpi.gov.vn/web/guest/contractor-selection?render=index"
-                KEYWORD_SELECTOR = 'input[name="keyword"]'
+                # Try API-based search first
+                if api_token:
+                    try:
+                        payload = json.dumps([{
+                            "pageSize": 10,
+                            "pageNumber": 0,
+                            "query": [{
+                                "index": "es-contractor-selection",
+                                "keyWord": keyword,
+                                "matchType": "all-1",
+                                "matchFields": ["notifyNo", "bidName"],
+                                "filters": [
+                                    {"fieldName": "type", "searchType": "in", "fieldValues": ["es-notify-contractor"]},
+                                    {"fieldName": "caseKHKQ", "searchType": "not_in", "fieldValues": ["isKhongDat"]}
+                                ]
+                            }]
+                        }])
+                        api_url = f"{API_BASE}?token={api_token}"
+                        r = search_session.post(api_url, data=payload, timeout=30)
+                        if r.status_code == 200:
+                            data = r.json()
+                            # Handle both dict and list responses
+                            if isinstance(data, list):
+                                data = {"data": data}
+                            print(f"      📡 API search OK")
+                        else:
+                            print(f"      ⚠️ API search returned {r.status_code}, falling back to browser")
+                            data = None
+                    except Exception as e:
+                        print(f"      ⚠️ API search failed: {e}, falling back to browser")
+                        data = None
+                else:
+                    data = None
                 
-                page.goto(INDEX_URL, wait_until="domcontentloaded")
-                page.wait_for_timeout(2000)  # wait for JS to initialize
-                try:
-                    # Click tab "Thông báo mời thầu" (should be default but safe to click)
-                    # page.locator("text='Thông báo mời thầu'").first.click(timeout=3000)
-                    pass
-                except:
-                    pass
-                    
-                try:
-                    page.fill(KEYWORD_SELECTOR, keyword)
-                except Exception as e:
-                    # debug on failure
-                    print(f"   ⚠️ Keyword input fill failed: {e}")
-                    print(f"   🔍 Page URL: {page.url}")
+                # Fallback: browser-based search
+                if data is None:
                     try:
-                        print(f"   🔍 Page title: {page.title()}")
-                        body = page.evaluate("() => document.body ? document.body.innerText.substring(0, 500) : 'NO BODY'")
-                        print(f"   🔍 Body: {body}")
-                    except:
-                        pass
-                    try:
-                        page.screenshot(path="/tmp/search_page_fail.png")
-                        print(f"   📸 Screenshot: /tmp/search_page_fail.png")
-                    except:
-                        pass
-                    raise
-                # SNIFFER: log all POST requests to capture the search API
-                def sniff_request(request):
-                    if request.method == "POST" and "contractor-selection" in request.url:
-                        print(f"   🔎 [SNIFFER] POST URL: {request.url}")
-                        try:
-                            print(f"   🔎 [SNIFFER] POST body: {request.post_data[:300] if request.post_data else 'EMPTY'}")
-                        except:
-                            pass
-                page.on("request", sniff_request)
-                
-                # Define predicate to ensure we catch the actual JSON API, not other requests
-                # Update: Check payload must contain keyword to avoid stale results
-                def is_tbmt_api(r):
-                    if not ("contractor-selection" in r.url and r.status == 200):
-                        return False
-                    
-                    # Check Content-Type
-                    ct = (r.headers or {}).get("content-type", "")
-                    if "application/json" not in ct:
-                        return False
-                        
-                    # Check Payload matches keyword
-                    try:
-                        post_data = r.request.post_data or ""
-                        # Keyword might be encoded, but typically simple keywords appear as is or close to it.
-                        # We check if the keyword is present in the request body.
-                        if keyword not in post_data:
-                            return False
-                    except:
-                        pass
-                        
-                    return True
-
-                try:
-                    with page.expect_response(is_tbmt_api, timeout=30000) as resp:
-                        page.keyboard.press("Enter")
-                    
-                    # print(f"      📡 Captured API: {resp.value.url}")
-                    data = resp.value.json()
-                    # print(f"      📄 Data Keys: {list(data.keys())}")
-                except Exception as e:
-                    print(f"   ⚠️ Lỗi lấy dữ liệu API: {e}")
-                    continue
+                        page.goto(INDEX_URL, wait_until="domcontentloaded")
+                        page.wait_for_timeout(2000)
+                        page.fill(KEYWORD_SELECTOR, keyword)
+                        # Wait for API response via browser
+                        def is_tbmt_api(r):
+                            if not ("contractor-selection" in r.url and r.status == 200):
+                                return False
+                            ct = (r.headers or {}).get("content-type", "")
+                            if "application/json" not in ct:
+                                return False
+                            try:
+                                if keyword not in (r.request.post_data or ""):
+                                    return False
+                            except:
+                                pass
+                            return True
+                        with page.expect_response(is_tbmt_api, timeout=30000) as resp:
+                            page.keyboard.press("Enter")
+                        data = resp.value.json()
+                        print(f"      📡 Browser search OK")
+                    except Exception as e:
+                        print(f"   ⚠️ Browser search failed: {e}")
+                        continue
                 
                 items = data.get('data') or data.get('page', {}).get('content') or []
                 print(f"      📊 Items found: {len(items)}")
