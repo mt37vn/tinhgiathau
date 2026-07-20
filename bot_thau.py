@@ -689,10 +689,25 @@ def run_bot():
     # -------------------------------------------------
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=HEADLESS_MODE)
+        browser = p.chromium.launch(
+            headless=HEADLESS_MODE,
+            args=[
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-web-security',
+                '--disable-features=IsolateOrigins,site-per-process',
+                '--disable-blink-features=AutomationControlled',
+            ]
+        )
         
         # 2 Tabs: 1 for TBMT Search, 1 for Plan Lookup
-        page = browser.new_page(user_agent=UA) 
+        page = browser.new_page(user_agent=UA)
+        # Extra headers to mimic real browser
+        page.set_extra_http_headers({
+            'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        })
         kh_page = browser.new_page(user_agent=UA)
         
         plan_cache = {} # Cache Plan Details to avoid re-fetching same plan
@@ -709,6 +724,7 @@ def run_bot():
                 KEYWORD_SELECTOR = 'input[name="keyword"]'
                 
                 page.goto(INDEX_URL, wait_until="domcontentloaded")
+                page.wait_for_timeout(2000)  # wait for JS to initialize
                 try:
                     # Click tab "Thông báo mời thầu" (should be default but safe to click)
                     # page.locator("text='Thông báo mời thầu'").first.click(timeout=3000)

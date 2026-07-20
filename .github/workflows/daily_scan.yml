@@ -25,7 +25,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install requests playwright
-          python -m playwright install --with-deps chromium
+          python -m playwright install chromium
       - name: Scan for new bids
         env:
           TRELLO_API_KEY: ${{ secrets.TRELLO_API_KEY }}
