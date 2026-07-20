@@ -15,15 +15,22 @@ const PROJ_FILE = path.join(DATA_DIR, 'projects.json');
 const SUPPLIER_FILE = path.join(DATA_DIR, 'suppliers.json');
 const REPORT_FILE = path.join(DATA_DIR, 'sync-report.json');
 
+// Ensure data directory exists (it is gitignored and not versioned)
+fs.mkdirSync(DATA_DIR, { recursive: true });
+
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 const DELAY_MS = 12000;
 
 function read(name) {
-  return JSON.parse(fs.readFileSync(path.join(DATA_DIR, name), 'utf-8'));
+  const filePath = path.join(DATA_DIR, name);
+  if (!fs.existsSync(filePath)) return null;
+  return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
 }
 
 function write(name, data) {
-  fs.writeFileSync(path.join(DATA_DIR, name), JSON.stringify(data, null, 2));
+  const filePath = path.join(DATA_DIR, name);
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
 }
 
 function sleep(ms) {
@@ -217,6 +224,12 @@ async function main() {
 
   try {
     const projData = read('projects.json');
+    if (!projData || !projData.projects) {
+      console.log('No projects.json found. Writing empty default.');
+      write('projects.json', { projects: [] });
+      report.error = 'Missing projects.json — created empty default';
+      return;
+    }
     const projectsWithIB = projData.projects.filter(p =>
       p.projectInfo && p.projectInfo.maDauThau && p.projectInfo.maDauThau.trim()
     );
