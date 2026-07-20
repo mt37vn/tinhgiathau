@@ -259,7 +259,7 @@ def find_plan_id_by_no(page, plan_no):
     try:
         # 1. Vào trang chủ (render=index) chứa selector radio-khlcnt như user cung cấp
         search_url = "https://muasamcong.mpi.gov.vn/web/guest/contractor-selection?render=index"
-        page.goto(search_url, wait_until="networkidle", timeout=30000)
+        page.goto(search_url, wait_until="domcontentloaded")
         
         # 2. Click Radio Button KHLCNT
         # Selector user cung cấp: <label for="radio-khlcnt"><input id="radio-khlcnt" ...></label>
@@ -708,28 +708,32 @@ def run_bot():
                 INDEX_URL = "https://muasamcong.mpi.gov.vn/web/guest/contractor-selection?render=index"
                 KEYWORD_SELECTOR = 'input[name="keyword"]'
                 
-                max_retries = 3
-                for attempt in range(1, max_retries + 1):
+                page.goto(INDEX_URL, wait_until="domcontentloaded")
+                try:
+                    # Click tab "Thông báo mời thầu" (should be default but safe to click)
+                    # page.locator("text='Thông báo mời thầu'").first.click(timeout=3000)
+                    pass
+                except:
+                    pass
+                    
+                try:
+                    page.fill(KEYWORD_SELECTOR, keyword)
+                except Exception as e:
+                    # debug on failure
+                    print(f"   ⚠️ Keyword input fill failed: {e}")
+                    print(f"   🔍 Page URL: {page.url}")
                     try:
-                        page.goto(INDEX_URL, wait_until="networkidle", timeout=30000)
-                        page.wait_for_selector(KEYWORD_SELECTOR, state='visible', timeout=30000)
-                        break  # success
-                    except Exception as e:
-                        print(f"   ⚠️ Attempt {attempt}/{max_retries}: page load failed ({e})")
-                        if attempt < max_retries:
-                            print(f"      🔄 Retrying after 3s…")
-                            page.wait_for_timeout(3000)
-                        else:
-                            print(f"   ❌ Failed to load search page after {max_retries} attempts. URL: {page.url}")
-                            # take screenshot for debugging
-                            try:
-                                page.screenshot(path="/tmp/search_page_fail.png")
-                                print(f"   📸 Screenshot saved to /tmp/search_page_fail.png")
-                            except:
-                                pass
-                            raise
-                
-                page.fill(KEYWORD_SELECTOR, keyword)
+                        print(f"   🔍 Page title: {page.title()}")
+                        body = page.evaluate("() => document.body ? document.body.innerText.substring(0, 500) : 'NO BODY'")
+                        print(f"   🔍 Body: {body}")
+                    except:
+                        pass
+                    try:
+                        page.screenshot(path="/tmp/search_page_fail.png")
+                        print(f"   📸 Screenshot: /tmp/search_page_fail.png")
+                    except:
+                        pass
+                    raise
                 # Define predicate to ensure we catch the actual JSON API, not other requests
                 # Update: Check payload must contain keyword to avoid stale results
                 def is_tbmt_api(r):
