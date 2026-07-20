@@ -50,3 +50,25 @@ IB2600354563 | expired
 IB2600343748 | expired
 IB2600383642 | keyword mismatch
 IB2600363155 | expired
+IB2600308795 | price too high
+IB2600358560 | price too high
+IB2600357008 | expired
+IB2600370497 | price too high
+IB2600329217 | expired
+IB2600340550 | price too high
+IB2600355116 | price too high
+IB2600374570 | price too high
+IB2600373192 | price too high
+IB2600373928 | price too high
+IB2600345542 | price too high
+IB2600366961 | price too high
+IB2600372381 | price too high
+IB2600368097 | price too high
+IB2600343346 | price too high
+IB2600366210 | price too high
+IB2600322529 | price too high
+IB2600373633 | price too high
+IB2600374986 | price too high
+IB2600350516 | price too high
+IB2600382386 | price too high
+IB2600372537 | price too high
