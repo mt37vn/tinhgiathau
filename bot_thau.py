@@ -706,12 +706,16 @@ def run_bot():
                 
                 # 1. Search TBMT
                 page.goto("https://muasamcong.mpi.gov.vn/web/guest/contractor-selection?render=index", wait_until="domcontentloaded")
+                
+                # Đợi input keyword hiển thị (JavaScript render)
                 try:
-                    # Click tab "Thông báo mời thầu" (should be default but safe to click)
-                    # page.locator("text='Thông báo mời thầu'").first.click(timeout=3000)
-                    pass
-                except:
-                    pass
+                    page.wait_for_selector('input[name="keyword"]', timeout=30000)
+                except Exception as e:
+                    print(f"   ⚠️ Keyword input not found after navigation: {e}")
+                    print(f"   🔄 Retrying with fresh navigation...")
+                    page.goto("https://muasamcong.mpi.gov.vn/web/guest/contractor-selection?render=index", wait_until="domcontentloaded")
+                    page.wait_for_timeout(3000)
+                    page.wait_for_selector('input[name="keyword"]', timeout=30000)
                     
                 page.fill('input[name="keyword"]', keyword)
                 # Define predicate to ensure we catch the actual JSON API, not other requests

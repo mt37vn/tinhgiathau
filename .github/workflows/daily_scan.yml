@@ -16,10 +16,10 @@ jobs:
       VPS_HOST: ${{ secrets.VPS_HOST }}
       VPS_USER: ${{ secrets.VPS_USER }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # === Scan bids (Python bot) ===
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
       - name: Install Python dependencies
@@ -35,7 +35,7 @@ jobs:
         run: python bot_thau.py
 
       # === Sync portal items (Node.js) ===
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: 'npm'
