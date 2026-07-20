@@ -1,0 +1,9 @@
+node_modules/
+.git/
+.kilo/
+data/
+.env
+*.md
+AGENTS.md
+processed_ids.txt
+discarded_ids.txt
