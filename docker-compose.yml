@@ -1,0 +1,15 @@
+services:
+  app:
+    build: .
+    container_name: tinhgiathau
+    restart: unless-stopped
+    ports:
+      - "3456:3456"
+    environment:
+      - PORT=3456
+      - TRELLO_API_KEY=${TRELLO_API_KEY}
+      - TRELLO_TOKEN=${TRELLO_TOKEN}
+      - TRELLO_LIST_PREPARING=${TRELLO_LIST_PREPARING}
+      - APP_VERSION=${APP_VERSION:-dev}
+    volumes:
+      - ./data:/app/data

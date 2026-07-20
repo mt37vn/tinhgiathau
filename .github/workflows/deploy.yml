@@ -15,7 +15,8 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
+          envs: GITHUB_SHA
           script: |
             cd ~/tinhgiathau
             git pull origin master
-            docker compose up -d --build
+            APP_VERSION=$(echo ${GITHUB_SHA} | cut -c1-7) docker compose up -d --build
