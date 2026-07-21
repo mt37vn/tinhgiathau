@@ -1722,12 +1722,8 @@ function collectFormData() {
   const items = getItemsFromTable();
   const selNguoiLap = document.getElementById('nguoiLap');
   const selOpt = selNguoiLap.selectedOptions[0];
-  let nguoiLapName = selOpt ? (selOpt.getAttribute('data-name') || selOpt.textContent.split(' (')[0]) : '';
-  let nguoiLapId = selNguoiLap.value;
-  if (!nguoiLapName && currentUser) {
-    nguoiLapName = currentUser.fullName;
-    nguoiLapId = currentUser.id;
-  }
+  const nguoiLapName = selOpt ? (selOpt.getAttribute('data-name') || selOpt.textContent.split(' (')[0]) : '';
+  const nguoiLapId = selNguoiLap.value;
   return {
     name: document.getElementById('tenCongTrinh').value || currentProject.name,
     projectInfo: {

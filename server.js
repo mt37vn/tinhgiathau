@@ -958,15 +958,6 @@ app.put('/api/projects/:id', auth, (req, res) => {
     if (!isOwner)
       return res.status(403).json({ error: 'Chỉ sửa được dự án do mình tạo hoặc được phân công' });
   }
-  // Prevent clearing owner fields via API
-  if (req.body && req.body.projectInfo) {
-    if (!req.body.projectInfo.nguoiLap && project.projectInfo && project.projectInfo.nguoiLap) {
-      req.body.projectInfo.nguoiLap = project.projectInfo.nguoiLap;
-    }
-    if (!req.body.projectInfo.nguoiLapId && project.projectInfo && project.projectInfo.nguoiLapId) {
-      req.body.projectInfo.nguoiLapId = project.projectInfo.nguoiLapId;
-    }
-  }
   const updated = { ...project, ...req.body, id: req.params.id, updatedAt: new Date().toISOString() };
   // Transition upcoming to draft on first human interaction
   if (project.status === 'upcoming' && updated.status === 'upcoming') {
