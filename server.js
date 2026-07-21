@@ -635,7 +635,7 @@ app.get('/api/sync/pull', syncAuth, (req, res) => {
   for (const [key, entry] of Object.entries(SYNCABLE_FILES)) {
     try {
       const serverData = readData(entry.file);
-      if (!since || !serverData.updatedAt || serverData.updatedAt > since) {
+      if (!since || !serverData.updatedAt || serverData.updatedAt >= since) {
         result[key] = serverData;
       }
     } catch (e) {
