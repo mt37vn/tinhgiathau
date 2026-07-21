@@ -42,6 +42,18 @@ jobs:
           path: /tmp/search_page_fail.png
           if-no-files-found: ignore
 
+      # === Push processed/discarded IDs to VPS (JSON, not git) ===
+      - name: Push ID files to VPS
+        if: env.VPS_HOST != ''
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "data/processed_ids.json,data/discarded_ids.json"
+          target: /opt/dauthau/data/
+          strip_components: 1
+
       # === Sync portal items (Node.js) ===
       - uses: actions/setup-node@v7
         with:
@@ -78,12 +90,12 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: nssm restart Dauthau
 
-      # === Commit all changes ===
+      # === Commit changes (only sync-report.json) ===
       - name: Commit and push changes
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          for f in processed_ids.txt discarded_ids.txt data/sync-report.json; do
+          for f in data/sync-report.json; do
             [ -f "$f" ] && git add -f "$f" || true
           done
           git diff --staged --quiet || git commit -m "chore: daily update $(date +%Y-%m-%d)"

@@ -121,6 +121,8 @@ async function syncProjectToTrello(project) {
     await moveTrelloCard(trelloCardId, trelloListPreparing);
   } else if (status === 'approved' && process.env.TRELLO_LIST_APPROVED) {
     await moveTrelloCard(trelloCardId, process.env.TRELLO_LIST_APPROVED);
+  } else if (status === 'rejected' && process.env.TRELLO_LIST_REJECTED) {
+    await moveTrelloCard(trelloCardId, process.env.TRELLO_LIST_REJECTED);
   }
 
   // Move card based on bid result

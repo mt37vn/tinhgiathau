@@ -260,6 +260,7 @@ table .td-num input{text-align:right}
       <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" onclick="showChangePassword()">🔑 Đổi mật khẩu</button>
       <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" id="userMgmtBtn" onclick="showUserManagement()">👥 Nhân viên</button>
       <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" id="settingsBtn" onclick="showSettings()">⚙️</button>
+      <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" id="trelloSyncBtn" onclick="syncTrello()">🔄 Trello</button>
       <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" id="reportBtn" onclick="window.open('/admin/report')">📊 Báo cáo</button>
       <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" onclick="showSupplierList()">🏭 Nhà cung cấp</button>
       <button class="btn btn-outline btn-sm btn-menu-toggle" onclick="toggleMobileMenu()" style="border-color:#fff;color:#fff;display:none">☰</button>
@@ -273,6 +274,7 @@ table .td-num input{text-align:right}
   <button class="btn" onclick="showChangePassword();toggleMobileMenu()">🔑 Đổi mật khẩu</button>
   <button class="btn" id="mobileUserMgmtBtn" onclick="showUserManagement();toggleMobileMenu()">👥 Nhân viên</button>
   <button class="btn" id="mobileSettingsBtn" onclick="showSettings();toggleMobileMenu()">⚙️ Cài đặt</button>
+  <button class="btn" id="mobileTrelloSyncBtn" onclick="syncTrello();toggleMobileMenu()">🔄 Đồng bộ Trello</button>
   <button class="btn" id="mobileReportBtn" onclick="window.open('/admin/report');toggleMobileMenu()">📊 Báo cáo</button>
   <button class="btn" onclick="showSupplierList();toggleMobileMenu()">🏭 Nhà cung cấp</button>
 </div>
@@ -810,6 +812,8 @@ function updateAuthUI() {
   document.getElementById('roleDisplay').textContent = currentUser.role === 'admin' ? '(Admin)' : '(Nhân viên)';
   document.getElementById('userMgmtBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
   document.getElementById('settingsBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
+  document.getElementById('trelloSyncBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
+  document.getElementById('mobileTrelloSyncBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
   document.getElementById('reportBtn').style.display = '';
   // Sync mobile menu buttons
   document.getElementById('mobileUserMgmtBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
@@ -970,6 +974,23 @@ async function saveSettings() {
     closeSettings();
     showToast('Đã lưu cài đặt', 'success');
   } catch (e) { showToast(e.message, 'error'); }
+}
+
+// --- Trello sync ---
+async function syncTrello() {
+  if (!confirm('Đồng bộ card từ Trello sang hệ thống?\n\nCác card ở cột "Đang chuẩn bị hồ sơ" sẽ được tạo/cập nhật dự án tương ứng.')) return;
+  try {
+    const result = await api('POST', '/api/trello/sync');
+    const msg = '✅ Đồng bộ Trello hoàn tất:\n' +
+      '  • Đã đồng bộ: ' + (result.synced || 0) + ' card\n' +
+      '  • Đã tạo mới: ' + (result.created || 0) + ' dự án\n' +
+      '  • Đã cập nhật: ' + (result.updated || 0) + ' dự án';
+    if (result.errors && result.errors.length > 0) {
+      msg += '\n  ⚠️ Lỗi: ' + result.errors.length + ' card';
+    }
+    showToast(msg, result.errors && result.errors.length > 0 ? 'warning' : 'success');
+    loadProjectList();
+  } catch (e) { showToast('Lỗi đồng bộ Trello: ' + e.message, 'error'); }
 }
 
 // --- Project flow ---

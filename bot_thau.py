@@ -27,6 +27,46 @@ MAX_CARDS_PER_KEYWORD = 5
 MAX_BID_PRICE = 2_000_000_000
 HISTORY_FILE = "processed_ids.txt"
 DISCARD_FILE = "discarded_ids.txt"
+DATA_DIR = "data"
+PROCESSED_JSON = os.path.join(DATA_DIR, "processed_ids.json")
+DISCARDED_JSON = os.path.join(DATA_DIR, "discarded_ids.json")
+
+
+def _ensure_data_dir():
+    os.makedirs(DATA_DIR, exist_ok=True)
+
+
+def _save_processed_json(ids_set):
+    _ensure_data_dir()
+    with open(PROCESSED_JSON, "w", encoding="utf-8") as f:
+        json.dump({"ids": sorted(ids_set), "updatedAt": datetime.utcnow().isoformat() + "Z"}, f, ensure_ascii=False)
+
+
+def _save_discarded_json(entries_list):
+    _ensure_data_dir()
+    with open(DISCARDED_JSON, "w", encoding="utf-8") as f:
+        json.dump({"ids": entries_list, "updatedAt": datetime.utcnow().isoformat() + "Z"}, f, ensure_ascii=False)
+
+
+def _build_discarded_entries(discarded_set):
+    """Rebuild full discarded entries (id + reason) from the discard file."""
+    entries = []
+    if not os.path.exists(DISCARD_FILE):
+        return [{"id": bid_id, "reason": "unknown"} for bid_id in sorted(discarded_set)]
+    with open(DISCARD_FILE, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split("|", 1)
+            bid_id = parts[0].strip()
+            if bid_id in discarded_set:
+                reason = parts[1].strip() if len(parts) > 1 else "unknown"
+                entries.append({"id": bid_id, "reason": reason, "date": datetime.utcnow().isoformat() + "Z"})
+        for bid_id in sorted(discarded_set):
+            if not any(e["id"] == bid_id for e in entries):
+                entries.append({"id": bid_id, "reason": "unknown", "date": datetime.utcnow().isoformat() + "Z"})
+    return entries
 
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
@@ -34,22 +74,36 @@ UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML,
 # 2. HÀM HỖ TRỢ
 # ==========================================
 def load_processed_ids() -> set:
-    if not os.path.exists(HISTORY_FILE):
-        with open(HISTORY_FILE, "w") as f:
+    ids = set()
+    if os.path.exists(PROCESSED_JSON):
+        try:
+            with open(PROCESSED_JSON, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                ids.update(data.get("ids", []))
+        except:
             pass
-        return set()
-    with open(HISTORY_FILE, "r", encoding="utf-8") as f:
-        return set(line.strip() for line in f if line.strip())
+    if os.path.exists(HISTORY_FILE):
+        with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+            ids.update(line.strip() for line in f if line.strip())
+    return ids
 
 def save_processed_id(bid_id):
     with open(HISTORY_FILE, "a", encoding="utf-8") as f:
         f.write(f"{bid_id}\n")
 
 def load_discarded_ids() -> set:
-    if not os.path.exists(DISCARD_FILE):
-        return set()
-    with open(DISCARD_FILE, "r", encoding="utf-8") as f:
-        return set(line.split("|")[0].strip() for line in f if line.strip())
+    ids = set()
+    if os.path.exists(DISCARDED_JSON):
+        try:
+            with open(DISCARDED_JSON, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                ids.update(item["id"] for item in data.get("ids", []) if isinstance(item, dict) and "id" in item)
+        except:
+            pass
+    if os.path.exists(DISCARD_FILE):
+        with open(DISCARD_FILE, "r", encoding="utf-8") as f:
+            ids.update(line.split("|")[0].strip() for line in f if line.strip())
+    return ids
 
 def save_discarded_id(bid_id, reason, discarded_set):
     if bid_id in discarded_set:
@@ -873,6 +927,8 @@ def run_bot():
                         send_bid_data(card_id, item, bid_no, bid_name, keyword, kh_price, kh_unit, guarantee_val, items_from_detail)
                         
         finally:
+            _save_processed_json(processed_ids)
+            _save_discarded_json(_build_discarded_entries(discarded_ids))
             browser.close()
 
 if __name__ == "__main__":
