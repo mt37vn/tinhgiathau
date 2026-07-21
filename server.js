@@ -39,11 +39,10 @@ app.use(session({
 }));
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-const nowISO = new Date().toISOString();
-if (!fs.existsSync(PROJ_FILE)) fs.writeFileSync(PROJ_FILE, JSON.stringify({ updatedAt: nowISO, projects: [] }, null, 2));
-if (!fs.existsSync(SUPPLIER_FILE)) fs.writeFileSync(SUPPLIER_FILE, JSON.stringify({ updatedAt: nowISO, suppliers: [] }, null, 2));
-if (!fs.existsSync(CONFIG_FILE)) fs.writeFileSync(CONFIG_FILE, JSON.stringify({ updatedAt: nowISO, companyName: 'CÔNG TY CỔ PHẦN THÔNG TIN HAPRO' }, null, 2));
-if (!fs.existsSync(SCRAPED_BIDS_FILE)) fs.writeFileSync(SCRAPED_BIDS_FILE, JSON.stringify({ updatedAt: nowISO, entries: [] }, null, 2));
+if (!fs.existsSync(PROJ_FILE)) fs.writeFileSync(PROJ_FILE, JSON.stringify({ projects: [] }, null, 2));
+if (!fs.existsSync(SUPPLIER_FILE)) fs.writeFileSync(SUPPLIER_FILE, JSON.stringify({ suppliers: [] }, null, 2));
+if (!fs.existsSync(CONFIG_FILE)) fs.writeFileSync(CONFIG_FILE, JSON.stringify({ companyName: 'CÔNG TY CỔ PHẦN THÔNG TIN HAPRO' }, null, 2));
+if (!fs.existsSync(SCRAPED_BIDS_FILE)) fs.writeFileSync(SCRAPED_BIDS_FILE, JSON.stringify({ entries: [] }, null, 2));
 
 function cleanupExpiredUpcoming() {
   try {
@@ -85,7 +84,7 @@ try {
       }
     }
   }
-  if (changed) writeData(SUPPLIER_FILE, existingSupp);
+  if (changed) fs.writeFileSync(SUPPLIER_FILE, JSON.stringify(existingSupp, null, 2));
 } catch (e) { /* ignore startup sync errors */ }
 
 if (!fs.existsSync(USER_FILE)) {
@@ -93,7 +92,7 @@ if (!fs.existsSync(USER_FILE)) {
     { id: uuidv4(), username: 'admin', password: bcrypt.hashSync('admin123', 10), fullName: 'CEO Admin', role: 'admin', createdAt: new Date().toISOString() },
     { id: uuidv4(), username: 'nhanvien', password: bcrypt.hashSync('nv123', 10), fullName: 'Nhân viên', role: 'employee', createdAt: new Date().toISOString() }
   ];
-  fs.writeFileSync(USER_FILE, JSON.stringify({ updatedAt: nowISO, users: defaultUsers }, null, 2));
+  fs.writeFileSync(USER_FILE, JSON.stringify({ users: defaultUsers }, null, 2));
 }
 
 function readData(file) {
@@ -101,7 +100,6 @@ function readData(file) {
   catch { return file === PROJ_FILE ? { projects: [] } : { users: [] }; }
 }
 function writeData(file, data) {
-  data.updatedAt = new Date().toISOString();
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
 }
 
@@ -585,53 +583,6 @@ app.get('/api/scraper-config', (req, res) => {
     maxCardsPerKeyword: config.scraperMaxCardsPerKeyword || 5,
     onlyRutGon: config.scraperOnlyRutGon !== false
   });
-});
-
-// --- Sync Auth Middleware ---
-const SYNC_TOKEN = process.env.SYNC_TOKEN;
-function syncAuth(req, res, next) {
-  const token = req.headers['x-sync-token'];
-  if (!SYNC_TOKEN) return res.status(500).json({ error: 'SYNC_TOKEN chưa được cấu hình' });
-  if (token !== SYNC_TOKEN) return res.status(401).json({ error: 'Unauthorized' });
-  next();
-}
-
-const SYNCABLE_FILES = {
-  projects: { file: PROJ_FILE },
-  users: { file: USER_FILE },
-  suppliers: { file: SUPPLIER_FILE },
-  config: { file: CONFIG_FILE },
-  scrapedBids: { file: SCRAPED_BIDS_FILE }
-};
-
-// POST /api/sync/push — Local push file lên server
-app.post('/api/sync/push', syncAuth, (req, res) => {
-  const { file: fileKey, data } = req.body;
-  if (!fileKey || !data) return res.status(400).json({ error: 'Thiếu file hoặc data' });
-  const entry = SYNCABLE_FILES[fileKey];
-  if (!entry) return res.status(400).json({ error: 'File không hợp lệ: ' + fileKey });
-
-  try {
-    writeData(entry.file, data);
-    return res.json({ ok: true, action: 'accepted' });
-  } catch (e) {
-    return res.status(500).json({ error: e.message });
-  }
-});
-
-// GET /api/sync/pull — Local kéo toàn bộ data từ server
-app.get('/api/sync/pull', syncAuth, (req, res) => {
-  const result = {};
-
-  for (const [key, entry] of Object.entries(SYNCABLE_FILES)) {
-    try {
-      result[key] = readData(entry.file);
-    } catch (e) {
-      // skip file if read fails
-    }
-  }
-
-  res.json(result);
 });
 
 // --- Receive Bid Data (no auth – called by GitHub Actions) ---
