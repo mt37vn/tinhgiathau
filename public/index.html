@@ -1722,7 +1722,12 @@ function collectFormData() {
   const items = getItemsFromTable();
   const selNguoiLap = document.getElementById('nguoiLap');
   const selOpt = selNguoiLap.selectedOptions[0];
-  const nguoiLapName = selOpt ? (selOpt.getAttribute('data-name') || selOpt.textContent.split(' (')[0]) : '';
+  let nguoiLapName = selOpt ? (selOpt.getAttribute('data-name') || selOpt.textContent.split(' (')[0]) : '';
+  let nguoiLapId = selNguoiLap.value;
+  if (!nguoiLapName && currentUser) {
+    nguoiLapName = currentUser.fullName;
+    nguoiLapId = currentUser.id;
+  }
   return {
     name: document.getElementById('tenCongTrinh').value || currentProject.name,
     projectInfo: {
@@ -1732,7 +1737,7 @@ function collectFormData() {
       noiDungTrinh: document.getElementById('noiDungTrinh').value,
       diaDiem: document.getElementById('diaDiem').value,
       nguoiLap: nguoiLapName,
-      nguoiLapId: selNguoiLap.value,
+      nguoiLapId: nguoiLapId,
       ngayLap: fromDateStr(document.getElementById('ngayLap').value),
       thoiGianDongThau: getThoiGianDongThau(),
       nguoiDuyet: document.getElementById('nguoiDuyet').value,
@@ -1904,7 +1909,7 @@ function validateProjectInfo() {
     { id:'benMoiThau', msg:'Nhập bên mời thầu' },
     { id:'giaDuToan', msg:'Nhập giá dự toán' },
     { id:'diaDiem', msg:'Nhập địa điểm thi công' },
-    { id:'nguoiLap', msg:'Chọn người lập đề xuất' },
+    // nguoiLap: optional — sẽ tự gán trên server khi submit
     { id:'ngayLap', msg:'Nhập ngày lập' }
   ];
   for (const c of checks) {
