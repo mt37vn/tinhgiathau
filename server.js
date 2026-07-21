@@ -627,17 +627,13 @@ app.post('/api/sync/push', syncAuth, (req, res) => {
   }
 });
 
-// GET /api/sync/pull?since=ISO — Local kéo data mới từ server
+// GET /api/sync/pull — Local kéo toàn bộ data từ server
 app.get('/api/sync/pull', syncAuth, (req, res) => {
-  const since = req.query.since;
   const result = {};
 
   for (const [key, entry] of Object.entries(SYNCABLE_FILES)) {
     try {
-      const serverData = readData(entry.file);
-      if (!since || !serverData.updatedAt || serverData.updatedAt >= since) {
-        result[key] = serverData;
-      }
+      result[key] = readData(entry.file);
     } catch (e) {
       // skip file if read fails
     }

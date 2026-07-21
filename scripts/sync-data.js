@@ -83,8 +83,7 @@ async function sync() {
 
   // Phase 2: Pull server → local
   try {
-    const since = Object.values(lastSync).sort().reverse()[0] || '';
-    const resp = await fetch(`${MAIN_URL}/api/sync/pull?since=${encodeURIComponent(since)}`, {
+    const resp = await fetch(`${MAIN_URL}/api/sync/pull`, {
       headers: { 'X-Sync-Token': SYNC_TOKEN }
     });
     if (!resp.ok) {
