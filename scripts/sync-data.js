@@ -1,18 +1,3 @@
-/**
- * sync-data.js – Đồng bộ dữ liệu 2 chiều giữa local PC và main server
- *
- * Chạy định kỳ (mặc định 30s), push local changes lên server
- * và pull server changes về local. Last-writer-wins theo updatedAt.
- *
- * Usage:
- *   node scripts/sync-data.js
- *
- * Biến môi trường:
- *   MAIN_SERVER_URL    (required) URL server chính
- *   SYNC_TOKEN         (required) Shared secret
- *   SYNC_INTERVAL      (optional, default 30) giây giữa các lần sync
- */
-
 const fs = require('fs');
 const path = require('path');
 
@@ -34,8 +19,6 @@ const FILES = [
   { key: 'scrapedBids', file: 'scraped-bids.json' }
 ];
 
-let lastSync = {};
-
 function readLocalFile(filePath) {
   try {
     const raw = fs.readFileSync(filePath, 'utf-8');
@@ -46,42 +29,35 @@ function readLocalFile(filePath) {
 }
 
 async function sync() {
+  const pushRejected = new Set();
+
+  // Phase 1: Push local → server (luôn push, server quyết định accept/reject)
   for (const { key, file } of FILES) {
     const localPath = path.join(DATA_DIR, file);
-
-    // Phase 1: Push local → server
     const localData = readLocalFile(localPath);
     if (!localData) continue;
 
-    const last = lastSync[key];
-    if (!last || !localData.updatedAt || localData.updatedAt > last) {
-      try {
-        const resp = await fetch(`${MAIN_URL}/api/sync/push`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Sync-Token': SYNC_TOKEN
-          },
-          body: JSON.stringify({ file: key, data: localData })
-        });
-        if (resp.ok) {
-          const result = await resp.json();
-          if (result.action === 'accepted') {
-            lastSync[key] = localData.updatedAt;
-          } else if (result.action === 'rejected' && result.serverUpdatedAt) {
-            // Server không chấp nhận → local sẽ pull ở phase 2
-            lastSync[key] = result.serverUpdatedAt;
-          }
-        } else {
-          console.error(`[sync] Push ${key} failed: ${resp.status}`);
+    try {
+      const resp = await fetch(`${MAIN_URL}/api/sync/push`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Sync-Token': SYNC_TOKEN
+        },
+        body: JSON.stringify({ file: key, data: localData })
+      });
+      if (resp.ok) {
+        const result = await resp.json();
+        if (result.action === 'rejected') {
+          pushRejected.add(key);
         }
-      } catch (e) {
-        console.error(`[sync] Push ${key} error:`, e.message);
       }
+    } catch (e) {
+      console.error(`[sync] Push ${key} error:`, e.message);
     }
   }
 
-  // Phase 2: Pull server → local
+  // Phase 2: Pull server → local (bỏ qua file đã bị reject để giữ local changes)
   try {
     const resp = await fetch(`${MAIN_URL}/api/sync/pull`, {
       headers: { 'X-Sync-Token': SYNC_TOKEN }
@@ -93,6 +69,8 @@ async function sync() {
 
     const serverData = await resp.json();
     for (const { key, file } of FILES) {
+      if (pushRejected.has(key)) continue;
+
       const remote = serverData[key];
       if (!remote || !remote.updatedAt) continue;
 
@@ -101,7 +79,6 @@ async function sync() {
 
       if (!localData || remote.updatedAt > localData.updatedAt) {
         fs.writeFileSync(localPath, JSON.stringify(remote, null, 2));
-        lastSync[key] = remote.updatedAt;
         console.log(`[sync] Updated local ${key} from server`);
       }
     }

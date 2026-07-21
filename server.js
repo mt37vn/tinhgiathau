@@ -612,16 +612,8 @@ app.post('/api/sync/push', syncAuth, (req, res) => {
   if (!entry) return res.status(400).json({ error: 'File không hợp lệ: ' + fileKey });
 
   try {
-    const serverData = readData(entry.file);
-
-    // Local data mới hơn → ghi đè
-    if (!serverData.updatedAt || data.updatedAt >= serverData.updatedAt) {
-      writeData(entry.file, data);
-      return res.json({ ok: true, action: 'accepted' });
-    }
-
-    // Server data mới hơn → bỏ qua, báo cho local biết
-    return res.json({ ok: true, action: 'rejected', reason: 'server_never', serverUpdatedAt: serverData.updatedAt });
+    writeData(entry.file, data);
+    return res.json({ ok: true, action: 'accepted' });
   } catch (e) {
     return res.status(500).json({ error: e.message });
   }
