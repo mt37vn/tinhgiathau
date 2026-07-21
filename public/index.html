@@ -1275,7 +1275,7 @@ function loadProjectToForm(p) {
   document.getElementById('noiDungTrinh').value = info.noiDungTrinh || '';
   document.getElementById('diaDiem').value = info.diaDiem || '';
   // nguoiLap: prefer ID from nguoiLapId, fallback to name lookup for legacy projects
-  const nguoiLapId = info.nguoiLapId || (info.nguoiLap && users.length > 0 ? (users.find(u => u.fullName === info.nguoiLap) || {}).id : '') || (currentUser ? currentUser.id : '') || '';
+  const nguoiLapId = info.nguoiLapId || (info.nguoiLap && users.length > 0 ? (users.find(u => u.fullName === info.nguoiLap) || {}).id : '') || '';
   document.getElementById('nguoiLap').value = nguoiLapId;
   document.getElementById('ngayLap').value = toDateStr(info.ngayLap) || toDateStr(new Date().toISOString());
   setThoiGianDongThau(info.thoiGianDongThau);

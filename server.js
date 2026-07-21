@@ -739,6 +739,9 @@ app.post('/api/trello/sync', auth, async (req, res) => {
           }
           existing.updatedAt = now;
           if (!existing.projectInfo) existing.projectInfo = {};
+          // Reset nguoiLap on Trello-synced projects — auto-assigned on first submit
+          existing.projectInfo.nguoiLap = '';
+          existing.projectInfo.nguoiLapId = '';
           if (benMoiThau) existing.projectInfo.benMoiThau = benMoiThau;
           if (thoiGianDongThau) existing.projectInfo.thoiGianDongThau = thoiGianDongThau;
           if (bidNo) existing.projectInfo.maDauThau = bidNo;
