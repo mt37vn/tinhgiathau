@@ -2125,7 +2125,7 @@ app.get('/admin/report', auth, (req, res) => {
   h += '<h1>' + esc(companyName) + '</h1><h2>PHÂN TÍCH KẾT QUẢ ĐẤU THẦU — ' + now + '</h2>';
   h += '<div style="text-align:center;margin-bottom:8px"><button onclick="window.print()" style="padding:6px 20px;background:#2a5a8c;color:#fff;border:none;border-radius:4px;font-size:13px;cursor:pointer">In báo cáo</button></div>';
 
-  var totalWin = 0, totalLose = 0, totalNa = 0;
+  var totalWin = 0, totalLose = 0;
   var loseGiaNhap = 0, loseGiaChao = 0, loseKhac = 0;
 
   h += '<table><thead><tr>';
@@ -2142,6 +2142,7 @@ app.get('/admin/report', auth, (req, res) => {
 
   let stt = 0;
   for (const p of sortedProjects) {
+    if (!p.ketQuaTrungThau) continue;
     stt++;
     const info = p.projectInfo || {};
     const params = p.params || {};
@@ -2214,10 +2215,6 @@ app.get('/admin/report', auth, (req, res) => {
         phanTichCls = 'text-yellow';
         chiSo = 'Giá chào ' + fmt(giaChao) + ' / TT ' + fmt(giaTrungThau);
       }
-    } else {
-      totalNa++;
-      phanTich = 'Chưa có kết quả thầu';
-      chiSo = '';
     }
 
     h += '<tr>';
@@ -2230,7 +2227,89 @@ app.get('/admin/report', auth, (req, res) => {
   }
 
   h += '</tbody></table>';
-  h += '<div class="summary"><span class="s-win">🟢 Trúng: ' + totalWin + '</span><span class="s-lose">🔴 Trượt: ' + totalLose + '</span><span class="s-na">⏳ Chưa có KQ: ' + totalNa + '</span></div>';
+  h += '<div class="summary"><span class="s-win">🟢 Trúng: ' + totalWin + '</span><span class="s-lose">🔴 Trượt: ' + totalLose + '</span></div>';
+
+  // ── Stacked bar chart: monthly win/lose overview ──
+  var monthNames = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
+  var nowDate = new Date();
+  var monthly = [];
+  for (var mi = 11; mi >= 0; mi--) {
+    var md = new Date(nowDate.getFullYear(), nowDate.getMonth() - mi, 1);
+    var mkey = md.getFullYear() + '-' + String(md.getMonth() + 1).padStart(2, '0');
+    monthly.push({ key: mkey, label: monthNames[md.getMonth()] + '/' + String(md.getFullYear()).slice(2), win: 0, lose: 0 });
+  }
+
+  for (var pi = 0; pi < (data.projects || []).length; pi++) {
+    var pp = data.projects[pi];
+    if (!pp.ketQuaTrungThau) continue;
+    var closeStr = pp.projectInfo && pp.projectInfo.thoiGianDongThau;
+    var pdt = closeStr ? new Date(closeStr) : null;
+    if (!pdt || isNaN(pdt.getTime())) continue;
+    var pkey = pdt.getFullYear() + '-' + String(pdt.getMonth() + 1).padStart(2, '0');
+    for (var mi2 = 0; mi2 < monthly.length; mi2++) {
+      if (monthly[mi2].key === pkey) {
+        if (pp.ketQuaTrungThau === 'win') monthly[mi2].win++;
+        else if (pp.ketQuaTrungThau === 'lose') monthly[mi2].lose++;
+        break;
+      }
+    }
+  }
+
+  var maxTotal = 1;
+  for (var mi3 = 0; mi3 < monthly.length; mi3++) {
+    var mt = monthly[mi3].win + monthly[mi3].lose;
+    if (mt > maxTotal) maxTotal = mt;
+  }
+
+  // Simple Y-step: 1, 2, 5, 10, 20, 50, 100, ...
+  var yStep = 1;
+  while (yStep * 5 < maxTotal) yStep *= (yStep * 2 < maxTotal ? 5 : 2);
+  var yMax = Math.ceil(maxTotal / yStep) * yStep;
+
+  var chartW = 700, chartH = 230, padL = 40, padR = 16, padT = 24, padB = 36;
+  var plotW = chartW - padL - padR;
+  var barGap = 4;
+  var barW2 = Math.floor((plotW - barGap * (monthly.length + 1)) / monthly.length);
+  var yScale = (chartH - padT - padB) / yMax;
+
+  h += '<h3 style="text-align:center;font-size:14px;color:#1a3a5c;margin:24px 0 8px">SỐ GÓI THẦU THEO THÁNG</h3>';
+  h += '<div style="overflow-x:auto;text-align:center">';
+  h += '<svg width="' + chartW + '" height="' + chartH + '" viewBox="0 0 ' + chartW + ' ' + chartH + '" style="display:inline-block">';
+
+  // Grid lines + Y labels
+  for (var yv = 0; yv <= yMax; yv += yStep) {
+    var yy = padT + (chartH - padT - padB) - yv * yScale;
+    h += '<line x1="' + padL + '" y1="' + yy + '" x2="' + (chartW - padR) + '" y2="' + yy + '" stroke="#e8e8e8" stroke-width="1"/>';
+    h += '<text x="' + (padL - 6) + '" y="' + (yy + 3) + '" text-anchor="end" font-size="9" fill="#888">' + yv + '</text>';
+  }
+
+  // Bars
+  for (var mi4 = 0; mi4 < monthly.length; mi4++) {
+    var mm = monthly[mi4];
+    var bx = padL + barGap + mi4 * (barW2 + barGap);
+    var bw = barW2;
+    var hWin = mm.win * yScale;
+    var hLose = mm.lose * yScale;
+    var baseY2 = padT + (chartH - padT - padB);
+
+    if (mm.win > 0) {
+      h += '<rect x="' + bx + '" y="' + (baseY2 - hWin) + '" width="' + bw + '" height="' + hWin + '" fill="#27ae60" rx="1"/>';
+    }
+    if (mm.lose > 0) {
+      h += '<rect x="' + bx + '" y="' + (baseY2 - hWin - hLose) + '" width="' + bw + '" height="' + hLose + '" fill="#e74c3c" rx="1"/>';
+    }
+    // X label
+    h += '<text x="' + (bx + bw / 2) + '" y="' + (chartH - 6) + '" text-anchor="middle" font-size="9" fill="#555">' + mm.label + '</text>';
+    // Count on top
+    var totalM = mm.win + mm.lose;
+    if (totalM > 0) {
+      h += '<text x="' + (bx + bw / 2) + '" y="' + (baseY2 - hWin - hLose - 4) + '" text-anchor="middle" font-size="9" fill="#333" font-weight="600">' + totalM + '</text>';
+    }
+  }
+
+  h += '</svg>';
+  h += '<div style="font-size:11px;margin-top:4px"><span style="display:inline-block;width:12px;height:12px;background:#27ae60;border-radius:2px;vertical-align:middle;margin-right:4px"></span> Trúng <span style="display:inline-block;width:12px;height:12px;background:#e74c3c;border-radius:2px;vertical-align:middle;margin:0 4px 0 16px"></span> Trượt</div>';
+  h += '</div>';
 
   // Pie chart
   var cx = 120, cy = 120, r = 100, pr = 0;

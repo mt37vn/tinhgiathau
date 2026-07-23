@@ -292,42 +292,42 @@ table .td-num input{text-align:right}
       </div>
       <hr class="pb-divider">
       <div class="pb-section" id="upcomingSection" style="display:none">
-        <span class="pb-recent-label" style="color:#2980b9">🔜 Sắp mở thầu</span>
+         <span class="pb-recent-label" style="color:#2980b9" id="upcomingLabel">🔜 Sắp mở thầu</span>
         <ul class="pb-recent-list" id="upcomingList" style="max-height:120px"></ul>
       </div>
       <hr class="pb-divider" id="upcomingDivider" style="display:none">
       <div class="pb-section">
-        <span class="pb-recent-label">📝 Đang chuẩn bị hồ sơ</span>
+        <span class="pb-recent-label" id="recentLabel">📝 Đang chuẩn bị hồ sơ</span>
         <ul class="pb-recent-list" id="recentList"></ul>
       </div>
       <hr class="pb-divider" id="pendingDivider" style="display:none">
       <div class="pb-section" id="pendingSection" style="display:none">
-        <span class="pb-recent-label" style="color:#721c24">⏳ Chờ duyệt</span>
+        <span class="pb-recent-label" style="color:#721c24" id="pendingLabel">⏳ Chờ duyệt</span>
         <ul class="pb-recent-list" id="pendingList" style="max-height:120px"></ul>
       </div>
       <hr class="pb-divider" id="rejectedDivider" style="display:none">
       <div class="pb-section" id="rejectedSection" style="display:none">
-        <span class="pb-recent-label" style="color:#721c24">✗ Không duyệt</span>
+        <span class="pb-recent-label" style="color:#721c24" id="rejectedLabel">✗ Không duyệt</span>
         <ul class="pb-recent-list" id="rejectedList" style="max-height:120px"></ul>
       </div>
       <hr class="pb-divider" id="approvedDivider" style="display:none">
       <div class="pb-section" id="approvedSection" style="display:none">
-        <span class="pb-recent-label" style="color:#1a5c8c">✓ Đã duyệt</span>
+        <span class="pb-recent-label" style="color:#1a5c8c" id="approvedLabel">✓ Đã duyệt</span>
         <ul class="pb-recent-list" id="approvedList" style="max-height:120px"></ul>
       </div>
       <hr class="pb-divider" id="pendingResultDivider" style="display:none">
       <div class="pb-section" id="pendingResultSection" style="display:none">
-        <span class="pb-recent-label" style="color:#e67e22">⏳ Đang xét thầu</span>
+        <span class="pb-recent-label" style="color:#e67e22" id="pendingResultLabel">⏳ Đang xét thầu</span>
         <ul class="pb-recent-list" id="pendingResultList" style="max-height:120px"></ul>
       </div>
       <hr class="pb-divider" id="winDivider" style="display:none">
       <div class="pb-section" id="winSection" style="display:none">
-        <span class="pb-recent-label" style="color:#27ae60">🏆 Trúng thầu</span>
+        <span class="pb-recent-label" style="color:#27ae60" id="winLabel">🏆 Trúng thầu</span>
         <ul class="pb-recent-list" id="winList" style="max-height:120px"></ul>
       </div>
       <hr class="pb-divider" id="loseDivider" style="display:none">
       <div class="pb-section" id="loseSection" style="display:none">
-        <span class="pb-recent-label" style="color:#e74c3c">❌ Trượt thầu</span>
+        <span class="pb-recent-label" style="color:#e74c3c" id="loseLabel">❌ Trượt thầu</span>
         <ul class="pb-recent-list" id="loseList" style="max-height:120px"></ul>
       </div>
       <div class="pb-status" id="projectStatus">
@@ -1109,14 +1109,30 @@ async function loadProjectList() {
 
   const now = new Date();
   const isOpen = p => !p.thoiGianDongThau || new Date(p.thoiGianDongThau) >= now;
-  renderList('recentList', p => p.status === 'draft' && isOpen(p), '📄');
-  const hasUpcoming = renderList('upcomingList', p => p.status === 'upcoming', '🔜');
-  const hasPending = renderList('pendingList', p => p.status === 'pending', '⏳');
-  const hasRejected = renderList('rejectedList', p => p.status === 'rejected', '✗');
-  const hasApproved = renderList('approvedList', p => p.status === 'approved' && p.ketQuaTrungThau == null && (!p.thoiGianDongThau || new Date(p.thoiGianDongThau) >= now), '✓');
-  const hasPendingResult = renderList('pendingResultList', p => p.ketQuaTrungThau == null && p.status !== 'pending' && p.status !== 'rejected' && p.thoiGianDongThau && new Date(p.thoiGianDongThau) < now, '⏳');
-  const hasWin = renderList('winList', p => p.ketQuaTrungThau === 'win', '🏆');
-  const hasLose = renderList('loseList', p => p.ketQuaTrungThau === 'lose', '❌');
+  const draftCount = renderList('recentList', p => p.status === 'draft' && isOpen(p), '📄');
+  const upcomingCount = renderList('upcomingList', p => p.status === 'upcoming', '🔜');
+  const pendingCount = renderList('pendingList', p => p.status === 'pending', '⏳');
+  const rejectedCount = renderList('rejectedList', p => p.status === 'rejected', '✗');
+  const approvedCount = renderList('approvedList', p => p.status === 'approved' && p.ketQuaTrungThau == null && (!p.thoiGianDongThau || new Date(p.thoiGianDongThau) >= now), '✓');
+  const pendingResultCount = renderList('pendingResultList', p => p.ketQuaTrungThau == null && p.status !== 'pending' && p.status !== 'rejected' && p.thoiGianDongThau && new Date(p.thoiGianDongThau) < now, '⏳');
+  const winCount = renderList('winList', p => p.ketQuaTrungThau === 'win', '🏆');
+  const loseCount = renderList('loseList', p => p.ketQuaTrungThau === 'lose', '❌');
+  const hasUpcoming = upcomingCount;
+  const hasPending = pendingCount;
+  const hasRejected = rejectedCount;
+  const hasApproved = approvedCount;
+  const hasPendingResult = pendingResultCount;
+  const hasWin = winCount;
+  const hasLose = loseCount;
+
+  document.getElementById('upcomingLabel').textContent = '🔜 Sắp mở thầu (' + upcomingCount + ')';
+  document.getElementById('recentLabel').textContent = '📝 Đang chuẩn bị hồ sơ (' + draftCount + ')';
+  document.getElementById('pendingLabel').textContent = '⏳ Chờ duyệt (' + pendingCount + ')';
+  document.getElementById('rejectedLabel').textContent = '✗ Không duyệt (' + rejectedCount + ')';
+  document.getElementById('approvedLabel').textContent = '✓ Đã duyệt (' + approvedCount + ')';
+  document.getElementById('pendingResultLabel').textContent = '⏳ Đang xét thầu (' + pendingResultCount + ')';
+  document.getElementById('winLabel').textContent = '🏆 Trúng thầu (' + winCount + ')';
+  document.getElementById('loseLabel').textContent = '❌ Trượt thầu (' + loseCount + ')';
 
   document.getElementById('pendingDivider').style.display = hasPending ? '' : 'none';
   document.getElementById('pendingSection').style.display = hasPending ? '' : 'none';
