@@ -89,11 +89,18 @@ table .td-num input{text-align:right}
 .toolbar .spacer{flex:1}
 .status-bar{background:#e8f0fe;padding:6px 16px;border-radius:4px;font-size:12px;color:#2a5a8c;margin-top:8px;text-align:right;display:none}
 .status-bar.show{display:block}
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;z-index:999}
-.modal-overlay.show{display:flex}
-.modal{background:#fff;border-radius:10px;padding:24px;min-width:360px;max-width:500px;box-shadow:0 10px 40px rgba(0,0,0,.2)}
-.modal h3{margin-bottom:16px;color:#1a3a5c}
-.modal .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
+.trello-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:999;padding:20px;overflow-y:auto}
+.trello-modal-overlay.show{display:flex}
+.trello-modal{background:#f4f5f7;border-radius:12px;width:100%;max-width:960px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden;animation:trelloPop .2s ease-out}
+@keyframes trelloPop{from{transform:scale(.95);opacity:0}to{transform:scale(1);opacity:1}}
+.trello-modal-header{background:#fff;padding:16px 24px;border-bottom:1px solid #dfe1e6;display:flex;align-items:center;justify-content:space-between}
+.trello-modal-title{font-size:18px;font-weight:600;color:#1a3a5c;display:flex;align-items:center;gap:10px}
+.trello-modal-close{background:transparent;border:none;font-size:20px;cursor:pointer;color:#666;padding:4px 8px;border-radius:4px}
+.trello-modal-close:hover{background:#ebecf0;color:#000}
+.trello-modal-body{padding:20px;overflow-y:auto;flex:1;display:grid;grid-template-columns:2fr 1fr;gap:20px}
+@media(max-width:850px){.trello-modal-body{grid-template-columns:1fr}}
+.trello-sidebar{background:#fff;border-radius:8px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.08);display:flex;flex-direction:column;gap:12px}
+.trello-main{background:#fff;border-radius:8px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.08);display:flex;flex-direction:column;gap:16px}
 .toast{position:fixed;bottom:30px;right:30px;background:#1a3a5c;color:#fff;padding:12px 24px;border-radius:6px;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,.2);opacity:0;transform:translateY(20px);transition:all .3s;z-index:999;pointer-events:none}
 .toast.show{opacity:1;transform:translateY(0);pointer-events:auto}
 .toast.success{background:#27ae60}
@@ -791,6 +798,152 @@ table .td-num input{text-align:right}
   </div>
 </div>
 
+<!-- Project Trello-style Modal -->
+<div class="trello-modal-overlay" id="projectTrelloModal">
+  <div class="trello-modal">
+    <div class="trello-modal-header">
+      <div class="trello-modal-title">
+        <span id="modalProjectIB" class="kanban-card-ib" style="font-size:12px;padding:4px 8px">[IB]</span>
+        <span id="modalProjectNameTitle">Tên dự án</span>
+        <span id="modalProjectStatusBadge" class="status-badge" style="margin-left:8px"></span>
+      </div>
+      <button class="trello-modal-close" onclick="closeProjectModal()">✕</button>
+    </div>
+    <div class="trello-modal-body">
+      <!-- Main Content (Left) -->
+      <div class="trello-main">
+        <div class="form-group">
+          <label>Mã đấu thầu (IB) <span style="color:#e74c3c">*</span></label>
+          <div style="display:flex;gap:4px">
+            <input type="text" id="modalMaDauThau" oninput="onModalProjectInfoChange();checkDuplicateIB()" placeholder="Nhập mã đấu thầu" style="flex:1">
+            <button class="btn btn-primary btn-sm" id="modalBtnFetchIB" onclick="fetchBiddingInfoModal()" style="white-space:nowrap">🔍 Tìm</button>
+            <span id="modalFetchSourceBadge" style="display:none;font-size:11px;padding:3px 8px;border-radius:10px;font-weight:600;white-space:nowrap;align-self:center"></span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Tên công trình / Dự án</label>
+          <input type="text" id="modalTenCongTrinh" oninput="onModalProjectInfoChange()" placeholder="Nhập tên dự án">
+        </div>
+        <div class="form-group">
+          <label>Bên mời thầu</label>
+          <input type="text" id="modalBenMoiThau" oninput="onModalProjectInfoChange()" placeholder="Nhập tên bên mời thầu">
+        </div>
+        <div class="form-group" id="modalHinhThucLCNT" style="display:none">
+          <label>Hình thức LCNT</label>
+          <input type="text" id="modalHinhThucLCNTInput" readonly>
+        </div>
+        <div class="form-group">
+          <label>Nội dung trình</label>
+          <input type="text" id="modalNoiDungTrinh" oninput="onModalProjectInfoChange()" placeholder="Nhập nội dung trình">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="form-group">
+            <label>Địa điểm</label>
+            <input type="text" id="modalDiaDiem" oninput="onModalProjectInfoChange()" placeholder="Nhập địa điểm">
+          </div>
+          <div class="form-group">
+            <label>Người phụ trách</label>
+            <input type="text" id="modalNguoiPhuTrach" oninput="onModalProjectInfoChange()" placeholder="Nhập người phụ trách">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="form-group">
+            <label>Người lập</label>
+            <select id="modalNguoiLap" onchange="onModalProjectInfoChange()"><option value="">-- Chọn --</option></select>
+          </div>
+          <div class="form-group">
+            <label>Ngày lập</label>
+            <input type="date" id="modalNgayLap" oninput="onModalProjectInfoChange()">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Thời gian đóng thầu</label>
+          <div style="display:flex;gap:4px">
+            <input type="datetime-local" id="modalThoiGianDongThau" oninput="onModalProjectInfoChange()" style="flex:1">
+            <button class="btn btn-outline btn-sm" onclick="modalPopulateCurrentTime()" title="Lấy giờ hiện tại">⏱️ Hiện tại</button>
+            <button class="btn btn-outline btn-sm" onclick="modalPopulateTimeAfter(2)" title="Sau 2 tiếng">+2h</button>
+            <button class="btn btn-outline btn-sm" onclick="modalPopulateTimeAfter(24)" title="Sau 24 tiếng">+24h</button>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:0;padding:12px;background:#f8f9fa">
+          <h3 style="font-size:14px;margin-bottom:8px;color:#1a3a5c">📦 Danh mục hàng hóa & Tính giá</h3>
+          <div class="toolbar" style="margin-bottom:8px">
+            <button class="btn btn-success btn-sm" onclick="addModalItem()">+ Thêm hàng</button>
+            <button class="btn btn-outline btn-sm" onclick="clearModalItems()">🗑 Xóa hết</button>
+          </div>
+          <div class="table-wrap" style="max-height:280px;overflow-y:auto">
+            <table class="card-table" style="font-size:12px">
+              <thead><tr>
+                <th style="width:30px">#</th>
+                <th style="min-width:140px">Tên hàng hóa</th>
+                <th style="width:70px">ĐVT</th>
+                <th style="width:50px">SL</th>
+                <th style="min-width:120px">Đơn giá gân nhất</th>
+                <th style="min-width:120px">Nhà cung cấp</th>
+                <th style="min-width:110px">Đơn giá NCC</th>
+                <th style="width:30px"></th>
+              </tr></thead>
+              <tbody id="modalItemsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar Actions & Results (Right) -->
+      <div class="trello-sidebar">
+        <h3 style="font-size:14px;color:#1a3a5c;border-bottom:1px solid #eef2f7;padding-bottom:6px">⚙️ Thông số & Kết quả</h3>
+        <div class="param-group" style="font-size:12px">
+          <div class="param-row"><label style="font-size:12px;flex:0 0 110px">Giá dự toán</label><input type="text" id="modalGiaDuToan" oninput="formatCurrencyInput(this);onModalParamsChange()" style="font-size:12px;padding:4px 8px"><span class="suffix">₫</span></div>
+          <div class="param-row"><label style="font-size:12px;flex:0 0 110px">ĐHQ / Cọc</label><input type="text" id="modalDatCoc" oninput="formatCurrencyInput(this);onModalParamsChange()" style="font-size:12px;padding:4px 8px"><span class="suffix">₫</span></div>
+          <div class="param-row"><label style="font-size:12px;flex:0 0 110px">CP Kỹ thuật</label><input type="text" id="modalCpKyThuat" oninput="formatCurrencyInput(this);onModalParamsChange()" style="font-size:12px;padding:4px 8px"><span class="suffix">₫</span></div>
+          <div class="param-row"><label style="font-size:12px;flex:0 0 110px">CP Hồ sơ</label><input type="text" id="modalCpHs" oninput="formatCurrencyInput(this);onModalParamsChange()" style="font-size:12px;padding:4px 8px"><span class="suffix">₫</span></div>
+          <div class="param-row"><label style="font-size:12px;flex:0 0 110px">CP Khác</label><input type="text" id="modalCpKhac" oninput="formatCurrencyInput(this);onModalParamsChange()" style="font-size:12px;padding:4px 8px"><span class="suffix">₫</span></div>
+          <div class="param-row"><label style="font-size:12px;flex:0 0 110px">LNR mục tiêu</label><input type="number" id="modalTiLeLNG" step="0.1" oninput="onModalParamsChange()" style="font-size:12px;padding:4px 8px"><span class="suffix">%</span></div>
+        </div>
+
+        <div style="background:#e8f0fe;padding:10px;border-radius:6px;font-size:12px;display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;justify-content:between"><span>Tổng giá NCC:</span><strong id="modalResTongGiaNCC">0 ₫</strong></div>
+          <div style="display:flex;justify-content:between"><span>Giá chào thầu:</span><strong id="modalResGiaChaoThau" style="color:#1a3a5c">0 ₫</strong></div>
+          <div style="display:flex;justify-content:between"><span>Tỉ lệ giảm giá:</span><strong id="modalResTiLeGiamGia">0.0%</strong></div>
+          <div style="display:flex;justify-content:between"><span>Lợi nhuận ròng:</span><strong id="modalResLoiNhuanRong" style="color:#27ae60">0 ₫</strong></div>
+        </div>
+
+        <div id="modalBidResultGroup" style="background:#f4f5f7;padding:10px;border-radius:6px;font-size:12px;display:none;flex-direction:column;gap:6px">
+          <h4 style="font-size:13px;color:#1a3a5c;margin-bottom:4px">🏆 Kết quả đấu thầu</h4>
+          <div class="form-group" style="margin-bottom:4px">
+            <label style="font-size:11px">Kết quả</label>
+            <select id="modalKetQuaTrungThau" onchange="onModalBidResultChange()" style="font-size:12px;padding:4px">
+              <option value="">-- Chưa có kết quả --</option>
+              <option value="win">🟢 Trúng thầu</option>
+              <option value="lose">🔴 Trượt thầu</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:4px">
+            <label style="font-size:11px">Giá trúng thầu / Giá chào công ty</label>
+            <div style="display:flex;gap:4px">
+              <input type="text" id="modalGiaTrungThau" oninput="formatCurrencyInput(this);onModalBidResultChange()" placeholder="Nhập giá" style="font-size:12px;padding:4px 8px;flex:1">
+              <button class="btn btn-outline btn-sm" id="modalBtnFetchBidResult" onclick="fetchModalBidResult()" style="font-size:11px;padding:4px 6px">🔍 Tự động</button>
+            </div>
+            <span id="modalBidResultFetchStatus" style="font-size:11px;color:#666"></span>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:auto">
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-success btn-sm" style="flex:1" onclick="modalApproveProject()" id="modalBtnApprove" style="display:none">✅ Duyệt</button>
+            <button class="btn btn-danger btn-sm" style="flex:1" onclick="modalRejectProject()" id="modalBtnReject" style="display:none">✗ Từ chối</button>
+            <button class="btn btn-warning btn-sm" style="flex:1" onclick="modalUnapproveProject()" id="modalBtnUnapprove" style="display:none">↩ Huỷ duyệt</button>
+          </div>
+          <button class="btn btn-primary btn-sm" style="background:#3498db;color:#fff;display:none" onclick="modalSubmitProject()" id="modalBtnSubmit">📨 Trình duyệt</button>
+          <button class="btn btn-outline btn-sm" onclick="modalPrintProject()">🖨 In báo cáo</button>
+          <button class="btn btn-danger btn-sm" onclick="modalDeleteProject()">🗑 Xóa dự án</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="bottombar" id="bottomBar">
   <span class="bb-label" id="bbProjectName" style="margin-right:auto;text-align:left;font-size:13px;color:rgba(255,255,255,.9);overflow:hidden;min-width:0"></span>
   <button class="btn btn-primary btn-sm" style="background:#fff;color:#1a3a5c" onclick="manualSave()" id="btnSave">💾 Lưu</button>
@@ -1334,8 +1487,8 @@ function renderKanbanCard(project) {
   
   return `
     <div class="kanban-card" draggable="true" data-id="${project.id}" data-status="${project.status}"
-         onclick="selectProjectById('${project.id}'); switchView('detail')"
-         title="Click để xem chi tiết">
+         onclick="openProjectModal('${project.id}')"
+         title="Click để xem thẻ dự án">
       <div class="kanban-card-header">
         ${ib ? `<span class="kanban-card-ib">[${ib}]</span>` : ''}
       </div>
@@ -2512,6 +2665,386 @@ async function confirmMergeSuppliers() {
 
 // --- Supplier Suggestions ---
 let suggestTimer = null;
+
+// --- Trello Project Modal Functions ---
+let modalProject = null;
+
+async function openProjectModal(id) {
+  try {
+    modalProject = await api('GET', '/api/projects/' + id);
+    loadProjectToModal(modalProject);
+    document.getElementById('projectTrelloModal').className = 'trello-modal-overlay show';
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
+function closeProjectModal() {
+  document.getElementById('projectTrelloModal').className = 'trello-modal-overlay';
+  modalProject = null;
+  renderKanbanBoard();
+}
+
+function loadProjectToModal(p) {
+  const info = p.projectInfo || {};
+  const params = p.params || {};
+  const items = p.items || [];
+
+  document.getElementById('modalProjectIB').textContent = info.maDauThau ? '[' + info.maDauThau + ']' : '[IB]';
+  document.getElementById('modalProjectNameTitle').textContent = p.name || 'Dự án';
+  
+  const statusLabels = { draft:'Đang chuẩn bị', pending:'Chờ duyệt', approved:'Đã duyệt', rejected:'Không duyệt', pendingResult:'Đang xét thầu' };
+  const statusBadge = document.getElementById('modalProjectStatusBadge');
+  statusBadge.textContent = statusLabels[p.status] || p.status;
+  statusBadge.className = 'status-badge status-' + p.status;
+
+  document.getElementById('modalMaDauThau').value = info.maDauThau || '';
+  document.getElementById('modalTenCongTrinh').value = info.tenCongTrinh || '';
+  document.getElementById('modalBenMoiThau').value = info.benMoiThau || '';
+  document.getElementById('modalNoiDungTrinh').value = info.noiDungTrinh || '';
+  document.getElementById('modalDiaDiem').value = info.diaDiem || '';
+  document.getElementById('modalNguoiPhuTrach').value = info.nguoiPhuTrach || '';
+  document.getElementById('modalNgayLap').value = info.ngayLap || '';
+  document.getElementById('modalThoiGianDongThau').value = info.thoiGianDongThau ? info.thoiGianDongThau.substring(0,16) : '';
+
+  const hinhThucDiv = document.getElementById('modalHinhThucLCNT');
+  if (info.hinhThucLCNT) {
+    hinhThucDiv.style.display = '';
+    document.getElementById('modalHinhThucLCNTInput').value = info.hinhThucLCNT;
+  } else {
+    hinhThucDiv.style.display = 'none';
+  }
+
+  // Populate users in modal
+  const sel = document.getElementById('modalNguoiLap');
+  sel.innerHTML = '<option value="">-- Chọn --</option>';
+  for (const u of users) {
+    const opt = document.createElement('option');
+    opt.value = u.id;
+    opt.textContent = u.fullName + (u.role === 'admin' ? ' (Admin)' : '');
+    sel.appendChild(opt);
+  }
+  const userId = info.nguoiLapId || (info.nguoiLap ? (users.find(u => u.fullName === info.nguoiLap) || {}).id : '') || '';
+  sel.value = userId;
+
+  // Params
+  document.getElementById('modalGiaDuToan').value = params.giaDuToan ? formatNumber(params.giaDuToan) : '';
+  document.getElementById('modalDatCoc').value = params.datCoc ? formatNumber(params.datCoc) : '';
+  document.getElementById('modalCpKyThuat').value = params.cpKyThuat ? formatNumber(params.cpKyThuat) : '';
+  document.getElementById('modalCpHs').value = params.cpHs ? formatNumber(params.cpHs) : '';
+  document.getElementById('modalCpKhac').value = params.cpKhac ? formatNumber(params.cpKhac) : '';
+  document.getElementById('modalTiLeLNG').value = params.tiLeLNG || 10;
+
+  // Bid result
+  if (p.status === 'approved') {
+    document.getElementById('modalBidResultGroup').style.display = '';
+    document.getElementById('modalKetQuaTrungThau').value = p.ketQuaTrungThau || '';
+    document.getElementById('modalGiaTrungThau').value = p.giaTrungThau ? formatNumber(p.giaTrungThau) : '';
+  } else {
+    document.getElementById('modalBidResultGroup').style.display = 'none';
+  }
+
+  renderModalItems(items);
+  calculateModal();
+  updateModalPermissions(p);
+}
+
+function renderModalItems(items) {
+  const tbody = document.getElementById('modalItemsTableBody');
+  tbody.innerHTML = '';
+  items.forEach((item, idx) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="text-align:center">${idx + 1}</td>
+      <td><input type="text" class="modal-item-name" value="${escHtml(item.tenHangHoa||'')}" oninput="onModalItemChange(this)"></td>
+      <td><input type="text" class="modal-item-dvt" value="${escHtml(item.dvt||'')}" oninput="onModalItemChange(this)"></td>
+      <td><input type="number" class="modal-item-sl" value="${item.soLuong||1}" min="1" oninput="onModalItemChange(this)" style="text-align:right"></td>
+      <td><input type="text" class="modal-item-dg" value="${item.donGiaGanNhat ? formatNumber(item.donGiaGanNhat) : ''}" oninput="formatCurrencyInput(this);onModalItemChange(this)" style="text-align:right"></td>
+      <td><input type="text" class="modal-item-ncc" value="${escHtml(item.nhaCungCap||'')}" oninput="onModalItemChange(this)" list="nccDatalist"></td>
+      <td><input type="text" class="modal-item-dg-ncc" value="${item.donGiaNCC ? formatNumber(item.donGiaNCC) : ''}" oninput="formatCurrencyInput(this);onModalItemChange(this)" style="text-align:right"></td>
+      <td><button class="btn btn-danger btn-sm" onclick="removeModalItem(this)" style="padding:2px 6px">×</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function addModalItem() {
+  const tbody = document.getElementById('modalItemsTableBody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td style="text-align:center">${tbody.rows.length + 1}</td>
+    <td><input type="text" class="modal-item-name" value="" oninput="onModalItemChange(this)"></td>
+    <td><input type="text" class="modal-item-dvt" value="" oninput="onModalItemChange(this)"></td>
+    <td><input type="number" class="modal-item-sl" value="1" min="1" oninput="onModalItemChange(this)" style="text-align:right"></td>
+    <td><input type="text" class="modal-item-dg" value="" oninput="formatCurrencyInput(this);onModalItemChange(this)" style="text-align:right"></td>
+    <td><input type="text" class="modal-item-ncc" value="" oninput="onModalItemChange(this)" list="nccDatalist"></td>
+    <td><input type="text" class="modal-item-dg-ncc" value="" oninput="formatCurrencyInput(this);onModalItemChange(this)" style="text-align:right"></td>
+    <td><button class="btn btn-danger btn-sm" onclick="removeModalItem(this)" style="padding:2px 6px">×</button></td>
+  `;
+  tbody.appendChild(tr);
+  calculateModal();
+}
+
+function removeModalItem(btn) {
+  btn.closest('tr').remove();
+  const rows = document.querySelectorAll('#modalItemsTableBody tr');
+  rows.forEach((r, idx) => { r.cells[0].textContent = idx + 1; });
+  calculateModal();
+  saveModalProject();
+}
+
+function clearModalItems() {
+  if (!confirm('Xóa toàn bộ hàng hóa?')) return;
+  document.getElementById('modalItemsTableBody').innerHTML = '';
+  calculateModal();
+  saveModalProject();
+}
+
+function calculateModal() {
+  const rows = document.querySelectorAll('#modalItemsTableBody tr');
+  let tongGiaNCC = 0;
+  rows.forEach(r => {
+    const sl = parseFloat(r.querySelector('.modal-item-sl').value) || 0;
+    const dgNCC = parseNumber(r.querySelector('.modal-item-dg-ncc').value);
+    tongGiaNCC += sl * dgNCC;
+  });
+
+  const giaDuToan = parseNumber(document.getElementById('modalGiaDuToan').value);
+  const datCoc = parseNumber(document.getElementById('modalDatCoc').value);
+  const cpKyThuat = parseNumber(document.getElementById('modalCpKyThuat').value);
+  const cpHs = parseNumber(document.getElementById('modalCpHs').value);
+  const cpKhac = parseNumber(document.getElementById('modalCpKhac').value);
+  const tiLeLNG = parseFloat(document.getElementById('modalTiLeLNG').value) || 0;
+
+  const totalCost = tongGiaNCC + datCoc + cpKyThuat + cpHs + cpKhac;
+  const targetProfit = giaDuToan * (tiLeLNG / 100);
+  const giaChaoThau = totalCost + targetProfit;
+  const tiLeGiamGia = giaDuToan > 0 ? ((giaDuToan - giaChaoThau) / giaDuToan) * 100 : 0;
+  const loiNhuanRong = giaDuToan - giaChaoThau - totalCost + tongGiaNCC;
+
+  document.getElementById('modalResTongGiaNCC').textContent = toVND(tongGiaNCC);
+  document.getElementById('modalResGiaChaoThau').textContent = toVND(giaChaoThau);
+  document.getElementById('modalResTiLeGiamGia').textContent = toPct(tiLeGiamGia);
+  const lnrEl = document.getElementById('modalResLoiNhuanRong');
+  lnrEl.textContent = toVND(loiNhuanRong);
+  lnrEl.style.color = loiNhuanRong >= 0 ? '#27ae60' : '#e74c3c';
+}
+
+function collectModalFormData() {
+  const rows = document.querySelectorAll('#modalItemsTableBody tr');
+  const items = [];
+  rows.forEach(r => {
+    items.push({
+      tenHangHoa: r.querySelector('.modal-item-name').value,
+      dvt: r.querySelector('.modal-item-dvt').value,
+      soLuong: parseFloat(r.querySelector('.modal-item-sl').value) || 1,
+      donGiaGanNhat: parseNumber(r.querySelector('.modal-item-dg').value),
+      nhaCungCap: r.querySelector('.modal-item-ncc').value,
+      donGiaNCC: parseNumber(r.querySelector('.modal-item-dg-ncc').value)
+    });
+  });
+
+  const selUser = document.getElementById('modalNguoiLap');
+  const selectedOpt = selUser.options[selUser.selectedIndex];
+  const nguoiLapName = selectedOpt ? selectedOpt.textContent.replace(' (Admin)', '') : '';
+
+  return {
+    name: document.getElementById('modalTenCongTrinh').value || document.getElementById('modalMaDauThau').value,
+    projectInfo: {
+      maDauThau: document.getElementById('modalMaDauThau').value,
+      tenCongTrinh: document.getElementById('modalTenCongTrinh').value,
+      benMoiThau: document.getElementById('modalBenMoiThau').value,
+      noiDungTrinh: document.getElementById('modalNoiDungTrinh').value,
+      diaDiem: document.getElementById('modalDiaDiem').value,
+      nguoiPhuTrach: document.getElementById('modalNguoiPhuTrach').value,
+      nguoiLap: nguoiLapName,
+      nguoiLapId: selUser.value,
+      ngayLap: document.getElementById('modalNgayLap').value,
+      thoiGianDongThau: document.getElementById('modalThoiGianDongThau').value
+    },
+    params: {
+      giaDuToan: parseNumber(document.getElementById('modalGiaDuToan').value),
+      datCoc: parseNumber(document.getElementById('modalDatCoc').value),
+      cpKyThuat: parseNumber(document.getElementById('modalCpKyThuat').value),
+      cpHs: parseNumber(document.getElementById('modalCpHs').value),
+      cpKhac: parseNumber(document.getElementById('modalCpKhac').value),
+      tiLeLNG: parseFloat(document.getElementById('modalTiLeLNG').value) || 0
+    },
+    items: items
+  };
+}
+
+let modalSaveTimer = null;
+function onModalProjectInfoChange() {
+  calculateModal();
+  scheduleModalSave();
+}
+function onModalParamsChange() {
+  calculateModal();
+  scheduleModalSave();
+}
+function onModalItemChange(el) {
+  calculateModal();
+  scheduleModalSave();
+}
+function scheduleModalSave() {
+  if (modalSaveTimer) clearTimeout(modalSaveTimer);
+  modalSaveTimer = setTimeout(() => { saveModalProject(); }, 800);
+}
+
+async function saveModalProject() {
+  if (!modalProject) return;
+  try {
+    const data = collectModalFormData();
+    await api('PUT', '/api/projects/' + modalProject.id, data);
+    Object.assign(modalProject, data);
+    await loadProjectList();
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
+function updateModalPermissions(p) {
+  const isAdmin = currentUser && currentUser.role === 'admin';
+  const canSubmit = p.status === 'draft' || p.status === 'rejected';
+
+  const btnSubmit = document.getElementById('modalBtnSubmit');
+  const btnApprove = document.getElementById('modalBtnApprove');
+  const btnReject = document.getElementById('modalBtnReject');
+  const btnUnapprove = document.getElementById('modalBtnUnapprove');
+
+  btnSubmit.style.display = canSubmit ? '' : 'none';
+  if (isAdmin) {
+    btnApprove.style.display = p.status === 'pending' ? '' : 'none';
+    btnReject.style.display = p.status === 'pending' ? '' : 'none';
+    btnUnapprove.style.display = p.status === 'approved' ? '' : 'none';
+  } else {
+    btnApprove.style.display = 'none';
+    btnReject.style.display = 'none';
+    btnUnapprove.style.display = 'none';
+  }
+}
+
+async function modalSubmitProject() {
+  if (!modalProject) return;
+  try {
+    await saveModalProject();
+    const p = await api('PATCH', '/api/projects/' + modalProject.id + '/submit');
+    modalProject = p;
+    loadProjectToModal(p);
+    await loadProjectList();
+    showToast('Đã trình duyệt', 'success');
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function modalApproveProject() {
+  if (!modalProject) return;
+  try {
+    const p = await api('PATCH', '/api/projects/' + modalProject.id + '/approve');
+    modalProject = p;
+    loadProjectToModal(p);
+    await loadProjectList();
+    showToast('Đã duyệt', 'success');
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function modalRejectProject() {
+  if (!modalProject) return;
+  try {
+    const p = await api('PATCH', '/api/projects/' + modalProject.id + '/reject');
+    modalProject = p;
+    loadProjectToModal(p);
+    await loadProjectList();
+    showToast('Đã từ chối', 'success');
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function modalUnapproveProject() {
+  if (!modalProject) return;
+  try {
+    const p = await api('PATCH', '/api/projects/' + modalProject.id + '/unapprove');
+    modalProject = p;
+    loadProjectToModal(p);
+    await loadProjectList();
+    showToast('Đã huỷ duyệt', 'success');
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function modalDeleteProject() {
+  if (!modalProject) return;
+  if (!confirm('Xóa dự án này?')) return;
+  try {
+    await api('DELETE', '/api/projects/' + modalProject.id);
+    closeProjectModal();
+    await loadProjectList();
+    showToast('Đã xóa dự án', 'success');
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function modalPrintProject() {
+  if (!modalProject) return;
+  window.open(window.location.origin + '/share/' + modalProject.id, '_blank');
+}
+
+function modalPopulateCurrentTime() {
+  const now = new Date();
+  document.getElementById('modalThoiGianDongThau').value = now.toISOString().substring(0,16);
+  onModalProjectInfoChange();
+}
+
+function modalPopulateTimeAfter(hours) {
+  const d = new Date(Date.now() + hours * 3600000);
+  document.getElementById('modalThoiGianDongThau').value = d.toISOString().substring(0,16);
+  onModalProjectInfoChange();
+}
+
+async function fetchBiddingInfoModal() {
+  const ib = document.getElementById('modalMaDauThau').value.trim();
+  if (!ib) { showToast('Vui lòng nhập mã đấu thầu', 'error'); return; }
+  const btn = document.getElementById('modalBtnFetchIB');
+  btn.disabled = true;
+  btn.textContent = '⏳ Đang tìm...';
+  try {
+    const data = await api('POST', '/api/projects/' + modalProject.id + '/fetch', { maDauThau: ib });
+    modalProject = data;
+    loadProjectToModal(data);
+    await loadProjectList();
+    showToast('Đã lấy thông tin đấu thầu thành công', 'success');
+  } catch (e) {
+    showToast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔍 Tìm';
+  }
+}
+
+async function fetchModalBidResult() {
+  if (!modalProject) return;
+  const btn = document.getElementById('modalBtnFetchBidResult');
+  const statusEl = document.getElementById('modalBidResultFetchStatus');
+  btn.disabled = true;
+  btn.textContent = '⏳';
+  try {
+    const p = await api('POST', '/api/projects/' + modalProject.id + '/fetch-bid-result');
+    modalProject = p;
+    loadProjectToModal(p);
+    showToast('Đã lấy kết quả thầu tự động', 'info');
+  } catch (e) {
+    statusEl.textContent = '⚠ ' + e.message;
+    showToast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔍 Tự động';
+  }
+}
+
+function onModalBidResultChange() {
+  const kr = document.getElementById('modalKetQuaTrungThau').value;
+  const giaTT = document.getElementById('modalGiaTrungThau').value;
+  if (modalProject && modalProject.id) {
+    saveBidResult(kr, giaTT);
+  }
+}
 
 async function onNccInput(el) {
   const tr = el.closest('tr');
