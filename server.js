@@ -828,16 +828,8 @@ app.get('/api/projects', auth, (req, res) => {
   cleanupExpiredUpcoming();
   const data = readData(PROJ_FILE);
   res.json(data.projects.map(p => ({
-    id: p.id, name: (p.projectInfo && p.projectInfo.tenCongTrinh) || p.name || '', createdAt: p.createdAt, updatedAt: p.updatedAt,
-    status: p.status || 'draft', approvedBy: p.approvedBy || null, approvedAt: p.approvedAt || null,
-    maDauThau: (p.projectInfo && p.projectInfo.maDauThau) || null,
-    benMoiThau: (p.projectInfo && p.projectInfo.benMoiThau) || null,
-    thoiGianDongThau: (p.projectInfo && p.projectInfo.thoiGianDongThau) || null,
-    ketQuaTrungThau: p.ketQuaTrungThau || null,
-    giaTrungThau: p.giaTrungThau || null,
-    nhaThauTrung: p.nhaThauTrung || null,
-    bidPrice: p.bidPrice || null,
-    stepCode: p.stepCode || null,
+    ...p,
+    name: (p.projectInfo && p.projectInfo.tenCongTrinh) || p.name || '',
     stepCodeLabel: getStepCodeLabel(p.stepCode),
     xepHang: p.xepHang || extractXepHang(p.items)
   })));

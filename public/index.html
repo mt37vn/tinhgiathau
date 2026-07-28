@@ -280,18 +280,33 @@ table .td-num input{text-align:right}
 .kanban-column-rejected .kanban-column-header .col-badge{background:#e74c3c}
 .kanban-column-pendingResult .kanban-column-header{background:#d4e8f7;color:#1a5c8c}
 .kanban-column-pendingResult .kanban-column-header .col-badge{background:#2980b9}
+.kanban-column-win .kanban-column-header{background:#d4edda;color:#155724}
+.kanban-column-win .kanban-column-header .col-badge{background:#27ae60}
+.kanban-column-lose .kanban-column-header{background:#f8d7da;color:#721c24}
+.kanban-column-lose .kanban-column-header .col-badge{background:#e74c3c}
 
 .status-draft{background:#e8e8e8;color:#666}
 .status-pending{background:#fff3cd;color:#856404}
 .status-approved{background:#d4edda;color:#155724}
 .status-rejected{background:#f8d7da;color:#721c24}
 .status-pendingResult{background:#d4e8f7;color:#1a5c8c}
+.status-win{background:#d4edda;color:#155724}
+.status-lose{background:#f8d7da;color:#721c24}
+
+/* ── Topbar dropdown menu ── */
+.topbar-dropdown{position:relative;display:inline-block}
+.topbar-dropdown-menu{position:absolute;top:100%;right:0;background:#fff;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.2);padding:6px 0;min-width:200px;display:none;z-index:300}
+.topbar-dropdown-menu.show{display:block}
+.topbar-dropdown-menu .btn{display:flex;width:100%;padding:10px 16px;border:none;border-radius:0;background:transparent;color:#1a3a5c;font-size:14px;text-align:left;white-space:nowrap}
+.topbar-dropdown-menu .btn:hover{background:#e8f0fe}
+.topbar-dropdown-menu .btn:last-child{border-top:1px solid #eef2f7;color:#e74c3c}
 
 /* Mobile responsive for Kanban */
 @media(max-width:768px){
   .kanban-board{gap:8px;padding:4px}
   .kanban-column{flex:0 0 260px;max-height:calc(100vh - 200px)}
   .kanban-column-body{max-height:calc(100vh - 250px)}
+  .topbar-dropdown-menu{right:0;left:auto}
 }
 @media(max-width:480px){
   .kanban-column{flex:0 0 240px}
@@ -328,14 +343,17 @@ table .td-num input{text-align:right}
     <div class="auth-bar" id="authBar">
       <span class="user-name" id="userDisplay"></span>
       <span class="auth-role" id="roleDisplay"></span>
-      <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" onclick="showChangePassword()">🔑 Đổi mật khẩu</button>
-      <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" id="userMgmtBtn" onclick="showUserManagement()">👥 Nhân viên</button>
-      <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" id="settingsBtn" onclick="showSettings()">⚙️</button>
-      <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" id="trelloSyncBtn" onclick="syncTrello()">🔄 Trello</button>
-      <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" id="reportBtn" onclick="window.open('/admin/report')">📊 Báo cáo</button>
-      <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" onclick="showSupplierList()">🏭 Nhà cung cấp</button>
-      <button class="btn btn-outline btn-sm btn-menu-toggle" onclick="toggleMobileMenu()" style="border-color:#fff;color:#fff;display:none">☰</button>
-      <span style="width:1px;height:20px;background:rgba(255,255,255,.2);display:inline-block;margin:0 4px"></span>
+      <div class="topbar-dropdown">
+        <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" onclick="toggleTopbarDropdown()">☰</button>
+        <div class="topbar-dropdown-menu" id="topbarDropdown">
+          <button class="btn" onclick="showChangePassword();toggleTopbarDropdown()">🔑 Đổi mật khẩu</button>
+          <button class="btn" id="topbarUserMgmtBtn" onclick="showUserManagement();toggleTopbarDropdown()">👥 Nhân viên</button>
+          <button class="btn" id="topbarSettingsBtn" onclick="showSettings();toggleTopbarDropdown()">⚙️ Cài đặt</button>
+          <button class="btn" id="topbarTrelloSyncBtn" onclick="syncTrello();toggleTopbarDropdown()">🔄 Đồng bộ Trello</button>
+          <button class="btn" onclick="window.open('/admin/report');toggleTopbarDropdown()">📊 Báo cáo</button>
+          <button class="btn" onclick="showSupplierList();toggleTopbarDropdown()">🏭 Nhà cung cấp</button>
+        </div>
+      </div>
       <button class="btn btn-danger btn-sm" onclick="doLogout()">Đăng xuất</button>
     </div>
   </div>
@@ -1041,10 +1059,9 @@ function hideLoginError() { document.getElementById('loginError').className = 'e
 function updateAuthUI() {
   document.getElementById('userDisplay').textContent = currentUser.fullName;
   document.getElementById('roleDisplay').textContent = currentUser.role === 'admin' ? '(Admin)' : '(Nhân viên)';
-  document.getElementById('userMgmtBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
-  document.getElementById('settingsBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
-  document.getElementById('trelloSyncBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
-  document.getElementById('mobileTrelloSyncBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
+  document.getElementById('topbarUserMgmtBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
+  document.getElementById('topbarSettingsBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
+  document.getElementById('topbarTrelloSyncBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
   document.getElementById('reportBtn').style.display = '';
   // Sync mobile menu buttons
   document.getElementById('mobileUserMgmtBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
@@ -1418,7 +1435,9 @@ const KANBAN_COLUMNS = [
   { key: 'pending', label: 'Chờ duyệt', icon: '⏳', badgeClass: 'status-pending' },
   { key: 'approved', label: 'Đã duyệt', icon: '✓', badgeClass: 'status-approved' },
   { key: 'rejected', label: 'Không duyệt', icon: '✗', badgeClass: 'status-rejected' },
-  { key: 'pendingResult', label: 'Đang xét thầu', icon: '⏳', badgeClass: 'status-pendingResult' }
+  { key: 'pendingResult', label: 'Đang xét thầu', icon: '⏳', badgeClass: 'status-pendingResult' },
+  { key: 'win', label: 'Trúng thầu', icon: '🏆', badgeClass: 'status-win', filter: 'win' },
+  { key: 'lose', label: 'Trượt thầu', icon: '❌', badgeClass: 'status-lose', filter: 'lose' }
 ];
 
 // Valid status transitions for drag & drop
@@ -1447,7 +1466,14 @@ function renderKanbanBoard() {
   let html = '<div class="kanban-board-inner">';
   
   for (const col of KANBAN_COLUMNS) {
-    const colProjects = filteredProjects.filter(p => p.status === col.key);
+    let colProjects;
+    if (col.filter === 'win') {
+      colProjects = filteredProjects.filter(p => p.ketQuaTrungThau === 'win');
+    } else if (col.filter === 'lose') {
+      colProjects = filteredProjects.filter(p => p.ketQuaTrungThau === 'lose');
+    } else {
+      colProjects = filteredProjects.filter(p => p.status === col.key);
+    }
     const count = colProjects.length;
     
     html += `
@@ -1488,13 +1514,18 @@ function renderKanbanCard(project) {
   let footerInfo = '';
   if (nguoiLap) footerInfo += `👤 ${nguoiLap}`;
   if (ngayDongThau) footerInfo += (footerInfo ? ' | ' : '') + `📅 ${ngayDongThau}`;
+  const itemsCount = (project.items && project.items.length) || 0;
+  if (itemsCount) footerInfo += (footerInfo ? ' | ' : '') + `📦 ${itemsCount} mặt hàng`;
+  
+  const isResult = project.ketQuaTrungThau === 'win' || project.ketQuaTrungThau === 'lose';
   
   return `
-    <div class="kanban-card" draggable="true" data-id="${project.id}" data-status="${project.status}"
+    <div class="kanban-card" draggable="${isResult ? 'false' : 'true'}" data-id="${project.id}" data-status="${project.status}"
          onclick="openProjectModal('${project.id}')"
          title="Click để xem thẻ dự án">
       <div class="kanban-card-header">
         ${ib ? `<span class="kanban-card-ib">[${ib}]</span>` : ''}
+        ${isResult ? `<span class="kanban-card-status status-${project.ketQuaTrungThau}">${project.ketQuaTrungThau === 'win' ? '🏆 Trúng' : '❌ Trượt'}</span>` : ''}
       </div>
       <div class="kanban-card-body">
         <div class="kanban-card-name">${name}</div>
@@ -1568,6 +1599,11 @@ function attachKanbanDragDrop() {
       if (!draggedCard) return;
       
       const targetStatus = column.dataset.status;
+      if (targetStatus === 'win' || targetStatus === 'lose') {
+        showToast('Không thể thay đổi trạng thái kết quả đấu thầu', 'error');
+        return;
+      }
+      
       const projectId = draggedCard.dataset.id;
       
       // Check if valid transition
@@ -3247,6 +3283,20 @@ function toggleMobileMenu() {
   const menu = document.getElementById('mobileMenu');
   menu.classList.toggle('show');
 }
+
+function toggleTopbarDropdown() {
+  const menu = document.getElementById('topbarDropdown');
+  menu.classList.toggle('show');
+}
+
+// Close topbar dropdown on click outside
+document.addEventListener('click', function(e) {
+  const menu = document.getElementById('topbarDropdown');
+  const toggle = document.querySelector('.topbar-dropdown');
+  if (menu && toggle && menu.classList.contains('show') && !menu.contains(e.target) && !toggle.contains(e.target)) {
+    menu.classList.remove('show');
+  }
+});
 // Close mobile menu on click outside
 document.addEventListener('click', function(e) {
   const menu = document.getElementById('mobileMenu');
