@@ -226,6 +226,65 @@ table .td-num input{text-align:right}
 
   .modal{padding:12px;width:96vw}
 }
+}
+
+/* ── Kanban Board Styles ── */
+.view-switcher .btn{flex:1}
+.kanban-board{display:flex;gap:12px;overflow-x:auto;padding:8px 4px 16px;min-height:600px;align-items:flex-start}
+.kanban-column{flex:0 0 280px;background:#f4f5f7;border-radius:8px;display:flex;flex-direction:column;max-height:calc(100vh - 220px);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.kanban-column-header{padding:10px 12px;background:#ebecf0;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:space-between;font-weight:600;color:#1a3a5c;font-size:13px;border-bottom:1px solid #dfe1e6}
+.kanban-column-header .col-icon{margin-right:6px}
+.kanban-column-header .col-badge{background:#2a5a8c;color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;min-width:24px;text-align:center}
+.kanban-column-body{flex:1;overflow-y:auto;padding:8px;min-height:200px}
+.kanban-column.drag-over .kanban-column-header{background:#d4e4f7;border:2px dashed #2a5a8c}
+.kanban-column.drag-over .kanban-column-body{background:#e8f0fe}
+.kanban-card{background:#fff;border-radius:6px;padding:10px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.08);cursor:pointer;transition:box-shadow .2s,transform .1s;border:1px solid #eef2f7;draggable:true}
+.kanban-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.12);transform:translateY(-2px)}
+.kanban-card.dragging{opacity:.4;box-shadow:0 8px 24px rgba(42,90,140,.3);transform:rotate(3deg)}
+.kanban-card-header{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.kanban-card-ib{background:#e8f0fe;color:#2a5a8c;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;white-space:nowrap}
+.kanban-card-status{font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;text-transform:uppercase}
+.kanban-card-title{font-weight:600;font-size:13px;color:#1a3a5c;margin-bottom:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.kanban-card-meta{font-size:11px;color:#666;display:flex;flex-direction:column;gap:2px;margin-bottom:6px}
+.kanban-card-meta span{display:flex;align-items:center;gap:4px}
+.kanban-card-meta .meta-icon{font-size:11px;color:#888;width:14px;text-align:center}
+.kanban-card-financial{display:flex;gap:8px;font-size:11px;color:#555;padding-top:6px;border-top:1px solid #eef2f7}
+.kanban-card-financial div{flex:1}
+.kanban-card-financial .fin-label{font-size:10px;color:#888;text-transform:uppercase}
+.kanban-card-financial .fin-value{font-weight:600;color:#1a3a5c}
+.kanban-card-financial .fin-value.profit{color:#27ae60}
+.kanban-card-financial .fin-value.loss{color:#e74c3c}
+.kanban-card-footer{display:flex;justify-content:space-between;font-size:10px;color:#888;margin-top:6px;padding-top:6px;border-top:1px solid #eef2f7}
+.kanban-empty{text-align:center;color:#aaa;font-size:12px;padding:20px 8px}
+
+/* Kanban column specific colors */
+.kanban-column-draft .kanban-column-header{background:#e8e8e8;color:#666}
+.kanban-column-draft .kanban-column-header .col-badge{background:#999}
+.kanban-column-pending .kanban-column-header{background:#fff3cd;color:#856404}
+.kanban-column-pending .kanban-column-header .col-badge{background:#f39c12}
+.kanban-column-approved .kanban-column-header{background:#d4edda;color:#155724}
+.kanban-column-approved .kanban-column-header .col-badge{background:#27ae60}
+.kanban-column-rejected .kanban-column-header{background:#f8d7da;color:#721c24}
+.kanban-column-rejected .kanban-column-header .col-badge{background:#e74c3c}
+.kanban-column-pendingResult .kanban-column-header{background:#d4e8f7;color:#1a5c8c}
+.kanban-column-pendingResult .kanban-column-header .col-badge{background:#2980b9}
+
+.status-draft{background:#e8e8e8;color:#666}
+.status-pending{background:#fff3cd;color:#856404}
+.status-approved{background:#d4edda;color:#155724}
+.status-rejected{background:#f8d7da;color:#721c24}
+.status-pendingResult{background:#d4e8f7;color:#1a5c8c}
+
+/* Mobile responsive for Kanban */
+@media(max-width:768px){
+  .kanban-board{gap:8px;padding:4px}
+  .kanban-column{flex:0 0 260px;max-height:calc(100vh - 200px)}
+  .kanban-column-body{max-height:calc(100vh - 250px)}
+}
+@media(max-width:480px){
+  .kanban-column{flex:0 0 240px}
+  .view-switcher{flex-direction:column}
+}
 </style>
 </head>
 <body>
@@ -280,7 +339,20 @@ table .td-num input{text-align:right}
 </div>
 
 <div class="container" id="mainContent">
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+  <!-- View Mode Toggle -->
+  <div class="view-switcher" style="display:flex;gap:8px;margin-bottom:16px">
+    <button class="btn btn-primary" id="btnKanbanView" onclick="switchView('kanban')">📊 Bảng Kanban</button>
+    <button class="btn btn-outline" id="btnDetailView" onclick="switchView('detail')">📝 Chi tiết dự án</button>
+  </div>
+
+  <!-- Kanban Board View -->
+  <div id="kanbanView" style="display:none">
+    <div class="kanban-board" id="kanbanBoard"></div>
+  </div>
+
+  <!-- Detail View (existing content) -->
+  <div id="detailView">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
     <div class="project-bar" style="margin-bottom:0">
       <div class="pb-section">
         <label>Dự án</label>
@@ -564,6 +636,7 @@ table .td-num input{text-align:right}
         </div>
       </div>
     </div>
+  </div>
   </div>
 
   <div class="status-bar" id="statusBar"></div>
@@ -1151,6 +1224,239 @@ async function loadProjectList() {
 
   const statusInfo = document.getElementById('projectStatus').querySelector('span');
   statusInfo.textContent = projects.length + ' dự án';
+  // Also render Kanban board if it's the current view
+  if (currentViewMode === 'kanban') renderKanbanBoard();
+}
+
+let currentViewMode = 'kanban'; // 'kanban' or 'detail'
+
+function switchView(mode) {
+  currentViewMode = mode;
+  const kanbanView = document.getElementById('kanbanView');
+  const detailView = document.getElementById('detailView');
+  const btnKanban = document.getElementById('btnKanbanView');
+  const btnDetail = document.getElementById('btnDetailView');
+  
+  if (mode === 'kanban') {
+    kanbanView.style.display = 'block';
+    detailView.style.display = 'none';
+    btnKanban.className = 'btn btn-primary';
+    btnDetail.className = 'btn btn-outline';
+    renderKanbanBoard();
+  } else {
+    kanbanView.style.display = 'none';
+    detailView.style.display = 'block';
+    btnKanban.className = 'btn btn-outline';
+    btnDetail.className = 'btn btn-primary';
+  }
+}
+
+// Kanban status columns configuration
+const KANBAN_COLUMNS = [
+  { key: 'draft', label: 'Đang chuẩn bị hồ sơ', icon: '📝', badgeClass: 'status-draft' },
+  { key: 'pending', label: 'Chờ duyệt', icon: '⏳', badgeClass: 'status-pending' },
+  { key: 'approved', label: 'Đã duyệt', icon: '✓', badgeClass: 'status-approved' },
+  { key: 'rejected', label: 'Không duyệt', icon: '✗', badgeClass: 'status-rejected' },
+  { key: 'pendingResult', label: 'Đang xét thầu', icon: '⏳', badgeClass: 'status-pendingResult' }
+];
+
+// Valid status transitions for drag & drop
+const VALID_TRANSITIONS = {
+  'draft': ['pending'],
+  'rejected': ['pending'],
+  'pending': ['approved', 'rejected'],
+  'approved': ['rejected'] // unapprove
+};
+
+function renderKanbanBoard() {
+  const board = document.getElementById('kanbanBoard');
+  if (!board) return;
+  
+  const searchTerm = document.getElementById('projectSearch')?.value?.trim().toLowerCase() || '';
+  
+  // Filter projects by search term
+  let filteredProjects = projects;
+  if (searchTerm) {
+    filteredProjects = projects.filter(p => 
+      (p.name && p.name.toLowerCase().includes(searchTerm)) ||
+      (p.maDauThau && p.maDauThau.toLowerCase().includes(searchTerm))
+    );
+  }
+  
+  let html = '<div class="kanban-board-inner">';
+  
+  for (const col of KANBAN_COLUMNS) {
+    const colProjects = filteredProjects.filter(p => p.status === col.key);
+    const count = colProjects.length;
+    
+    html += `
+      <div class="kanban-column" data-status="${col.key}">
+        <div class="kanban-column-header">
+          <span class="kanban-column-icon">${col.icon}</span>
+          <span class="kanban-column-title">${col.label}</span>
+          <span class="kanban-column-count ${col.badgeClass}">${count}</span>
+        </div>
+        <div class="kanban-column-body" data-status="${col.key}">
+          ${colProjects.map(p => renderKanbanCard(p)).join('')}
+        </div>
+      </div>
+    `;
+  }
+  
+  html += '</div>';
+  board.innerHTML = html;
+  
+  // Attach drag & drop event listeners
+  attachKanbanDragDrop();
+}
+
+function renderKanbanCard(project) {
+  const info = project.projectInfo || {};
+  const params = project.params || {};
+  const ib = info.maDauThau ? escHtml(info.maDauThau) : '';
+  const name = escHtml(project.name);
+  const benMoiThau = info.benMoiThau ? escHtml(info.benMoiThau) : '';
+  const giaDuToan = params.giaDuToan ? toVND(params.giaDuToan) : '—';
+  const loiNhuanRong = params.tiLeLNG && params.giaDuToan ? 
+    toVND(Math.round(params.giaDuToan * (params.tiLeLNG / 100))) : '—';
+  const tiLeGiamGia = params.giaDuToan && params.tiLeLNG ? 
+    toPct(params.tiLeLNG) : '—';
+  const nguoiLap = info.nguoiLap ? escHtml(info.nguoiLap) : '';
+  const ngayDongThau = info.thoiGianDongThau ? toDateStr(info.thoiGianDongThau) : '';
+  
+  let footerInfo = '';
+  if (nguoiLap) footerInfo += `👤 ${nguoiLap}`;
+  if (ngayDongThau) footerInfo += (footerInfo ? ' | ' : '') + `📅 ${ngayDongThau}`;
+  
+  return `
+    <div class="kanban-card" draggable="true" data-id="${project.id}" data-status="${project.status}"
+         onclick="selectProjectById('${project.id}'); switchView('detail')"
+         title="Click để xem chi tiết">
+      <div class="kanban-card-header">
+        ${ib ? `<span class="kanban-card-ib">[${ib}]</span>` : ''}
+      </div>
+      <div class="kanban-card-body">
+        <div class="kanban-card-name">${name}</div>
+        ${benMoiThau ? `<div class="kanban-card-benmoi">🏢 ${benMoiThau}</div>` : ''}
+      </div>
+      <div class="kanban-card-meta">
+        <div class="kanban-card-meta-row">
+          <span class="kanban-card-label">💰 Giá dự toán</span>
+          <span class="kanban-card-value">${giaDuToan}</span>
+        </div>
+        <div class="kanban-card-meta-row">
+          <span class="kanban-card-label">📈 LNR</span>
+          <span class="kanban-card-value profit">${loiNhuanRong}</span>
+        </div>
+        <div class="kanban-card-meta-row">
+          <span class="kanban-card-label">📉 Giảm giá</span>
+          <span class="kanban-card-value">${tiLeGiamGia}</span>
+        </div>
+      </div>
+      <div class="kanban-card-footer">
+        ${footerInfo}
+      </div>
+    </div>
+  `;
+}
+
+function attachKanbanDragDrop() {
+  const cards = document.querySelectorAll('.kanban-card');
+  const columns = document.querySelectorAll('.kanban-column-body');
+  
+  let draggedCard = null;
+  let sourceStatus = null;
+  
+  cards.forEach(card => {
+    card.addEventListener('dragstart', (e) => {
+      draggedCard = card;
+      sourceStatus = card.dataset.status;
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', card.dataset.id);
+    });
+    
+    card.addEventListener('dragend', () => {
+      card.classList.remove('dragging');
+      draggedCard = null;
+      sourceStatus = null;
+      columns.forEach(col => col.classList.remove('drag-over'));
+    });
+  });
+  
+  columns.forEach(column => {
+    column.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      column.classList.add('drag-over');
+    });
+    
+    column.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      column.classList.add('drag-over');
+    });
+    
+    column.addEventListener('dragleave', () => {
+      column.classList.remove('drag-over');
+    });
+    
+    column.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      column.classList.remove('drag-over');
+      
+      if (!draggedCard) return;
+      
+      const targetStatus = column.dataset.status;
+      const projectId = draggedCard.dataset.id;
+      
+      // Check if valid transition
+      if (!isValidTransition(sourceStatus, targetStatus)) {
+        showToast('Không thể chuyển từ ' + getStatusLabel(sourceStatus) + ' sang ' + getStatusLabel(targetStatus), 'error');
+        return;
+      }
+      
+       // Check permissions
+      if (sourceStatus === 'draft' && targetStatus === 'pending') {
+        // Select project first and submit
+        await selectProjectById(projectId);
+        await submitProject();
+      } else if (sourceStatus === 'pending' && targetStatus === 'approved') {
+        if (!currentUser || currentUser.role !== 'admin') {
+          showToast('Chỉ Admin mới có quyền duyệt dự án', 'error');
+          return;
+        }
+        await selectProjectById(projectId);
+        await approveProject();
+      } else if (sourceStatus === 'pending' && targetStatus === 'rejected') {
+        if (!currentUser || currentUser.role !== 'admin') {
+          showToast('Chỉ Admin mới có quyền từ chối dự án', 'error');
+          return;
+        }
+        await selectProjectById(projectId);
+        await rejectProject();
+      } else if (sourceStatus === 'approved' && targetStatus === 'rejected') {
+        if (!currentUser || currentUser.role !== 'admin') {
+          showToast('Chỉ Admin mới có quyền huỷ duyệt dự án', 'error');
+          return;
+        }
+        await selectProjectById(projectId);
+        await unapproveProject();
+      } else {
+        showToast('Thao tác không được hỗ trợ', 'error');
+      }
+    });
+  });
+}
+
+function isValidTransition(fromStatus, toStatus) {
+  if (fromStatus === toStatus) return false;
+  const allowed = VALID_TRANSITIONS[fromStatus];
+  return allowed && allowed.includes(toStatus);
+}
+
+function getStatusLabel(status) {
+  const col = KANBAN_COLUMNS.find(c => c.key === status);
+  return col ? col.label : status;
 }
 
 function onSearchInput(input) {
