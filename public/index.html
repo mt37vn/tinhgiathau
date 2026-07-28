@@ -1243,6 +1243,9 @@ function switchView(mode) {
     detailView.style.display = 'none';
     btnKanban.className = 'btn btn-primary';
     btnDetail.className = 'btn btn-outline';
+    // Clear search filter when switching back to Kanban so all projects show
+    const searchInput = document.getElementById('projectSearch');
+    if (searchInput) searchInput.value = '';
     renderKanbanBoard();
   } else {
     kanbanView.style.display = 'none';
