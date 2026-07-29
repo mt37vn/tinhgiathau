@@ -585,6 +585,18 @@ app.get('/api/scraper-config', (req, res) => {
   });
 });
 
+// --- Processed/Discarded IDs (no auth – called by GitHub Actions) ---
+app.get('/api/processed-ids', (req, res) => {
+  const p = path.join(DATA_DIR, 'processed_ids.json');
+  if (fs.existsSync(p)) return res.json(readData(p));
+  res.json({ ids: [], updatedAt: null });
+});
+app.get('/api/discarded-ids', (req, res) => {
+  const p = path.join(DATA_DIR, 'discarded_ids.json');
+  if (fs.existsSync(p)) return res.json(readData(p));
+  res.json({ ids: [], updatedAt: null });
+});
+
 // --- Receive Bid Data (no auth – called by GitHub Actions) ---
 app.post('/api/receive-bid', (req, res) => {
   const { trello_card_id, bid_no, bid_name, items, projectInfo, scrapedAt } = req.body;
