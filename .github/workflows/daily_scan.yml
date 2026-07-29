@@ -2,7 +2,7 @@ name: Daily Bot & Portal Sync
 
 on:
   schedule:
-    - cron: '30 13 * * *'
+    - cron: '0 23 * * *'
   workflow_dispatch:
 
 permissions:
@@ -72,15 +72,11 @@ jobs:
           cache: 'npm'
       - name: Install Node dependencies
         run: npm ci && npx playwright install chromium
-      - name: Pull current data from VPS
+      - name: Pull projects.json from VPS
         if: env.SERVER_HOST != ''
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          source: /opt/dauthau/data/projects.json
-          target: data/
+        shell: bash
+        run: |
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/opt/dauthau/data/projects.json" data/ 2>/dev/null || echo '{"projects":[]}' > data/projects.json
       - name: Fetch portal items
         run: node scripts/gh-fetch.js
       - name: Push updated data to VPS
