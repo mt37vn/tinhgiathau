@@ -28,6 +28,7 @@ jobs:
           python -m playwright install chromium
       - name: Pull processed IDs from VPS
         if: env.SERVER_HOST != ''
+        continue-on-error: true
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -37,6 +38,7 @@ jobs:
           target: data/
       - name: Pull discarded IDs from VPS
         if: env.SERVER_HOST != ''
+        continue-on-error: true
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}
