@@ -597,6 +597,22 @@ app.get('/api/discarded-ids', (req, res) => {
   res.json({ ids: [], updatedAt: null });
 });
 
+// --- Project IDs (no auth) ---
+app.get('/api/project-ids', (req, res) => {
+  const p = path.join(DATA_DIR, 'projects.json');
+  if (fs.existsSync(p)) {
+    const data = readData(p);
+    const ids = data.projects.map(proj => ({
+      id: proj.id,
+      maDauThau: (proj.projectInfo && proj.projectInfo.maDauThau) || null,
+      name: (proj.projectInfo && proj.projectInfo.tenCongTrinh) || proj.name || '',
+      status: proj.status || 'draft'
+    }));
+    return res.json({ projects: ids, count: ids.length });
+  }
+  res.json({ projects: [], count: 0 });
+});
+
 // --- Receive Bid Data (no auth – called by GitHub Actions) ---
 app.post('/api/receive-bid', (req, res) => {
   const { trello_card_id, bid_no, bid_name, items, projectInfo, scrapedAt } = req.body;
