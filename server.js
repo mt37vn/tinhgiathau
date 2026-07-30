@@ -1173,6 +1173,17 @@ app.get('/api/fetch-bidding-info/:ibCode', auth, async (req, res) => {
         bidForm: localBidForm,
         hinhThucLCNT,
         isRutGon,
+        // Extra metadata fields
+        planNo: info.planNo || '',
+        bidOpenDate: info.bidOpenDate || '',
+        publicDate: info.publicDate || '',
+        investField: info.investField || '',
+        bidMode: info.bidMode || '',
+        capitalDetail: info.capitalDetail || '',
+        processApply: info.processApply || '',
+        contractType: info.contractType || '',
+        contractPeriod: info.contractPeriod || '',
+        contractPeriodUnit: info.contractPeriodUnit || '',
         items: localEntry.items || [],
         itemsStatus: localEntry.items && localEntry.items.length > 0 ? 'fetched' : 'not-found',
         source: 'scraper',
@@ -1261,7 +1272,17 @@ app.get('/api/fetch-bidding-info/:ibCode', auth, async (req, res) => {
       bidFormLabel,
       hinhThucLCNT: 'Hình thức LCNT: ' + bidFormLabel,
       processApply,
-      isRutGon
+      isRutGon,
+      // Extra metadata from search result
+      planNo: extractValue(responseData.planNo),
+      bidOpenDate: extractValue(responseData.bidOpenDate),
+      publicDate: extractValue(responseData.publicDate),
+      investField: extractValue(responseData.investField),
+      bidMode: extractValue(responseData.bidMode),
+      capitalDetail: extractValue(responseData.capitalDetail),
+      contractType: extractValue(responseData.cType || responseData.contractType),
+      contractPeriod: extractValue(responseData.cperiod || responseData.contractPeriod),
+      contractPeriodUnit: extractValue(responseData.cperiodUnit || responseData.contractPeriodUnit)
     };
 
     // Step 2: Fetch detail page for location and construction time

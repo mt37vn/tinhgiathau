@@ -352,6 +352,7 @@ table .td-num input{text-align:right}
           <div style="display:flex;gap:4px">
             <input type="text" id="maDauThau" oninput="onProjectInfoChange();checkDuplicateIB()" placeholder="Nhập mã đấu thầu" style="flex:1">
             <button class="btn btn-primary btn-sm" id="btnFetchIB" onclick="fetchBiddingInfo()" style="white-space:nowrap">🔍 Tìm</button>
+            <button class="btn btn-outline btn-sm" id="btnDetailIB" onclick="showProjectDetailModal()" style="white-space:nowrap;display:none" title="Xem chi tiết thông tin cổng">📋 Chi tiết</button>
             <span id="fetchSourceBadge" style="display:none;font-size:11px;padding:3px 8px;border-radius:10px;font-weight:600;white-space:nowrap;align-self:center"></span>
           </div>
         </div>
@@ -1493,6 +1494,28 @@ function loadProjectToForm(p) {
   const hlcntInput = document.getElementById('hinhThucLCNTInput');
   const hasPortalItems = !!(p.items && p.items.some(i => i.portalKyMaHieu || i.portalNhanHieu || i.portalHangSanXuat));
   let savedLabel = info.hinhThucLCNT || info.bidForm || '';
+  // Show detail button if project has extra metadata saved
+  const hasDetail = !!(info.planNo || info.bidForm || info.bidOpenDate || info.publicDate || info.investField || info.bidMode || info.capitalDetail || info.processApply || info.contractType || info.contractPeriod);
+  document.getElementById('btnDetailIB').style.display = hasDetail ? '' : 'none';
+  // Populate _fetchData from saved metadata so detail modal works without re-fetch
+  if (hasDetail && currentProject) {
+    currentProject._fetchData = {
+      bidNo: info.maDauThau || '',
+      planNo: info.planNo || '',
+      publicDate: info.publicDate || '',
+      thoiGianDongThau: info.thoiGianDongThau || '',
+      bidOpenDate: info.bidOpenDate || '',
+      hinhThucLCNT: info.hinhThucLCNT || '',
+      bidForm: info.bidForm || '',
+      investField: info.investField || '',
+      bidMode: info.bidMode || '',
+      capitalDetail: info.capitalDetail || '',
+      processApply: info.processApply || '',
+      contractType: info.contractType || '',
+      contractPeriod: info.contractPeriod || '',
+      contractPeriodUnit: info.contractPeriodUnit || ''
+    };
+  }
   if (!savedLabel && hasPortalItems) savedLabel = 'Chào hàng cạnh tranh rút gọn';
   if (savedLabel) {
     const text = savedLabel.startsWith('Hình thức') ? savedLabel : 'Hình thức LCNT: ' + savedLabel;
@@ -1962,7 +1985,19 @@ function collectFormData() {
       nguoiDuyet: document.getElementById('nguoiDuyet').value,
       ngayDuyet: fromDateStr(document.getElementById('ngayDuyet').value),
       hinhThucLCNT: document.getElementById('hinhThucLCNTInput').dataset.label || '',
-      isRutGon: document.getElementById('hinhThucLCNTInput').dataset.rutgon === '1'
+      isRutGon: document.getElementById('hinhThucLCNTInput').dataset.rutgon === '1',
+      // Preserve extra metadata saved from fetch
+      planNo: (currentProject && currentProject.projectInfo && currentProject.projectInfo.planNo) || '',
+      bidForm: (currentProject && currentProject.projectInfo && currentProject.projectInfo.bidForm) || '',
+      bidOpenDate: (currentProject && currentProject.projectInfo && currentProject.projectInfo.bidOpenDate) || '',
+      publicDate: (currentProject && currentProject.projectInfo && currentProject.projectInfo.publicDate) || '',
+      investField: (currentProject && currentProject.projectInfo && currentProject.projectInfo.investField) || '',
+      bidMode: (currentProject && currentProject.projectInfo && currentProject.projectInfo.bidMode) || '',
+      capitalDetail: (currentProject && currentProject.projectInfo && currentProject.projectInfo.capitalDetail) || '',
+      processApply: (currentProject && currentProject.projectInfo && currentProject.projectInfo.processApply) || '',
+      contractType: (currentProject && currentProject.projectInfo && currentProject.projectInfo.contractType) || '',
+      contractPeriod: (currentProject && currentProject.projectInfo && currentProject.projectInfo.contractPeriod) || '',
+      contractPeriodUnit: (currentProject && currentProject.projectInfo && currentProject.projectInfo.contractPeriodUnit) || ''
     },
     items: items,
     params: {
@@ -2040,6 +2075,18 @@ async function fetchBiddingInfo() {
     if (data.thoiGianDongThau) setThoiGianDongThau(data.thoiGianDongThau);
     if (data.giaDuToan) document.getElementById('giaDuToan').value = formatNumber(data.giaDuToan);
     if (data.diaDiem) document.getElementById('diaDiem').value = data.diaDiem;
+    // Save extra metadata fields silently (in projectInfo, no visible form fields)
+    if (data.bidForm) currentProject.projectInfo.bidForm = data.bidForm;
+    if (data.planNo) currentProject.projectInfo.planNo = data.planNo;
+    if (data.bidOpenDate) currentProject.projectInfo.bidOpenDate = data.bidOpenDate;
+    if (data.publicDate) currentProject.projectInfo.publicDate = data.publicDate;
+    if (data.investField) currentProject.projectInfo.investField = data.investField;
+    if (data.bidMode) currentProject.projectInfo.bidMode = data.bidMode;
+    if (data.capitalDetail) currentProject.projectInfo.capitalDetail = data.capitalDetail;
+    if (data.processApply) currentProject.projectInfo.processApply = data.processApply;
+    if (data.contractType) currentProject.projectInfo.contractType = data.contractType;
+    if (data.contractPeriod) currentProject.projectInfo.contractPeriod = data.contractPeriod;
+    if (data.contractPeriodUnit) currentProject.projectInfo.contractPeriodUnit = data.contractPeriodUnit;
 
     // Show Hình thức LCNT below Bên mời thầu
     const hlcntDiv = document.getElementById('hinhThucLCNT');
@@ -2119,6 +2166,18 @@ async function fetchBiddingInfo() {
         currentProject.projectInfo.hinhThucLCNT = data.hinhThucLCNT;
         currentProject.projectInfo.isRutGon = !!data.isRutGon;
       }
+      // Sync extra metadata
+      if (data.planNo) currentProject.projectInfo.planNo = data.planNo;
+      if (data.bidForm) currentProject.projectInfo.bidForm = data.bidForm;
+      if (data.bidOpenDate) currentProject.projectInfo.bidOpenDate = data.bidOpenDate;
+      if (data.publicDate) currentProject.projectInfo.publicDate = data.publicDate;
+      if (data.investField) currentProject.projectInfo.investField = data.investField;
+      if (data.bidMode) currentProject.projectInfo.bidMode = data.bidMode;
+      if (data.capitalDetail) currentProject.projectInfo.capitalDetail = data.capitalDetail;
+      if (data.processApply) currentProject.projectInfo.processApply = data.processApply;
+      if (data.contractType) currentProject.projectInfo.contractType = data.contractType;
+      if (data.contractPeriod) currentProject.projectInfo.contractPeriod = data.contractPeriod;
+      if (data.contractPeriodUnit) currentProject.projectInfo.contractPeriodUnit = data.contractPeriodUnit;
       if (data.items && data.items.length > 0) {
         currentProject.items = portalItems;
       }
@@ -2127,12 +2186,41 @@ async function fetchBiddingInfo() {
     calculate();
     setFormDirty();
     scheduleAutoSave();
+    // Show detail button if we have extra metadata
+    const hasDetail = data.planNo || data.bidForm || data.bidOpenDate || data.publicDate || data.investField || data.bidMode || data.capitalDetail || data.processApply || data.contractType || data.contractPeriod;
+    document.getElementById('btnDetailIB').style.display = hasDetail ? '' : 'none';
+    // Store raw data for detail modal
+    currentProject._fetchData = data;
+
   } catch (e) {
     showToast(e.message, 'error');
   } finally {
     btn.disabled = false;
     btn.textContent = '🔍 Tìm';
   }
+}
+
+function showProjectDetailModal() {
+  const data = currentProject && currentProject._fetchData;
+  if (!data) { showToast('Chưa có dữ liệu từ cổng', 'error'); return; }
+  const fields = {
+    pdmBidNo: data.bidNo || '',
+    pdmPlanNo: data.planNo || '',
+    pdmPublicDate: data.publicDate || '',
+    pdmCloseDate: data.thoiGianDongThau || '',
+    pdmOpenDate: data.bidOpenDate || '',
+    pdmBidForm: data.hinhThucLCNT || data.bidForm || '',
+    pdmInvestField: data.investField || '',
+    pdmBidMode: data.bidMode || '',
+    pdmProcessApply: data.processApply || '',
+    pdmCapitalDetail: data.capitalDetail || '',
+    pdmContractType: data.contractType || '',
+    pdmContractPeriod: (data.contractPeriod || '') + (data.contractPeriodUnit ? ' ' + data.contractPeriodUnit : '')
+  };
+  for (const [id, val] of Object.entries(fields)) {
+    document.getElementById(id).textContent = val || '—';
+  }
+  document.getElementById('projectDetailModal').className = 'modal-overlay show';
 }
 
 function validateProjectInfo() {
@@ -2739,5 +2827,28 @@ window.addEventListener('resize', handleMobileResize);
 document.addEventListener('DOMContentLoaded', function() { checkAuth(); setTimeout(handleMobileResize, 100); });
 document.addEventListener('keydown', function(e) { if ((e.ctrlKey||e.metaKey)&&e.key==='s') { e.preventDefault(); manualSave(); } });
 </script>
+<div class="modal-overlay" id="projectDetailModal">
+  <div class="modal" style="min-width:640px;max-width:700px">
+    <h3>📋 Thông tin chi tiết từ cổng đấu thầu</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;font-size:13px">
+      <div><strong>Mã TBMT:</strong> <span id="pdmBidNo"></span></div>
+      <div><strong>Mã KHLCNT (Plan):</strong> <span id="pdmPlanNo"></span></div>
+      <div><strong>Ngày đăng tải:</strong> <span id="pdmPublicDate"></span></div>
+      <div><strong>Ngày đóng thầu:</strong> <span id="pdmCloseDate"></span></div>
+      <div><strong>Ngày mở thầu:</strong> <span id="pdmOpenDate"></span></div>
+      <div><strong>Hình thức LCNT:</strong> <span id="pdmBidForm"></span></div>
+      <div><strong>Lĩnh vực:</strong> <span id="pdmInvestField"></span></div>
+      <div><strong>Phương thức:</strong> <span id="pdmBidMode"></span></div>
+      <div><strong>Quy trình:</strong> <span id="pdmProcessApply"></span></div>
+      <div><strong>Nguồn vốn:</strong> <span id="pdmCapitalDetail"></span></div>
+      <div><strong>Loại hợp đồng:</strong> <span id="pdmContractType"></span></div>
+      <div><strong>Thời gian thực hiện:</strong> <span id="pdmContractPeriod"></span></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="document.getElementById('projectDetailModal').className='modal-overlay'">Đóng</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
