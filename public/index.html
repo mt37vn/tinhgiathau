@@ -1804,7 +1804,15 @@ function calculate() {
   document.getElementById('rTongGiaNhap').textContent = '-' + toVND(tongGiaNhap);
   document.getElementById('rTongGiaNhap').className = 'rvalue cost';
   document.getElementById('rGiaDuToan').textContent = toVND(giaDuToan);
-  document.getElementById('rGiaChaoToiThieu').textContent = toVND(giaChaoToiThieu);
+  const elGiaChao = document.getElementById('rGiaChaoToiThieu');
+  elGiaChao.textContent = toVND(giaChaoToiThieu);
+  if (giaDuToan > 0 && giaChaoToiThieu > giaDuToan) {
+    elGiaChao.style.color = '#e74c3c';
+    elGiaChao.title = 'Giá chào tối thiểu cao hơn giá dự toán!';
+  } else {
+    elGiaChao.style.color = '';
+    elGiaChao.title = '';
+  }
   const tiLeGiamGiaEl = document.getElementById('rTiLeGiamGia');
   if (giaDuToan > 0) {
     tiLeGiamGiaEl.textContent = '-' + toPct(tiLeGiamGia);
@@ -1921,6 +1929,7 @@ async function manualSave() {
   if (!currentProject) { showToast('Chưa chọn dự án', 'error'); return; }
   clearErrors();
   if (!validateProjectInfo()) return;
+  if (!validatePriceConstraint()) return;
   await autoSave();
   showToast('Đã lưu thành công', 'success');
 }
@@ -2188,6 +2197,34 @@ function validateFull() {
   }
   const ndt = document.getElementById('noiDungTrinh');
   if (!ndt || !ndt.value.trim()) { ndt.classList.add('error'); showToast('Nhập nội dung trình', 'error'); ndt.focus(); return false; }
+  const items = getItemsFromTable();
+  const tiLeLNG = parseFloat(document.getElementById('tiLeLNG').value) || 0;
+  let tongGiaNhap = 0;
+  for (const item of items) tongGiaNhap += (item.soLuong || 0) * (item.donGiaNhap || 0);
+  const giaChaoToiThieu = tiLeLNG >= 100 ? 0 : (tiLeLNG > 0 ? Math.round(tongGiaNhap / (1 - tiLeLNG / 100)) : tongGiaNhap);
+  const giaDuToan = parseNumber(document.getElementById('giaDuToan').value);
+  if (giaDuToan > 0 && giaChaoToiThieu > giaDuToan) {
+    document.getElementById('giaDuToan').classList.add('error');
+    showToast('Giá chào tối thiểu không được cao hơn giá dự toán', 'error');
+    document.getElementById('giaDuToan').focus();
+    return false;
+  }
+  return true;
+}
+
+function validatePriceConstraint() {
+  const items = getItemsFromTable();
+  const tiLeLNG = parseFloat(document.getElementById('tiLeLNG').value) || 0;
+  let tongGiaNhap = 0;
+  for (const item of items) tongGiaNhap += (item.soLuong || 0) * (item.donGiaNhap || 0);
+  const giaChaoToiThieu = tiLeLNG >= 100 ? 0 : (tiLeLNG > 0 ? Math.round(tongGiaNhap / (1 - tiLeLNG / 100)) : tongGiaNhap);
+  const giaDuToan = parseNumber(document.getElementById('giaDuToan').value);
+  if (giaDuToan > 0 && giaChaoToiThieu > giaDuToan) {
+    showToast('Giá chào tối thiểu không được cao hơn giá dự toán', 'error');
+    document.getElementById('giaDuToan').classList.add('error');
+    document.getElementById('giaDuToan').focus();
+    return false;
+  }
   return true;
 }
 

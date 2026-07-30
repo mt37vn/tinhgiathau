@@ -954,6 +954,15 @@ app.put('/api/projects/:id', auth, (req, res) => {
   const maDauThau = req.body.projectInfo && req.body.projectInfo.maDauThau ? req.body.projectInfo.maDauThau.trim() : '';
   if (maDauThau && data.projects.some((p, i) => i !== idx && p.projectInfo && p.projectInfo.maDauThau === maDauThau))
     return res.status(400).json({ error: 'Mã đấu thầu đã tồn tại' });
+  const items = req.body.items || [];
+  const params = req.body.params || {};
+  const tiLeLNG = params.tiLeLNG || 0;
+  const giaDuToan = params.giaDuToan || 0;
+  let tongGiaNhap = 0;
+  for (const item of items) tongGiaNhap += (item.soLuong || 0) * (item.donGiaNhap || 0);
+  const giaChaoToiThieu = tiLeLNG >= 100 ? 0 : (tiLeLNG > 0 ? Math.round(tongGiaNhap / (1 - tiLeLNG / 100)) : tongGiaNhap);
+  if (giaDuToan > 0 && giaChaoToiThieu > giaDuToan)
+    return res.status(400).json({ error: 'Giá chào tối thiểu không được cao hơn giá dự toán' });
   const project = data.projects[idx];
   const updated = { ...project, ...req.body, id: req.params.id, updatedAt: new Date().toISOString() };
   // Transition upcoming to draft on first human interaction
