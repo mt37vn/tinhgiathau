@@ -2628,8 +2628,8 @@ async function checkPendingTbmtFiles() {
 function scheduleDailyAt6AM(fn) {
   const now = new Date();
   const target = new Date(now);
-  target.setHours(6, 0, 0, 0);
-  if (target <= now) target.setDate(target.getDate() + 1);
+  target.setUTCHours(19, 0, 0, 0);
+  if (target <= now) target.setUTCDate(target.getUTCDate() + 1);
   const msUntilTarget = target - now;
   setTimeout(() => {
     fn();
