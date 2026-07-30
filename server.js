@@ -22,6 +22,9 @@ const USER_FILE = path.join(DATA_DIR, 'users.json');
 const SUPPLIER_FILE = path.join(DATA_DIR, 'suppliers.json');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 const SCRAPED_BIDS_FILE = path.join(DATA_DIR, 'scraped-bids.json');
+const TBMT_API_BASE = 'https://hsmt.haproinfo.vn/api';
+const TBMT_API_KEY = 'inf0@hapro';
+const TBMT_DIR = path.join(DATA_DIR, 'tbmt-files');
 
 app.use(express.json());
 app.get('/', (req, res) => {
@@ -43,6 +46,7 @@ if (!fs.existsSync(PROJ_FILE)) fs.writeFileSync(PROJ_FILE, JSON.stringify({ proj
 if (!fs.existsSync(SUPPLIER_FILE)) fs.writeFileSync(SUPPLIER_FILE, JSON.stringify({ suppliers: [] }, null, 2));
 if (!fs.existsSync(CONFIG_FILE)) fs.writeFileSync(CONFIG_FILE, JSON.stringify({ companyName: 'CÔNG TY CỔ PHẦN THÔNG TIN HAPRO' }, null, 2));
 if (!fs.existsSync(SCRAPED_BIDS_FILE)) fs.writeFileSync(SCRAPED_BIDS_FILE, JSON.stringify({ entries: [] }, null, 2));
+if (!fs.existsSync(TBMT_DIR)) fs.mkdirSync(TBMT_DIR, { recursive: true });
 
 function cleanupExpiredUpcoming() {
   try {
@@ -1849,6 +1853,138 @@ app.post('/api/projects/:id/fetch-bid-result', auth, adminOnly, async (req, res)
     writeData(PROJ_FILE, data);
     return res.status(500).json({ error: project.bidResultFetchError });
   }
+});
+
+// --- TBMT File Download (tự động scan nếu chưa cache, giải nén ZIP) ---
+app.post('/api/projects/:id/download-tbmt', auth, async (req, res) => {
+  const data = readData(PROJ_FILE);
+  const idx = data.projects.findIndex(p => p.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Không tìm thấy dự án' });
+
+  const project = data.projects[idx];
+  const tbmtCode = project.projectInfo && project.projectInfo.maDauThau;
+  if (!tbmtCode) return res.status(400).json({ error: 'Dự án chưa có mã đấu thầu (IB)' });
+
+  // Gói rút gọn không có file HSMT
+  if (project.projectInfo && project.projectInfo.isRutGon) {
+    return res.status(400).json({ error: 'Gói thầu rút gọn không có hồ sơ mời thầu (HSMT) để tải' });
+  }
+
+  try {
+    let apiRes = await fetch(`${TBMT_API_BASE}/files/${encodeURIComponent(tbmtCode)}`, {
+      headers: { 'X-API-Key': TBMT_API_KEY }
+    });
+
+    if (apiRes.status === 404) {
+      const body = await apiRes.json().catch(() => ({}));
+      if (body.detail && body.detail.includes('Run POST /api/scan')) {
+        console.log(`[download-tbmt] No cache for ${tbmtCode}, triggering scan...`);
+        const scanRes = await fetch(`${TBMT_API_BASE}/scan/${encodeURIComponent(tbmtCode)}`, {
+          method: 'POST',
+          headers: { 'X-API-Key': TBMT_API_KEY }
+        });
+        if (!scanRes.ok) {
+          const scanBody = await scanRes.json().catch(() => ({}));
+          if (!(scanBody.detail && scanBody.detail.includes('in progress'))) {
+            return res.status(502).json({ error: scanBody.detail || `Lỗi quét TBMT (${scanRes.status})` });
+          }
+        }
+        const scanData = await scanRes.json().catch(() => ({}));
+        const cooldownSec = scanData.cooldown_sec || 30;
+        console.log(`[download-tbmt] Scan started, waiting ${cooldownSec}s...`);
+        await new Promise(resolve => setTimeout(resolve, (cooldownSec + 3) * 1000));
+        apiRes = await fetch(`${TBMT_API_BASE}/files/${encodeURIComponent(tbmtCode)}`, {
+          headers: { 'X-API-Key': TBMT_API_KEY }
+        });
+        // After scan retry still fails — different message
+        if (!apiRes.ok) {
+          return res.status(502).json({ error: 'Không tìm thấy file TBMT sau khi quét. Có thể gói thầu này chưa có hồ sơ mời thầu (HSMT) trên hệ thống.' });
+        }
+      } else {
+        return res.status(502).json({ error: body.detail || 'Không tìm thấy file TBMT cho mã này' });
+      }
+    }
+
+    if (!apiRes.ok) {
+      const body = await apiRes.json().catch(() => ({}));
+      return res.status(502).json({ error: body.detail || `Lỗi từ máy chủ TBMT (${apiRes.status})` });
+    }
+
+    // Download the file buffer
+    const buffer = Buffer.from(await apiRes.arrayBuffer());
+    const extDir = path.join(TBMT_DIR, tbmtCode);
+
+    // Check if it's a ZIP file (magic bytes PK\x03\x04)
+    const isZip = buffer.length > 4 && buffer[0] === 0x50 && buffer[1] === 0x4B && buffer[2] === 0x03 && buffer[3] === 0x04;
+
+    if (isZip) {
+      // Save ZIP temporarily, extract via Python (handles backslash paths + unicode), then delete zip
+      const zipPath = path.join(TBMT_DIR, `${tbmtCode}.zip`);
+      fs.writeFileSync(zipPath, buffer);
+      fs.mkdirSync(extDir, { recursive: true });
+      execSync(`python3 "${path.join(__dirname, 'scripts', 'extract-zip.py')}" "${zipPath}" "${extDir}"`, { stdio: 'ignore' });
+      fs.unlinkSync(zipPath);
+
+      // Read extracted files (skip macOS metadata files)
+      const files = [];
+      if (fs.existsSync(extDir)) {
+        const entries = fs.readdirSync(extDir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (entry.isFile() && !entry.name.startsWith('._') && !entry.name.startsWith('.DS_Store')) {
+            const filePath = path.join(extDir, entry.name);
+            const stat = fs.statSync(filePath);
+            files.push({ name: entry.name, size: stat.size });
+          }
+        }
+      }
+      files.sort((a, b) => a.name.localeCompare(b.name));
+
+      project.tbmtFile = {
+        type: 'extracted',
+        files,
+        downloadedAt: new Date().toISOString()
+      };
+    } else {
+      // Single file
+      const disposition = apiRes.headers.get('content-disposition') || '';
+      const nameMatch = disposition.match(/filename\s*=\s*["']?([^"'\s;]+)/i);
+      const filename = nameMatch ? nameMatch[1] : `${tbmtCode}.pdf`;
+      const filePath = path.join(TBMT_DIR, filename);
+      fs.writeFileSync(filePath, buffer);
+
+      project.tbmtFile = {
+        type: 'file',
+        filename,
+        size: buffer.length,
+        downloadedAt: new Date().toISOString()
+      };
+    }
+
+    project.updatedAt = new Date().toISOString();
+    writeData(PROJ_FILE, data);
+    res.json(project);
+  } catch (error) {
+    console.error('[download-tbmt] Error:', error.message);
+    res.status(502).json({ error: error.message });
+  }
+});
+
+// --- Serve TBMT File (hỗ trợ cả file đơn và file trong thư mục đã giải nén) ---
+app.get('/api/tbmt-files/*', auth, (req, res) => {
+  const relativePath = req.params[0];
+  if (!relativePath) return res.status(400).json({ error: 'Thiếu đường dẫn file' });
+  const resolved = path.resolve(path.join(TBMT_DIR, relativePath));
+  if (!resolved.startsWith(path.resolve(TBMT_DIR))) {
+    return res.status(403).json({ error: 'Từ chối' });
+  }
+  if (!fs.existsSync(resolved)) {
+    return res.status(404).json({ error: 'File không tồn tại' });
+  }
+  const ext = path.extname(resolved).toLowerCase();
+  const mimeMap = { '.pdf': 'application/pdf', '.doc': 'application/msword', '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', '.xls': 'application/vnd.ms-excel', '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.txt': 'text/plain; charset=utf-8' };
+  res.set('Content-Type', mimeMap[ext] || 'application/octet-stream');
+  res.set('Content-Disposition', 'inline');
+  res.sendFile(resolved);
 });
 
 function getStepCodeLabel(code) {
