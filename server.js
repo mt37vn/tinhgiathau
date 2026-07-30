@@ -1865,6 +1865,32 @@ app.post('/api/projects/:id/fetch-bid-result', auth, adminOnly, async (req, res)
   }
 });
 
+// --- TBMT helpers ---
+function cleanupTbmtPath(tbmtCode) {
+  // Xóa file/directory cũ (có thể từ Docker chạy với quyền root) trước khi ghi mới
+  const zipPath = path.join(TBMT_DIR, `${tbmtCode}.zip`);
+  const extDir = path.join(TBMT_DIR, tbmtCode);
+  try { if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath); } catch (e) { console.warn(`[tbmt] cleanup: cannot delete ${zipPath} — ${e.message}`); }
+  try { if (fs.existsSync(extDir)) fs.rmSync(extDir, { recursive: true, force: true }); } catch (e) { console.warn(`[tbmt] cleanup: cannot delete ${extDir} — ${e.message}`); }
+}
+
+const AdmZip = require('adm-zip');
+
+function extractZip(zipPath, extDir) {
+  // Giải nén ZIP, giữ nguyên logic của scripts/extract-zip.py:
+  // bỏ qua directory entries, chỉ lấy tên file cuối cùng (flatten), xử lý backslash paths
+  fs.mkdirSync(extDir, { recursive: true });
+  const zip = new AdmZip(zipPath);
+  const entries = zip.getEntries();
+  for (const entry of entries) {
+    if (entry.isDirectory) continue;
+    const base = entry.entryName.replace(/\\/g, '/').split('/').pop();
+    if (!base) continue;
+    const target = path.join(extDir, base);
+    fs.writeFileSync(target, entry.getData());
+  }
+}
+
 // --- TBMT File Download (tự động scan nếu chưa cache, giải nén ZIP) ---
 app.post('/api/projects/:id/download-tbmt', auth, async (req, res) => {
   const data = readData(PROJ_FILE);
@@ -1928,11 +1954,12 @@ app.post('/api/projects/:id/download-tbmt', auth, async (req, res) => {
     const isZip = buffer.length > 4 && buffer[0] === 0x50 && buffer[1] === 0x4B && buffer[2] === 0x03 && buffer[3] === 0x04;
 
     if (isZip) {
+      // Dọn dẹp file cũ trước khi ghi (tránh lỗi EACCES khi file thuộc quyền root từ Docker)
+      cleanupTbmtPath(tbmtCode);
       // Save ZIP temporarily, extract via Python (handles backslash paths + unicode), then delete zip
       const zipPath = path.join(TBMT_DIR, `${tbmtCode}.zip`);
       fs.writeFileSync(zipPath, buffer);
-      fs.mkdirSync(extDir, { recursive: true });
-      execSync(`python3 "${path.join(__dirname, 'scripts', 'extract-zip.py')}" "${zipPath}" "${extDir}"`, { stdio: 'ignore' });
+      extractZip(zipPath, extDir);
       fs.unlinkSync(zipPath);
 
       // Read extracted files (skip macOS metadata files)
@@ -1960,6 +1987,8 @@ app.post('/api/projects/:id/download-tbmt', auth, async (req, res) => {
       const nameMatch = disposition.match(/filename\s*=\s*["']?([^"'\s;]+)/i);
       const filename = nameMatch ? nameMatch[1] : `${tbmtCode}.pdf`;
       const filePath = path.join(TBMT_DIR, filename);
+      // Dọn dẹp file cũ trước khi ghi
+      try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch (e) { console.warn(`[tbmt] cleanup: cannot delete ${filePath} — ${e.message}`); }
       fs.writeFileSync(filePath, buffer);
 
       project.tbmtFile = {
@@ -2555,10 +2584,11 @@ async function checkPendingTbmtFiles() {
           const isZip = buffer.length > 4 && buffer[0] === 0x50 && buffer[1] === 0x4B && buffer[2] === 0x03 && buffer[3] === 0x04;
           const extDir = path.join(TBMT_DIR, ib);
           if (isZip) {
+            // Dọn dẹp file cũ trước khi ghi
+            cleanupTbmtPath(ib);
             const zipPath = path.join(TBMT_DIR, `${ib}.zip`);
             fs.writeFileSync(zipPath, buffer);
-            fs.mkdirSync(extDir, { recursive: true });
-            execSync(`python3 "${path.join(__dirname, 'scripts', 'extract-zip.py')}" "${zipPath}" "${extDir}"`, { stdio: 'ignore' });
+            extractZip(zipPath, extDir);
             fs.unlinkSync(zipPath);
             const files = [];
             if (fs.existsSync(extDir)) {
@@ -2577,7 +2607,9 @@ async function checkPendingTbmtFiles() {
             const disposition = apiRes.headers.get('content-disposition') || '';
             const nameMatch = disposition.match(/filename\s*=\s*["']?([^"'\s;]+)/i);
             const filename = nameMatch ? nameMatch[1] : `${ib}.pdf`;
-            fs.writeFileSync(path.join(TBMT_DIR, filename), buffer);
+            const filePath = path.join(TBMT_DIR, filename);
+            try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch (e) { console.warn(`[tbmt-check] cleanup: cannot delete ${filePath} — ${e.message}`); }
+            fs.writeFileSync(filePath, buffer);
             project.tbmtFile = { type: 'file', filename, size: buffer.length, downloadedAt: new Date().toISOString() };
             console.log(`[tbmt-check] Downloaded file: ${ib} → ${filename}`);
           }
