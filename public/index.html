@@ -2362,9 +2362,10 @@ function updateTbmtFileUI() {
   const btn = document.getElementById('btnDownloadTbmt');
 
   const hasIb = currentProject && currentProject.projectInfo && currentProject.projectInfo.maDauThau;
+  const isRutGon = currentProject && currentProject.projectInfo && currentProject.projectInfo.isRutGon;
   const tf = currentProject && currentProject.tbmtFile;
 
-  if (group) group.style.display = hasIb ? '' : 'none';
+  if (group) group.style.display = hasIb && !isRutGon ? '' : 'none';
 
   let fileHtml = '<span style="color:#888">Chưa tải file TBMT</span>';
 

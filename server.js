@@ -1865,6 +1865,11 @@ app.post('/api/projects/:id/download-tbmt', auth, async (req, res) => {
   const tbmtCode = project.projectInfo && project.projectInfo.maDauThau;
   if (!tbmtCode) return res.status(400).json({ error: 'Dự án chưa có mã đấu thầu (IB)' });
 
+  // Gói rút gọn không có file HSMT
+  if (project.projectInfo && project.projectInfo.isRutGon) {
+    return res.status(400).json({ error: 'Gói thầu rút gọn không có hồ sơ mời thầu (HSMT) để tải' });
+  }
+
   try {
     let apiRes = await fetch(`${TBMT_API_BASE}/files/${encodeURIComponent(tbmtCode)}`, {
       headers: { 'X-API-Key': TBMT_API_KEY }
