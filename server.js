@@ -48,6 +48,16 @@ if (!fs.existsSync(CONFIG_FILE)) fs.writeFileSync(CONFIG_FILE, JSON.stringify({ 
 if (!fs.existsSync(SCRAPED_BIDS_FILE)) fs.writeFileSync(SCRAPED_BIDS_FILE, JSON.stringify({ entries: [] }, null, 2));
 if (!fs.existsSync(TBMT_DIR)) fs.mkdirSync(TBMT_DIR, { recursive: true });
 
+function isRutGonProject(project) {
+  const info = project.projectInfo;
+  if (!info) return false;
+  if (info.isRutGon) return true;
+  if (info.hinhThucLCNT && (info.hinhThucLCNT.includes('rút gọn') || info.hinhThucLCNT.includes('rut gon'))) return true;
+  if (info.bidForm && (info.bidForm === 'CGTTRG' || info.bidForm === 'CHTRG')) return true;
+  if (project.items && project.items.some(i => i.portalKyMaHieu || i.portalNhanHieu || i.portalHangSanXuat)) return true;
+  return false;
+}
+
 function cleanupExpiredUpcoming() {
   try {
     const projData = readData(PROJ_FILE);
@@ -1866,13 +1876,7 @@ app.post('/api/projects/:id/download-tbmt', auth, async (req, res) => {
   if (!tbmtCode) return res.status(400).json({ error: 'Dự án chưa có mã đấu thầu (IB)' });
 
   // Gói rút gọn không có file HSMT
-  const isRutGon = (project.projectInfo && project.projectInfo.isRutGon) ||
-    (project.projectInfo && project.projectInfo.hinhThucLCNT && 
-     (project.projectInfo.hinhThucLCNT.includes('rút gọn') || project.projectInfo.hinhThucLCNT.includes('rut gon'))) ||
-    (project.items && project.items.some(i => i.portalKyMaHieu || i.portalNhanHieu || i.portalHangSanXuat)) ||
-    (project.projectInfo && project.projectInfo.bidForm && 
-     (project.projectInfo.bidForm === 'CGTTRG' || project.projectInfo.bidForm === 'CHTRG'));
-  if (isRutGon) {
+  if (isRutGonProject(project)) {
     return res.status(400).json({ error: 'Gói thầu rút gọn không có hồ sơ mời thầu (HSMT) để tải' });
   }
 
@@ -2509,6 +2513,131 @@ app.get('/admin/report', auth, (req, res) => {
   h += '<div class="footer">Phần Mềm Tính Giá Chào Thầu — Phân tích kết quả đấu thầu</div></body></html>';
   res.send(h);
 });
+
+// --- Background TBMT auto-check ---
+const TBMT_CHECK_DELAY = 2000;
+const TBMT_RETRY_SCANNING_AFTER = 24 * 60 * 60 * 1000;
+const TBMT_RETRY_NOT_FOUND_AFTER = 7 * 24 * 60 * 60 * 1000;
+
+let tbmtCheckRunning = false;
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function checkPendingTbmtFiles() {
+  if (tbmtCheckRunning) { console.log('[tbmt-check] Skipped — previous run still in progress'); return; }
+  tbmtCheckRunning = true;
+  let checked = 0, downloaded = 0, scanTriggered = 0, notFound = 0;
+  try {
+    const data = readData(PROJ_FILE);
+    const candidates = data.projects.filter(p => {
+      if (!p.projectInfo || !p.projectInfo.maDauThau) return false;
+      if (p.tbmtFile) return false;
+      if (isRutGonProject(p)) return false;
+      const info = p.tbmtDownloadInfo;
+      if (info) {
+        const elapsed = Date.now() - new Date(info.lastCheckedAt).getTime();
+        if (info.status === 'scanning' && elapsed < TBMT_RETRY_SCANNING_AFTER) return false;
+        if (info.status === 'not_found' && elapsed < TBMT_RETRY_NOT_FOUND_AFTER) return false;
+      }
+      return true;
+    });
+    console.log(`[tbmt-check] Found ${candidates.length} candidates`);
+    let changed = false;
+    for (const project of candidates) {
+      const ib = project.projectInfo.maDauThau;
+      checked++;
+      try {
+        const apiRes = await fetch(`${TBMT_API_BASE}/files/${encodeURIComponent(ib)}`, {
+          headers: { 'X-API-Key': TBMT_API_KEY }
+        });
+        if (apiRes.ok) {
+          const buffer = Buffer.from(await apiRes.arrayBuffer());
+          const isZip = buffer.length > 4 && buffer[0] === 0x50 && buffer[1] === 0x4B && buffer[2] === 0x03 && buffer[3] === 0x04;
+          const extDir = path.join(TBMT_DIR, ib);
+          if (isZip) {
+            const zipPath = path.join(TBMT_DIR, `${ib}.zip`);
+            fs.writeFileSync(zipPath, buffer);
+            fs.mkdirSync(extDir, { recursive: true });
+            execSync(`python3 "${path.join(__dirname, 'scripts', 'extract-zip.py')}" "${zipPath}" "${extDir}"`, { stdio: 'ignore' });
+            fs.unlinkSync(zipPath);
+            const files = [];
+            if (fs.existsSync(extDir)) {
+              const entries = fs.readdirSync(extDir, { withFileTypes: true });
+              for (const entry of entries) {
+                if (entry.isFile() && !entry.name.startsWith('._') && !entry.name.startsWith('.DS_Store')) {
+                  const fp = path.join(extDir, entry.name);
+                  files.push({ name: entry.name, size: fs.statSync(fp).size });
+                }
+              }
+              files.sort((a, b) => a.name.localeCompare(b.name));
+            }
+            project.tbmtFile = { type: 'extracted', files, downloadedAt: new Date().toISOString() };
+            console.log(`[tbmt-check] Downloaded ZIP + extracted: ${ib} (${files.length} files)`);
+          } else {
+            const disposition = apiRes.headers.get('content-disposition') || '';
+            const nameMatch = disposition.match(/filename\s*=\s*["']?([^"'\s;]+)/i);
+            const filename = nameMatch ? nameMatch[1] : `${ib}.pdf`;
+            fs.writeFileSync(path.join(TBMT_DIR, filename), buffer);
+            project.tbmtFile = { type: 'file', filename, size: buffer.length, downloadedAt: new Date().toISOString() };
+            console.log(`[tbmt-check] Downloaded file: ${ib} → ${filename}`);
+          }
+          delete project.tbmtDownloadInfo;
+          downloaded++;
+        } else if (apiRes.status === 404) {
+          const body = await apiRes.json().catch(() => ({}));
+          if (body.detail && body.detail.includes('Run POST /api/scan')) {
+            await fetch(`${TBMT_API_BASE}/scan/${encodeURIComponent(ib)}`, {
+              method: 'POST', headers: { 'X-API-Key': TBMT_API_KEY }
+            });
+            project.tbmtDownloadInfo = {
+              status: 'scanning',
+              scanTriggeredAt: new Date().toISOString(),
+              lastCheckedAt: new Date().toISOString(),
+              checkedCount: (project.tbmtDownloadInfo?.checkedCount || 0) + 1
+            };
+            scanTriggered++;
+            console.log(`[tbmt-check] Scan triggered: ${ib}`);
+          } else {
+            project.tbmtDownloadInfo = {
+              status: 'not_found',
+              lastCheckedAt: new Date().toISOString(),
+              checkedCount: (project.tbmtDownloadInfo?.checkedCount || 0) + 1
+            };
+            notFound++;
+            console.log(`[tbmt-check] Not found: ${ib}`);
+          }
+        } else {
+          console.log(`[tbmt-check] Unexpected status ${apiRes.status} for ${ib}`);
+        }
+        project.updatedAt = new Date().toISOString();
+        changed = true;
+      } catch (err) {
+        console.error(`[tbmt-check] Error for ${ib}:`, err.message);
+      }
+      await delay(TBMT_CHECK_DELAY);
+    }
+    if (changed) writeData(PROJ_FILE, data);
+    console.log(`[tbmt-check] Done — checked: ${checked}, downloaded: ${downloaded}, scan-triggered: ${scanTriggered}, not-found: ${notFound}`);
+  } catch (err) {
+    console.error('[tbmt-check] Fatal error:', err.message);
+  } finally {
+    tbmtCheckRunning = false;
+  }
+}
+
+function scheduleDailyAt6AM(fn) {
+  const now = new Date();
+  const target = new Date(now);
+  target.setHours(6, 0, 0, 0);
+  if (target <= now) target.setDate(target.getDate() + 1);
+  const msUntilTarget = target - now;
+  setTimeout(() => {
+    fn();
+    setInterval(fn, 24 * 60 * 60 * 1000);
+  }, msUntilTarget);
+}
+
+scheduleDailyAt6AM(checkPendingTbmtFiles);
 
 app.listen(PORT, () => {
   console.log(`Phần mềm tính giá chào thầu v2 đang chạy tại: http://localhost:${PORT}`);
