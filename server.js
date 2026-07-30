@@ -617,11 +617,7 @@ app.get('/api/project-ids', (req, res) => {
   if (fs.existsSync(p)) {
     const data = readData(p);
     const ids = data.projects
-      .filter(proj => {
-        const hinhThuc = proj.projectInfo?.hinhThucLCNT;
-        if (!hinhThuc) return true;
-        return !hinhThuc.toLowerCase().includes('rút gọn');
-      })
+      .filter(proj => !isRutGonProject(proj))
       .map(proj => ({
         id: proj.id,
         maDauThau: (proj.projectInfo && proj.projectInfo.maDauThau) || null,
