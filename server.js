@@ -549,7 +549,7 @@ app.get('/api/version', (req, res) => {
   if (process.env.APP_VERSION) return res.json({ version: process.env.APP_VERSION });
   try {
     const v = execSync(
-      'git describe --tags --abbrev=0 || git rev-parse --short HEAD || echo unknown',
+      'git rev-parse --short HEAD || git describe --tags --abbrev=0 || echo unknown',
       { cwd: __dirname, encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }
     ).trim();
     res.json({ version: v || 'unknown' });
@@ -2660,6 +2660,10 @@ app.post('/api/admin/sync-all', auth, adminOnly, async (req, res) => {
   const portalFetchCandidates = projects.filter(p => {
     if (!p.projectInfo || !p.projectInfo.maDauThau) return false;
     if (p.items && p.items.some(i => i.portalKyMaHieu)) return false;
+    // Bỏ qua gói đã xác định không rút gọn (DTRR, CHCT, ...)
+    if (p.projectInfo.isRutGon === false) return false;
+    if (p.projectInfo.hinhThucLCNT && !p.projectInfo.hinhThucLCNT.includes('rút gọn')) return false;
+    if (p.projectInfo.bidForm && !p.projectInfo.bidForm.endsWith('RG')) return false;
     return true;
   });
 
