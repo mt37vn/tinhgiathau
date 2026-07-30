@@ -2895,9 +2895,9 @@ app.post('/api/admin/sync-all', auth, adminOnly, async (req, res) => {
         const extDir = path.join(TBMT_DIR, ib);
         if (isZip) {
           const zipPath = path.join(TBMT_DIR, `${ib}.zip`);
+          cleanupTbmtPath(ib);
           fs.writeFileSync(zipPath, buffer);
-          fs.mkdirSync(extDir, { recursive: true });
-          execSync(`python3 "${path.join(__dirname, 'scripts', 'extract-zip.py')}" "${zipPath}" "${extDir}"`, { stdio: 'ignore' });
+          extractZip(zipPath, extDir);
           fs.unlinkSync(zipPath);
           const files = [];
           if (fs.existsSync(extDir)) {
