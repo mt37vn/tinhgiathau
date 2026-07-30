@@ -1866,7 +1866,13 @@ app.post('/api/projects/:id/download-tbmt', auth, async (req, res) => {
   if (!tbmtCode) return res.status(400).json({ error: 'Dự án chưa có mã đấu thầu (IB)' });
 
   // Gói rút gọn không có file HSMT
-  if (project.projectInfo && project.projectInfo.isRutGon) {
+  const isRutGon = (project.projectInfo && project.projectInfo.isRutGon) ||
+    (project.projectInfo && project.projectInfo.hinhThucLCNT && 
+     (project.projectInfo.hinhThucLCNT.includes('rút gọn') || project.projectInfo.hinhThucLCNT.includes('rut gon'))) ||
+    (project.items && project.items.some(i => i.portalKyMaHieu || i.portalNhanHieu || i.portalHangSanXuat)) ||
+    (project.projectInfo && project.projectInfo.bidForm && 
+     (project.projectInfo.bidForm === 'CGTTRG' || project.projectInfo.bidForm === 'CHTRG'));
+  if (isRutGon) {
     return res.status(400).json({ error: 'Gói thầu rút gọn không có hồ sơ mời thầu (HSMT) để tải' });
   }
 
