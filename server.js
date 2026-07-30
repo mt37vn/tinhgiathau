@@ -568,7 +568,8 @@ app.get('/api/settings', (req, res) => {
     scraperLocations: config.scraperLocations || [],
     scraperMaxBidPrice: config.scraperMaxBidPrice || 2000000000,
     scraperMaxCardsPerKeyword: config.scraperMaxCardsPerKeyword || 5,
-    scraperOnlyRutGon: config.scraperOnlyRutGon !== false
+    scraperOnlyRutGon: config.scraperOnlyRutGon !== false,
+    scraperOnlyOnline: config.scraperOnlyOnline !== false
   });
 });
 app.put('/api/settings', auth, adminOnly, (req, res) => {
@@ -579,6 +580,7 @@ app.put('/api/settings', auth, adminOnly, (req, res) => {
   if (req.body.scraperMaxBidPrice !== undefined) config.scraperMaxBidPrice = req.body.scraperMaxBidPrice;
   if (req.body.scraperMaxCardsPerKeyword !== undefined) config.scraperMaxCardsPerKeyword = req.body.scraperMaxCardsPerKeyword;
   if (req.body.scraperOnlyRutGon !== undefined) config.scraperOnlyRutGon = req.body.scraperOnlyRutGon;
+  if (req.body.scraperOnlyOnline !== undefined) config.scraperOnlyOnline = req.body.scraperOnlyOnline;
   writeData(CONFIG_FILE, config);
   res.json({ ok: true });
 });
@@ -595,7 +597,8 @@ app.get('/api/scraper-config', (req, res) => {
     locations: config.scraperLocations || [],
     maxBidPrice: config.scraperMaxBidPrice || 2000000000,
     maxCardsPerKeyword: config.scraperMaxCardsPerKeyword || 5,
-    onlyRutGon: config.scraperOnlyRutGon !== false
+    onlyRutGon: config.scraperOnlyRutGon !== false,
+    onlyOnline: config.scraperOnlyOnline !== false
   });
 });
 
@@ -1180,8 +1183,12 @@ app.get('/api/fetch-bidding-info/:ibCode', auth, async (req, res) => {
       return res.status(404).json({ error: 'Không tìm thấy thông tin cho mã IB: ' + ibCode });
     }
 
-    const bidForm = extractValue(responseData.bidForm);
     const processApply = extractValue(responseData.processApply);
+    if (processApply && processApply.toUpperCase() !== 'QUA_MANG') {
+      return res.status(400).json({ error: `Gói thầu không qua mạng (processApply=${processApply})`, processApply });
+    }
+
+    const bidForm = extractValue(responseData.bidForm);
     const isRutGon = bidForm === 'CGTTRG' || bidForm === 'CHTRG' || (bidForm && (bidForm.toLowerCase().includes('rút gọn') || bidForm.toLowerCase().includes('rut gon')));
     const bidFormLabels = { 'CGTTRG': 'Chào hàng cạnh tranh rút gọn', 'CHTRG': 'Chào hàng cạnh tranh rút gọn', 'DTRR': 'Đấu thầu rộng rãi', 'DTHC': 'Đấu thầu hạn chế', 'DTTH': 'Đấu thầu thường', 'CHTH': 'Chào hàng cạnh tranh thường', 'MSTT': 'Mua sắm trực tiếp', 'CDH': 'Chỉ định thầu' };
     const bidFormLabel = bidFormLabels[bidForm] || ('Hình thức: ' + bidForm);
@@ -1463,6 +1470,11 @@ app.get('/api/fetch-bid-result/:ibCode', auth, async (req, res) => {
 
     if (!searchResult) {
       return res.status(404).json({ error: 'Không tìm thấy thông tin cho mã IB: ' + ibCode });
+    }
+
+    const bidResultProcessApply = extractValue(searchResult.processApply);
+    if (bidResultProcessApply && bidResultProcessApply.toUpperCase() !== 'QUA_MANG') {
+      return res.status(400).json({ error: `Gói thầu không qua mạng (processApply=${bidResultProcessApply})`, processApply: bidResultProcessApply });
     }
 
     // Extract project info from search result
@@ -2681,6 +2693,13 @@ app.post('/api/admin/sync-all', auth, adminOnly, async (req, res) => {
           if (!responseData) {
             portalResults.push({ ib, name: project.name || ib, status: 'not_found', error: 'Không tìm thấy trên cổng' });
             console.log(`[sync-all]   Not found: ${ib}`);
+            continue;
+          }
+
+          const saProcessApply = extractValue(responseData.processApply);
+          if (saProcessApply && saProcessApply.toUpperCase() !== 'QUA_MANG') {
+            portalResults.push({ ib, name: project.name || ib, status: 'skipped', error: `Non-online bid (processApply=${saProcessApply})` });
+            console.log(`[sync-all]   Skipped non-online: ${ib}`);
             continue;
           }
 

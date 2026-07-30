@@ -737,9 +737,13 @@ def run_bot():
         only_rut_gon = config.get('onlyRutGon', True)
         if only_rut_gon:
             print("   🎯 Only rút gọn packages (CGTTRG/CHTRG)")
+        only_online = config.get('onlyOnline', True)
+        if only_online:
+            print("   🌐 Only online bids (QUA_MANG)")
     else:
         print("   ℹ️ Using default keywords and filters")
         only_rut_gon = True
+        only_online = True
     # -------------------------------------------------
 
     with sync_playwright() as p:
@@ -849,6 +853,14 @@ def run_bot():
                     if bid_no in processed_ids:
                         print(f"      ⚠️ Skip: '{bid_no}' already processed.")
                         continue
+
+                    # Online bid filter
+                    if only_online:
+                        process_apply = safe_get_text(item.get('processApply')).upper()
+                        if process_apply != 'QUA_MANG':
+                            print(f"      ⚠️ Skip: Non-online bid (processApply={process_apply})")
+                            save_discarded_id(bid_no, "non-online bid", discarded_ids)
+                            continue
 
                     # Rut Gon filter
                     if only_rut_gon:
