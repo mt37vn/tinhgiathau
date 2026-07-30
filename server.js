@@ -585,6 +585,34 @@ app.get('/api/scraper-config', (req, res) => {
   });
 });
 
+// --- Processed/Discarded IDs (no auth – called by GitHub Actions) ---
+app.get('/api/processed-ids', (req, res) => {
+  const p = path.join(DATA_DIR, 'processed_ids.json');
+  if (fs.existsSync(p)) return res.json(readData(p));
+  res.json({ ids: [], updatedAt: null });
+});
+app.get('/api/discarded-ids', (req, res) => {
+  const p = path.join(DATA_DIR, 'discarded_ids.json');
+  if (fs.existsSync(p)) return res.json(readData(p));
+  res.json({ ids: [], updatedAt: null });
+});
+
+// --- Project IDs (no auth) ---
+app.get('/api/project-ids', (req, res) => {
+  const p = path.join(DATA_DIR, 'projects.json');
+  if (fs.existsSync(p)) {
+    const data = readData(p);
+    const ids = data.projects.map(proj => ({
+      id: proj.id,
+      maDauThau: (proj.projectInfo && proj.projectInfo.maDauThau) || null,
+      name: (proj.projectInfo && proj.projectInfo.tenCongTrinh) || proj.name || '',
+      status: proj.status || 'draft'
+    }));
+    return res.json({ projects: ids, count: ids.length });
+  }
+  res.json({ projects: [], count: 0 });
+});
+
 // --- Receive Bid Data (no auth – called by GitHub Actions) ---
 app.post('/api/receive-bid', (req, res) => {
   const { trello_card_id, bid_no, bid_name, items, projectInfo, scrapedAt } = req.body;
@@ -886,17 +914,17 @@ app.put('/api/projects/:id', auth, (req, res) => {
   if (maDauThau && data.projects.some((p, i) => i !== idx && p.projectInfo && p.projectInfo.maDauThau === maDauThau))
     return res.status(400).json({ error: 'Mã đấu thầu đã tồn tại' });
   const project = data.projects[idx];
-  const hasOwner = project.projectInfo && (!!project.projectInfo.nguoiLapId || !!project.projectInfo.nguoiLap);
-  if (req.currentUser.role !== 'admin' && hasOwner) {
-    const isOwner = (project.projectInfo && project.projectInfo.nguoiLapId === req.currentUser.id)
-      || (project.projectInfo && project.projectInfo.nguoiLap === req.currentUser.fullName);
-    if (!isOwner)
-      return res.status(403).json({ error: 'Chỉ sửa được dự án do mình tạo hoặc được phân công' });
-  }
   const updated = { ...project, ...req.body, id: req.params.id, updatedAt: new Date().toISOString() };
   // Transition upcoming to draft on first human interaction
   if (project.status === 'upcoming' && updated.status === 'upcoming') {
     updated.status = 'draft';
+  }
+  // Luôn cập nhật người lập đề xuất = người sửa lần cuối
+  if (!updated.projectInfo) updated.projectInfo = {};
+  updated.projectInfo.nguoiLap = req.currentUser.fullName;
+  updated.projectInfo.nguoiLapId = req.currentUser.id;
+  if (!updated.projectInfo.ngayLap) {
+    updated.projectInfo.ngayLap = new Date().toISOString().split('T')[0];
   }
   data.projects[idx] = updated;
   writeData(PROJ_FILE, data);
@@ -912,20 +940,6 @@ app.patch('/api/projects/:id/submit', auth, (req, res) => {
   const project = data.projects[idx];
   if (project.status !== 'draft' && project.status !== 'rejected')
     return res.status(400).json({ error: 'Chỉ trình duyệt dự án ở trạng thái dự thảo hoặc không duyệt' });
-  const hasOwner = project.projectInfo && (project.projectInfo.nguoiLapId || project.projectInfo.nguoiLap);
-  if (hasOwner) {
-    const isOwner = (project.projectInfo && project.projectInfo.nguoiLapId === req.currentUser.id)
-      || (project.projectInfo && project.projectInfo.nguoiLap === req.currentUser.fullName);
-    if (!isOwner && req.currentUser.role !== 'admin')
-      return res.status(403).json({ error: 'Chỉ người tạo mới được trình duyệt' });
-  }
-  // Auto-assign nguoiLap if not set (system-created project)
-  if (!project.projectInfo) project.projectInfo = {};
-  if (!project.projectInfo.nguoiLapId && !project.projectInfo.nguoiLap) {
-    project.projectInfo.nguoiLap = req.currentUser.fullName;
-    project.projectInfo.nguoiLapId = req.currentUser.id;
-    project.projectInfo.ngayLap = new Date().toISOString().split('T')[0];
-  }
   project.status = 'pending';
   project.updatedAt = new Date().toISOString();
   writeData(PROJ_FILE, data);

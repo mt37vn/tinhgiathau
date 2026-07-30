@@ -2,7 +2,7 @@ name: Daily Bot & Portal Sync
 
 on:
   schedule:
-    - cron: '30 13 * * *'
+    - cron: '0 23 * * *'
   workflow_dispatch:
 
 permissions:
@@ -13,8 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
-      VPS_HOST: ${{ secrets.VPS_HOST }}
-      VPS_USER: ${{ secrets.VPS_USER }}
+      SERVER_HOST: ${{ secrets.SERVER_HOST }}
+      SERVER_USER: ${{ secrets.SERVER_USER }}
     steps:
       - uses: actions/checkout@v7
 
@@ -26,6 +26,17 @@ jobs:
         run: |
           pip install requests playwright
           python -m playwright install chromium
+      - name: Pull tracking files from VPS
+        if: env.SERVER_HOST != ''
+        shell: bash
+        run: |
+          mkdir -p data
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "${{ secrets.SERVER_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+          scp -o StrictHostKeyChecking=no "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/opt/dauthau/data/processed_ids.json" data/ 2>/dev/null || echo '{"ids":[],"updatedAt":null}' > data/processed_ids.json
+          scp -o StrictHostKeyChecking=no "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/opt/dauthau/data/discarded_ids.json" data/ 2>/dev/null || echo '{"ids":[],"updatedAt":null}' > data/discarded_ids.json
       - name: Scan for new bids
         env:
           TRELLO_API_KEY: ${{ secrets.TRELLO_API_KEY }}
@@ -44,12 +55,12 @@ jobs:
 
       # === Push processed/discarded IDs to VPS (JSON, not git) ===
       - name: Push ID files to VPS
-        if: env.VPS_HOST != ''
+        if: env.SERVER_HOST != ''
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
           source: "data/processed_ids.json,data/discarded_ids.json"
           target: /opt/dauthau/data/
           strip_components: 1
@@ -61,33 +72,29 @@ jobs:
           cache: 'npm'
       - name: Install Node dependencies
         run: npm ci && npx playwright install chromium
-      - name: Pull current data from VPS
-        if: env.VPS_HOST != ''
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          source: /opt/dauthau/data/projects.json
-          target: data/
+      - name: Pull projects.json from VPS
+        if: env.SERVER_HOST != ''
+        shell: bash
+        run: |
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/opt/dauthau/data/projects.json" data/ 2>/dev/null || echo '{"projects":[]}' > data/projects.json
       - name: Fetch portal items
         run: node scripts/gh-fetch.js
       - name: Push updated data to VPS
-        if: env.VPS_HOST != ''
+        if: env.SERVER_HOST != ''
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
           source: data/projects.json
           target: /opt/dauthau/data/
       - name: Restart app on VPS
-        if: env.VPS_HOST != ''
+        if: env.SERVER_HOST != ''
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
           script: nssm restart Dauthau
 
       # === Commit changes (only sync-report.json) ===
@@ -99,5 +106,5 @@ jobs:
             [ -f "$f" ] && git add -f "$f" || true
           done
           git diff --staged --quiet || git commit -m "chore: daily update $(date +%Y-%m-%d)"
-          git pull --rebase
+          git pull --rebase --autostash
           git push
