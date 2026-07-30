@@ -2362,11 +2362,11 @@ function updateTbmtFileUI() {
   const btn = document.getElementById('btnDownloadTbmt');
 
   const hasIb = currentProject && currentProject.projectInfo && currentProject.projectInfo.maDauThau;
-  const info = currentProject && currentProject.projectInfo;
-  const isRutGon = (info && info.isRutGon) ||
-    (info && info.hinhThucLCNT && (info.hinhThucLCNT.includes('rút gọn') || info.hinhThucLCNT.includes('rut gon'))) ||
+  const pi = currentProject && currentProject.projectInfo;
+  const isRutGon = (pi && pi.isRutGon) ||
+    (pi && pi.hinhThucLCNT && (pi.hinhThucLCNT.includes('rút gọn') || pi.hinhThucLCNT.includes('rut gon'))) ||
     (currentProject && currentProject.items && currentProject.items.some(i => i.portalKyMaHieu || i.portalNhanHieu || i.portalHangSanXuat)) ||
-    (info && info.bidForm && (info.bidForm === 'CGTTRG' || info.bidForm === 'CHTRG'));
+    (pi && pi.bidForm && (pi.bidForm === 'CGTTRG' || pi.bidForm === 'CHTRG'));
   const tf = currentProject && currentProject.tbmtFile;
 
   if (group) group.style.display = hasIb && !isRutGon ? '' : 'none';
