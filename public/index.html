@@ -1700,13 +1700,18 @@ async function autoSave() {
   try {
     const projectData = collectFormData();
     projectData.status = currentProject.status;
-    await api('PUT', '/api/projects/' + currentProject.id, projectData);
-    currentProject.name = projectData.name;
-    currentProject.projectInfo = projectData.projectInfo;
-    currentProject.items = projectData.items;
-    currentProject.params = projectData.params;
+    const saved = await api('PUT', '/api/projects/' + currentProject.id, projectData);
+    // Update status from server response (handles upcoming → draft transition)
+    if (saved && saved.status) {
+      currentProject.status = saved.status;
+    }
+    currentProject.name = saved && saved.name ? saved.name : projectData.name;
+    currentProject.projectInfo = saved && saved.projectInfo ? saved.projectInfo : projectData.projectInfo;
+    currentProject.items = saved && saved.items ? saved.items : projectData.items;
+    currentProject.params = saved && saved.params ? saved.params : projectData.params;
     currentProject.updatedAt = new Date().toISOString();
     updateBottomBarProjectInfo();
+    applyPermissions();
     loadProjectList();
     markFormClean();
     const statusBar = document.getElementById('statusBar');
@@ -1772,30 +1777,23 @@ function collectFormData() {
 
 function applyPermissions() {
   const isAdmin = currentUser && currentUser.role === 'admin';
-  // Check ownership: nguoiLapId (UUID), fallback to name match for legacy projects
-  const pinfo = currentProject && currentProject.projectInfo;
-  const nguoiLapId = pinfo && pinfo.nguoiLapId;
-  const nguoiLapName = pinfo && pinfo.nguoiLap;
-  const isOwnerByNgLap = nguoiLapId
-    ? (nguoiLapId === currentUser.id)
-    : (nguoiLapName === currentUser.fullName);
-  const isOwner = currentProject && isOwnerByNgLap;
 
   document.getElementById('btnNewProject').style.display = '';
-  const canDelete = currentProject && (isAdmin || (isOwner && (currentProject.status === 'draft' || currentProject.status === 'upcoming' || currentProject.status === 'rejected')));
+  // Xoá: cho phép xoá gói thầu ở trạng thái draft/upcoming/rejected (admin luôn được)
+  const canDelete = currentProject && (isAdmin || (currentProject.status === 'draft' || currentProject.status === 'upcoming' || currentProject.status === 'rejected'));
   document.getElementById('btnDeleteProject').style.display = canDelete ? '' : 'none';
-  const employeeCanEdit = currentProject && isOwner;
-  const btnAdd = document.getElementById('btnAddRow'); if (btnAdd) btnAdd.style.display = isAdmin || employeeCanEdit ? '' : 'none';
-  const btnRem = document.getElementById('btnRemoveRow'); if (btnRem) btnRem.style.display = isAdmin || employeeCanEdit ? '' : 'none';
+  const btnAdd = document.getElementById('btnAddRow'); if (btnAdd) btnAdd.style.display = currentProject ? '' : 'none';
+  const btnRem = document.getElementById('btnRemoveRow'); if (btnRem) btnRem.style.display = currentProject ? '' : 'none';
   document.getElementById('bottomBar').style.display = currentProject ? 'flex' : 'none';
+  // Nộp: ai cũng nộp được khi ở trạng thái cho phép
   const canSubmit = currentProject && (currentProject.status === 'draft' || currentProject.status === 'rejected');
-  document.getElementById('btnSubmit').style.display = (isAdmin || isOwner) && canSubmit ? '' : 'none';
+  document.getElementById('btnSubmit').style.display = canSubmit ? '' : 'none';
 
-  const canEditField = (isAdmin || employeeCanEdit) && currentProject;
+  // Tất cả field đều cho sửa
   const editableFields = ['tenCongTrinh','maDauThau','benMoiThau','giaDuToan','diaDiem','tiLeLNG','phiDuThau','phiBaoHanh','phiBanHang','phiCongTac','hoaHongKD'];
-  for (const id of editableFields) document.getElementById(id).readOnly = !canEditField;
-  document.getElementById('nguoiLap').disabled = !isAdmin;
-  document.getElementById('noiDungTrinh').readOnly = !canEditField;
+  for (const id of editableFields) document.getElementById(id).readOnly = false;
+  document.getElementById('nguoiLap').disabled = false;
+  document.getElementById('noiDungTrinh').readOnly = false;
   updateSaveButtons();
 
   if (currentProject) updateBottomBarProjectInfo();
