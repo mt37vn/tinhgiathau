@@ -1105,7 +1105,7 @@ async function loadProjectList() {
       const ibStr = p.maDauThau ? escHtml(p.maDauThau) : '';
       const bm = p.benMoiThau ? ' - ' + escHtml(p.benMoiThau) : '';
       const dn = (ibStr ? '['+ibStr+'] ' : '') + escHtml(p.name) + bm;
-      const ts = p.thoiGianDongThau ? toDateStr(p.thoiGianDongThau) : toDateTimeStr(p.updatedAt||p.createdAt);
+      const ts = p.thoiGianDongThau ? toDateTimeStr(p.thoiGianDongThau) : toDateTimeStr(p.updatedAt||p.createdAt);
       const xh = p.xepHang ? '<span class="r-rank">#' + escHtml(p.xepHang) + '</span>' : '';
       li.innerHTML = '<span class="r-icon">' + icon + '</span><span class="r-name">' + dn + '</span><span class="r-time">' + ts + '</span>' + xh;
       li.addEventListener('click', () => selectProjectById(p.id));
@@ -1326,7 +1326,8 @@ function loadProjectToForm(p) {
   // Lock bid close time if project has auto-fetched portal data
   lockProjectPortalFields(hasPortalItems);
   const params = p.params || {};
-  document.getElementById('giaDuToan').value = params.giaDuToan ? formatNumber(params.giaDuToan) : '';
+  const giaDuToan = params.giaDuToan || info.giaDuToan;
+  document.getElementById('giaDuToan').value = giaDuToan ? formatNumber(giaDuToan) : '';
   document.getElementById('tiLeLNG').value = params.tiLeLNG != null && params.tiLeLNG !== '' ? params.tiLeLNG : '';
   document.getElementById('phiDuThau').value = params.phiDuThau != null && params.phiDuThau !== '' ? formatNumber(params.phiDuThau) : '';
   document.getElementById('phiBaoHanh').value = params.phiBaoHanh != null && params.phiBaoHanh !== '' ? params.phiBaoHanh : '';
@@ -1436,7 +1437,7 @@ function populateThoiGianDongThau(baseDate) {
   }
   selGio.innerHTML = '<option value="">HH:mm</option>';
   for (let h = 0; h < 24; h++) {
-    for (let m = 0; m < 60; m += 30) {
+    for (let m = 0; m < 60; m += 15) {
       const v = String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
       const o = document.createElement('option'); o.value = v; o.textContent = v;
       selGio.appendChild(o);
@@ -1880,8 +1881,9 @@ async function fetchBiddingInfo() {
       badge.style.display = 'none';
     }
 
+    let portalItems = null;
     if (data.items && data.items.length > 0) {
-      const portalItems = data.items.map((item, idx) => ({
+      portalItems = data.items.map((item, idx) => ({
         id: crypto.randomUUID(),
         stt: idx + 1,
         ...item,
@@ -1909,6 +1911,25 @@ async function fetchBiddingInfo() {
     } else {
       showToast('Đã tìm thấy thông tin dự án', 'success');
     }
+
+    // Immediately sync fetched data into currentProject so it survives before auto-save
+    if (currentProject) {
+      if (!currentProject.params) currentProject.params = {};
+      if (!currentProject.projectInfo) currentProject.projectInfo = {};
+      currentProject.params.giaDuToan = data.giaDuToan || currentProject.params.giaDuToan;
+      currentProject.projectInfo.tenCongTrinh = data.tenCongTrinh || currentProject.projectInfo.tenCongTrinh;
+      currentProject.projectInfo.benMoiThau = data.benMoiThau || currentProject.projectInfo.benMoiThau;
+      currentProject.projectInfo.diaDiem = data.diaDiem || currentProject.projectInfo.diaDiem;
+      if (data.thoiGianDongThau) currentProject.projectInfo.thoiGianDongThau = data.thoiGianDongThau;
+      if (data.hinhThucLCNT) {
+        currentProject.projectInfo.hinhThucLCNT = data.hinhThucLCNT;
+        currentProject.projectInfo.isRutGon = !!data.isRutGon;
+      }
+      if (data.items && data.items.length > 0) {
+        currentProject.items = portalItems;
+      }
+    }
+
     calculate();
     setFormDirty();
     scheduleAutoSave();
@@ -2341,10 +2362,9 @@ function updateTbmtFileUI() {
   const btn = document.getElementById('btnDownloadTbmt');
 
   const hasIb = currentProject && currentProject.projectInfo && currentProject.projectInfo.maDauThau;
-  const isRutGon = currentProject && currentProject.projectInfo && currentProject.projectInfo.isRutGon;
   const tf = currentProject && currentProject.tbmtFile;
 
-  if (group) group.style.display = hasIb && !isRutGon ? '' : 'none';
+  if (group) group.style.display = hasIb ? '' : 'none';
 
   let fileHtml = '<span style="color:#888">Chưa tải file TBMT</span>';
 
