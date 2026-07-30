@@ -616,12 +616,16 @@ app.get('/api/project-ids', (req, res) => {
   const p = path.join(DATA_DIR, 'projects.json');
   if (fs.existsSync(p)) {
     const data = readData(p);
-    const ids = data.projects.map(proj => ({
-      id: proj.id,
-      maDauThau: (proj.projectInfo && proj.projectInfo.maDauThau) || null,
-      name: (proj.projectInfo && proj.projectInfo.tenCongTrinh) || proj.name || '',
-      status: proj.status || 'draft'
-    }));
+    const ids = data.projects
+      .filter(proj => {
+        const hinhThuc = proj.projectInfo?.hinhThucLCNT;
+        if (!hinhThuc) return true;
+        return !hinhThuc.toLowerCase().includes('rút gọn');
+      })
+      .map(proj => ({
+        id: proj.id,
+        maDauThau: (proj.projectInfo && proj.projectInfo.maDauThau) || null,
+      }));
     return res.json({ projects: ids, count: ids.length });
   }
   res.json({ projects: [], count: 0 });
