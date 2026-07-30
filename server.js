@@ -53,7 +53,7 @@ function isRutGonProject(project) {
   if (!info) return false;
   if (info.isRutGon) return true;
   if (info.hinhThucLCNT && (info.hinhThucLCNT.includes('rút gọn') || info.hinhThucLCNT.includes('rut gon'))) return true;
-  if (info.bidForm && (info.bidForm === 'CGTTRG' || info.bidForm === 'CHTRG')) return true;
+  if (info.bidForm && info.bidForm.endsWith('RG')) return true;
   if (project.items && project.items.some(i => i.portalKyMaHieu || i.portalNhanHieu || i.portalHangSanXuat)) return true;
   return false;
 }
@@ -670,6 +670,22 @@ app.post('/api/receive-bid', (req, res) => {
   );
   if (matchingProj) {
     matchingProj.trello_card_id = trello_card_id;
+    const pInfo = matchingProj.projectInfo || {};
+    const incomingBidForm = (projectInfo && projectInfo.bidForm) || pInfo.bidForm || '';
+    if (incomingBidForm && !pInfo.bidForm) pInfo.bidForm = incomingBidForm;
+    if (incomingBidForm && !pInfo.hinhThucLCNT) {
+      const bidFormLabels = { 'CGTTRG':'Chào hàng cạnh tranh rút gọn','CHTRG':'Chào hàng cạnh tranh rút gọn','DTRR':'Đấu thầu rộng rãi','CHCT':'Chào hàng cạnh tranh','DTHC':'Đấu thầu hạn chế','DTTH':'Đấu thầu thường','CHTH':'Chào hàng cạnh tranh thường','MSTT':'Mua sắm trực tiếp','CDH':'Chỉ định thầu' };
+      let label = bidFormLabels[incomingBidForm];
+      if (!label && incomingBidForm.endsWith('RG')) {
+        for (let i = incomingBidForm.length - 1; i >= 2; i--) {
+          const base = incomingBidForm.substring(0, i);
+          if (bidFormLabels[base]) { label = bidFormLabels[base] + ' rút gọn'; break; }
+        }
+      }
+      pInfo.hinhThucLCNT = label ? 'Hình thức LCNT: ' + label : '';
+    }
+    if (!pInfo.isRutGon && (pInfo.hinhThucLCNT || '').includes('rút gọn')) pInfo.isRutGon = true;
+    if (items && items.length > 0) matchingProj.items = items;
     matchingProj.updatedAt = new Date().toISOString();
     writeData(PROJ_FILE, projData);
   } else {
@@ -1120,6 +1136,24 @@ app.get('/api/fetch-bidding-info/:ibCode', auth, async (req, res) => {
     const localEntry = scrapedData.entries && scrapedData.entries.find(e => e.bid_no === ibCode);
     if (localEntry) {
       const info = localEntry.projectInfo || {};
+      const hasPortalItems = localEntry.items && localEntry.items.some(i => i.portalKyMaHieu || i.portalNhanHieu || i.portalHangSanXuat);
+      const localBidForm = info.bidForm || localEntry.bidForm || '';
+      const isRutGon = hasPortalItems || (localBidForm && (localBidForm.endsWith('RG') || localBidForm.toLowerCase().includes('rút gọn') || localBidForm.toLowerCase().includes('rut gon')));
+      let hinhThucLCNT = info.hinhThucLCNT || '';
+      if (!hinhThucLCNT && isRutGon) {
+        if (localBidForm) {
+          const bidFormLabels = { 'CGTTRG':'Chào hàng cạnh tranh rút gọn','CHTRG':'Chào hàng cạnh tranh rút gọn','DTRR':'Đấu thầu rộng rãi','DTHC':'Đấu thầu hạn chế','DTTH':'Đấu thầu thường','CHCT':'Chào hàng cạnh tranh','CHTH':'Chào hàng cạnh tranh thường','MSTT':'Mua sắm trực tiếp','CDH':'Chỉ định thầu' };
+          let label = bidFormLabels[localBidForm];
+          if (!label && localBidForm.endsWith('RG')) {
+            for (let i = localBidForm.length - 1; i >= 2; i--) {
+              const base = localBidForm.substring(0, i);
+              if (bidFormLabels[base]) { label = bidFormLabels[base] + ' rút gọn'; break; }
+            }
+          }
+          hinhThucLCNT = label ? 'Hình thức LCNT: ' + label : '';
+        }
+        if (!hinhThucLCNT) hinhThucLCNT = 'Hình thức LCNT: Chào hàng cạnh tranh rút gọn';
+      }
       return res.json({
         tenCongTrinh: info.tenCongTrinh || localEntry.bid_name || '',
         benMoiThau: info.benMoiThau || '',
@@ -1127,6 +1161,9 @@ app.get('/api/fetch-bidding-info/:ibCode', auth, async (req, res) => {
         giaDuToan: info.giaDuToan || null,
         diaDiem: info.diaDiem || '',
         bidNo: ibCode,
+        bidForm: localBidForm,
+        hinhThucLCNT,
+        isRutGon,
         items: localEntry.items || [],
         itemsStatus: localEntry.items && localEntry.items.length > 0 ? 'fetched' : 'not-found',
         source: 'scraper',
@@ -1183,15 +1220,25 @@ app.get('/api/fetch-bidding-info/:ibCode', auth, async (req, res) => {
       return res.status(404).json({ error: 'Không tìm thấy thông tin cho mã IB: ' + ibCode });
     }
 
+    const bidForm = extractValue(responseData.bidForm);
+    const isRutGon = bidForm && (bidForm.endsWith('RG') || bidForm.toLowerCase().includes('rút gọn') || bidForm.toLowerCase().includes('rut gon'));
+
     const processApply = extractValue(responseData.processApply);
-    if (processApply && processApply.toUpperCase() !== 'QUA_MANG') {
+    // Gói rút gọn luôn qua mạng, không cần kiểm tra processApply
+    if (processApply && processApply.toUpperCase() !== 'QUA_MANG' && !isRutGon) {
       return res.status(400).json({ error: `Gói thầu không qua mạng (processApply=${processApply})`, processApply });
     }
-
-    const bidForm = extractValue(responseData.bidForm);
-    const isRutGon = bidForm === 'CGTTRG' || bidForm === 'CHTRG' || (bidForm && (bidForm.toLowerCase().includes('rút gọn') || bidForm.toLowerCase().includes('rut gon')));
-    const bidFormLabels = { 'CGTTRG': 'Chào hàng cạnh tranh rút gọn', 'CHTRG': 'Chào hàng cạnh tranh rút gọn', 'DTRR': 'Đấu thầu rộng rãi', 'DTHC': 'Đấu thầu hạn chế', 'DTTH': 'Đấu thầu thường', 'CHTH': 'Chào hàng cạnh tranh thường', 'MSTT': 'Mua sắm trực tiếp', 'CDH': 'Chỉ định thầu' };
-    const bidFormLabel = bidFormLabels[bidForm] || ('Hình thức: ' + bidForm);
+    const bidFormLabels = { 'CGTTRG': 'Chào hàng cạnh tranh rút gọn', 'CHTRG': 'Chào hàng cạnh tranh rút gọn', 'DTRR': 'Đấu thầu rộng rãi', 'DTHC': 'Đấu thầu hạn chế', 'DTTH': 'Đấu thầu thường', 'CHCT':'Chào hàng cạnh tranh','CHTH': 'Chào hàng cạnh tranh thường', 'MSTT': 'Mua sắm trực tiếp', 'CDH': 'Chỉ định thầu' };
+    let bidFormLabel = bidFormLabels[bidForm];
+    if (!bidFormLabel && bidForm) {
+      if (bidForm.endsWith('RG')) {
+        for (let i = bidForm.length - 1; i >= 2; i--) {
+          const base = bidForm.substring(0, i);
+          if (bidFormLabels[base]) { bidFormLabel = bidFormLabels[base] + ' rút gọn'; break; }
+        }
+      }
+      if (!bidFormLabel) bidFormLabel = 'Hình thức: ' + bidForm;
+    }
     const result = {
       tenCongTrinh: extractValue(responseData.bidName),
       benMoiThau: extractValue(responseData.investorName),
@@ -1472,8 +1519,11 @@ app.get('/api/fetch-bid-result/:ibCode', auth, async (req, res) => {
       return res.status(404).json({ error: 'Không tìm thấy thông tin cho mã IB: ' + ibCode });
     }
 
+    const bidResultBidForm = extractValue(searchResult.bidForm);
+    const bidResultIsRutGon = bidResultBidForm && (bidResultBidForm.endsWith('RG') || bidResultBidForm.toLowerCase().includes('rút gọn') || bidResultBidForm.toLowerCase().includes('rut gon'));
+
     const bidResultProcessApply = extractValue(searchResult.processApply);
-    if (bidResultProcessApply && bidResultProcessApply.toUpperCase() !== 'QUA_MANG') {
+    if (bidResultProcessApply && bidResultProcessApply.toUpperCase() !== 'QUA_MANG' && !bidResultIsRutGon) {
       return res.status(400).json({ error: `Gói thầu không qua mạng (processApply=${bidResultProcessApply})`, processApply: bidResultProcessApply });
     }
 
@@ -2696,8 +2746,11 @@ app.post('/api/admin/sync-all', auth, adminOnly, async (req, res) => {
             continue;
           }
 
+          const saBidForm = extractValue(responseData.bidForm);
+          const saIsRutGon = saBidForm && (saBidForm.endsWith('RG') || saBidForm.toLowerCase().includes('rút gọn') || saBidForm.toLowerCase().includes('rut gon'));
+
           const saProcessApply = extractValue(responseData.processApply);
-          if (saProcessApply && saProcessApply.toUpperCase() !== 'QUA_MANG') {
+          if (saProcessApply && saProcessApply.toUpperCase() !== 'QUA_MANG' && !saIsRutGon) {
             portalResults.push({ ib, name: project.name || ib, status: 'skipped', error: `Non-online bid (processApply=${saProcessApply})` });
             console.log(`[sync-all]   Skipped non-online: ${ib}`);
             continue;

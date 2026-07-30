@@ -621,7 +621,8 @@ def send_bid_data(trello_card_id, item, bid_no, bid_name, keyword_tag, kh_price,
                 "benMoiThau": safe_get_text(item.get('investorName')),
                 "thoiGianDongThau": close_date_str or '',
                 "diaDiem": dia_diem,
-                "giaDuToan": int(gia_du_toan) if gia_du_toan else None
+                "giaDuToan": int(gia_du_toan) if gia_du_toan else None,
+                "bidForm": safe_get_text(item.get('bidForm')).upper() if item.get('bidForm') else ''
             },
             "scrapedAt": datetime.utcnow().isoformat() + 'Z'
         }
@@ -736,7 +737,7 @@ def run_bot():
             print(f"   🃏 Max cards per keyword: {max_cards_per_keyword}")
         only_rut_gon = config.get('onlyRutGon', True)
         if only_rut_gon:
-            print("   🎯 Only rút gọn packages (CGTTRG/CHTRG)")
+            print("   🎯 Only rút gọn packages (mã kết thúc bằng RG)")
         only_online = config.get('onlyOnline', True)
         if only_online:
             print("   🌐 Only online bids (QUA_MANG)")
@@ -862,10 +863,10 @@ def run_bot():
                             save_discarded_id(bid_no, "non-online bid", discarded_ids)
                             continue
 
-                    # Rut Gon filter
+                    # Rut Gon filter (mã kết thúc bằng RG)
                     if only_rut_gon:
                         bid_form = safe_get_text(item.get('bidForm')).upper()
-                        if bid_form not in ('CGTTRG', 'CHTRG'):
+                        if not bid_form.endswith('RG'):
                             continue
                         
                     print(f"   📦 Processing: [{bid_no}] {bid_name[:20]}...")

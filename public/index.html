@@ -2091,6 +2091,8 @@ async function fetchBiddingInfo() {
       showToast('Đã tìm thấy thông tin dự án từ dữ liệu nội bộ', 'info');
     } else if (data.itemsStatus === 'not-rut-gon') {
       showToast('Gói ' + (data.bidFormLabel || 'này') + ' — tải file đính kèm để xem danh mục hàng hóa', 'warning');
+    } else if (data.itemsStatus === 'not-found' && data.isRutGon) {
+      showToast('Không tìm thấy danh mục hàng hóa từ cổng đấu thầu cho gói rút gọn này', 'warning');
     } else {
       showToast('Đã tìm thấy thông tin dự án', 'success');
     }
@@ -2549,7 +2551,7 @@ function updateTbmtFileUI() {
   const isRutGon = (pi && pi.isRutGon) ||
     (pi && pi.hinhThucLCNT && (pi.hinhThucLCNT.includes('rút gọn') || pi.hinhThucLCNT.includes('rut gon'))) ||
     (currentProject && currentProject.items && currentProject.items.some(i => i.portalKyMaHieu || i.portalNhanHieu || i.portalHangSanXuat)) ||
-    (pi && pi.bidForm && (pi.bidForm === 'CGTTRG' || pi.bidForm === 'CHTRG'));
+    (pi && pi.bidForm && pi.bidForm.endsWith('RG'));
   const tf = currentProject && currentProject.tbmtFile;
 
   if (group) group.style.display = hasIb && !isRutGon ? '' : 'none';
