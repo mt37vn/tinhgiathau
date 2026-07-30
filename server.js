@@ -2633,7 +2633,9 @@ app.post('/api/admin/sync-all', auth, adminOnly, async (req, res) => {
     return res.status(400).json({ error: 'Thiếu tham số: preview=true hoặc execute=true' });
   }
 
-  if (activeFetches >= MAX_FETCHES && portalFetchCandidates.length > 0) {
+  const mode = req.query.mode || 'all';
+
+  if (activeFetches >= MAX_FETCHES && portalFetchCandidates.length > 0 && mode !== 'tbmt') {
     return res.status(429).json({ error: 'Hệ thống đang xử lý yêu cầu Playwright khác. Vui lòng thử lại sau.' });
   }
 
@@ -2645,7 +2647,7 @@ app.post('/api/admin/sync-all', auth, adminOnly, async (req, res) => {
   // Phase 1: Portal fetch (Playwright)
   let browser;
   try {
-    if (portalFetchCandidates.length > 0) {
+    if (portalFetchCandidates.length > 0 && (mode === 'all' || mode === 'portal')) {
       activeFetches++;
       browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--single-process', '--no-zygote', '--disable-extensions'] });
       const context = await browser.newContext({ userAgent: UA });
@@ -2775,6 +2777,7 @@ app.post('/api/admin/sync-all', auth, adminOnly, async (req, res) => {
   }
 
   // Phase 2: TBMT download
+  if (mode === 'all' || mode === 'tbmt') {
   for (let i = 0; i < tbmtCandidates.length; i++) {
     const project = tbmtCandidates[i];
     const ib = project.projectInfo.maDauThau;
@@ -2840,6 +2843,7 @@ app.post('/api/admin/sync-all', auth, adminOnly, async (req, res) => {
     }
     writeData(PROJ_FILE, data);
     await new Promise(r => setTimeout(r, TBMT_CHECK_DELAY));
+  }
   }
 
   const durationSec = Math.round((Date.now() - startTime) / 1000);

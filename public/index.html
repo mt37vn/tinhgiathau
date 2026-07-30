@@ -261,7 +261,8 @@ table .td-num input{text-align:right}
       <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" id="userMgmtBtn" onclick="showUserManagement()">👥 Nhân viên</button>
       <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" id="settingsBtn" onclick="showSettings()">⚙️</button>
       <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" id="trelloSyncBtn" onclick="syncTrello()">🔄 Trello</button>
-      <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" id="syncAllBtn" onclick="showSyncAllModal()">⚡ Đồng bộ</button>
+      <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" id="portalFetchBtn" onclick="showSyncModal('portal')">📋 Fetch dữ liệu</button>
+      <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" id="tbmtDownloadBtn" onclick="showSyncModal('tbmt')">📥 Tải TBMT</button>
       <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" id="reportBtn" onclick="window.open('/admin/report')">📊 Báo cáo</button>
       <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" onclick="showSupplierList()">🏭 Nhà cung cấp</button>
       <button class="btn btn-outline btn-sm btn-menu-toggle" onclick="toggleMobileMenu()" style="border-color:#fff;color:#fff;display:none">☰</button>
@@ -276,7 +277,8 @@ table .td-num input{text-align:right}
   <button class="btn" id="mobileUserMgmtBtn" onclick="showUserManagement();toggleMobileMenu()">👥 Nhân viên</button>
   <button class="btn" id="mobileSettingsBtn" onclick="showSettings();toggleMobileMenu()">⚙️ Cài đặt</button>
   <button class="btn" id="mobileTrelloSyncBtn" onclick="syncTrello();toggleMobileMenu()">🔄 Đồng bộ Trello</button>
-  <button class="btn" id="mobileSyncAllBtn" onclick="showSyncAllModal();toggleMobileMenu()">⚡ Đồng bộ dữ liệu</button>
+  <button class="btn" id="mobilePortalFetchBtn" onclick="showSyncModal('portal');toggleMobileMenu()">📋 Fetch dữ liệu</button>
+  <button class="btn" id="mobileTbmtDownloadBtn" onclick="showSyncModal('tbmt');toggleMobileMenu()">📥 Tải TBMT</button>
   <button class="btn" id="mobileReportBtn" onclick="window.open('/admin/report');toggleMobileMenu()">📊 Báo cáo</button>
   <button class="btn" onclick="showSupplierList();toggleMobileMenu()">🏭 Nhà cung cấp</button>
 </div>
@@ -728,13 +730,13 @@ table .td-num input{text-align:right}
 
 <div class="modal-overlay" id="syncAllModal">
   <div class="modal" style="min-width:900px;max-width:1000px;max-height:85vh;overflow-y:auto">
-    <h3>⚡ Đồng bộ dữ liệu</h3>
+    <h3 id="syncAllTitle">⚡ Đồng bộ dữ liệu</h3>
     <div id="syncAllContent" style="min-height:100px">
       <div style="text-align:center;padding:40px;color:#888">Đang tải...</div>
     </div>
     <div class="modal-actions" id="syncAllActions">
       <button class="btn btn-outline" onclick="closeSyncAllModal()">Đóng</button>
-      <button class="btn btn-primary" id="syncAllRunBtn" style="display:none" onclick="runSyncAll()">🚀 Chạy đồng bộ</button>
+      <button class="btn btn-primary" id="syncAllRunBtn" style="display:none" onclick="runSyncAll()">🚀 Chạy</button>
     </div>
   </div>
 </div>
@@ -835,9 +837,11 @@ function updateAuthUI() {
   document.getElementById('userMgmtBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
   document.getElementById('settingsBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
   document.getElementById('trelloSyncBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
-  document.getElementById('syncAllBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
+  document.getElementById('portalFetchBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
+  document.getElementById('tbmtDownloadBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
   document.getElementById('mobileTrelloSyncBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
-  document.getElementById('mobileSyncAllBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
+  document.getElementById('mobilePortalFetchBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
+  document.getElementById('mobileTbmtDownloadBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
   document.getElementById('reportBtn').style.display = '';
   // Sync mobile menu buttons
   document.getElementById('mobileUserMgmtBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
@@ -1018,80 +1022,78 @@ async function syncTrello() {
 }
 
 // --- Sync All (Portal Fetch + TBMT Download) ---
+let syncAllMode = null;
 let syncAllRunning = false;
 
 function closeSyncAllModal() {
   document.getElementById('syncAllModal').className = 'modal-overlay';
+  syncAllMode = null;
 }
 
-async function showSyncAllModal() {
+async function showSyncModal(mode) {
+  syncAllMode = mode;
   document.getElementById('syncAllModal').className = 'modal-overlay show';
   document.getElementById('syncAllContent').innerHTML = '<div style="text-align:center;padding:40px;color:#888">Đang tải...</div>';
   document.getElementById('syncAllRunBtn').style.display = 'none';
+  const title = mode === 'portal' ? '📋 Fetch dữ liệu từ cổng' : '📥 Tải file TBMT';
+  document.getElementById('syncAllTitle').textContent = title;
   try {
     const data = await api('POST', '/api/admin/sync-all?preview=true');
-    renderSyncAllPreview(data);
+    renderSyncPreview(data, mode);
   } catch (e) {
     document.getElementById('syncAllContent').innerHTML = '<div style="text-align:center;padding:40px;color:#e74c3c">Lỗi: ' + escHtml(e.message) + '</div>';
   }
 }
 
-function renderSyncAllPreview(data) {
+function renderSyncPreview(data, mode) {
   let h = '';
-  const pf = data.portalFetch || [];
-  const tbmt = data.tbmtDownload || [];
 
-  // Portal fetch section
-  h += '<div style="margin-bottom:16px">';
-  h += '<h4 style="margin:0 0 8px 0">📋 Cần fetch dữ liệu từ cổng: <strong>' + pf.length + '</strong> gói</h4>';
-  if (pf.length === 0) {
-    h += '<div style="padding:12px;background:#eafaf1;border-radius:6px;color:#27ae60;font-size:13px">✅ Tất cả đã có dữ liệu portal</div>';
-  } else {
-    h += '<div class="table-wrap" style="max-height:200px;overflow-y:auto;border:1px solid #e0e0e0;border-radius:6px">';
-    h += '<table style="font-size:12px"><thead><tr><th>Mã IB</th><th>Tên gói thầu</th><th>Bên mời thầu</th><th>Hạn đóng thầu</th></tr></thead><tbody>';
-    for (const p of pf) {
-      h += '<tr><td>' + escHtml(p.maDauThau) + '</td><td>' + escHtml(p.name) + '</td><td>' + escHtml(p.benMoiThau) + '</td><td>' + escHtml(p.thoiGianDongThau || '') + '</td></tr>';
+  if (mode === 'portal') {
+    const pf = data.portalFetch || [];
+    h += '<h4 style="margin:0 0 8px 0">📋 Cần fetch dữ liệu từ cổng: <strong>' + pf.length + '</strong> gói</h4>';
+    if (pf.length === 0) {
+      h += '<div style="padding:12px;background:#eafaf1;border-radius:6px;color:#27ae60;font-size:13px">✅ Tất cả đã có dữ liệu portal</div>';
+    } else {
+      h += '<div class="table-wrap" style="max-height:300px;overflow-y:auto;border:1px solid #e0e0e0;border-radius:6px">';
+      h += '<table style="font-size:12px"><thead><tr><th>Mã IB</th><th>Tên gói thầu</th><th>Bên mời thầu</th><th>Hạn đóng thầu</th></tr></thead><tbody>';
+      for (const p of pf) {
+        h += '<tr><td>' + escHtml(p.maDauThau) + '</td><td>' + escHtml(p.name) + '</td><td>' + escHtml(p.benMoiThau) + '</td><td>' + escHtml(p.thoiGianDongThau || '') + '</td></tr>';
+      }
+      h += '</tbody></table></div>';
     }
-    h += '</tbody></table></div>';
-  }
-  h += '</div>';
-
-  // TBMT section
-  h += '<div style="margin-bottom:8px">';
-  h += '<h4 style="margin:0 0 8px 0">📥 Cần tải file TBMT: <strong>' + tbmt.length + '</strong> gói</h4>';
-  if (tbmt.length === 0) {
-    h += '<div style="padding:12px;background:#eafaf1;border-radius:6px;color:#27ae60;font-size:13px">✅ Tất cả đã có file TBMT</div>';
+    document.getElementById('syncAllRunBtn').textContent = '🚀 Fetch dữ liệu';
+    document.getElementById('syncAllRunBtn').style.display = pf.length > 0 ? '' : 'none';
   } else {
-    h += '<div class="table-wrap" style="max-height:200px;overflow-y:auto;border:1px solid #e0e0e0;border-radius:6px">';
-    h += '<table style="font-size:12px"><thead><tr><th>Mã IB</th><th>Tên gói thầu</th><th>Đã có dữ liệu portal</th></tr></thead><tbody>';
-    for (const p of tbmt) {
-      h += '<tr><td>' + escHtml(p.maDauThau) + '</td><td>' + escHtml(p.name) + '</td><td>' + (p.hasPortalItems ? '✅' : '❌') + '</td></tr>';
+    const tbmt = data.tbmtDownload || [];
+    h += '<h4 style="margin:0 0 8px 0">📥 Cần tải file TBMT: <strong>' + tbmt.length + '</strong> gói</h4>';
+    if (tbmt.length === 0) {
+      h += '<div style="padding:12px;background:#eafaf1;border-radius:6px;color:#27ae60;font-size:13px">✅ Tất cả đã có file TBMT</div>';
+    } else {
+      h += '<div class="table-wrap" style="max-height:300px;overflow-y:auto;border:1px solid #e0e0e0;border-radius:6px">';
+      h += '<table style="font-size:12px"><thead><tr><th>Mã IB</th><th>Tên gói thầu</th><th>Đã có dữ liệu portal</th></tr></thead><tbody>';
+      for (const p of tbmt) {
+        h += '<tr><td>' + escHtml(p.maDauThau) + '</td><td>' + escHtml(p.name) + '</td><td>' + (p.hasPortalItems ? '✅' : '❌') + '</td></tr>';
+      }
+      h += '</tbody></table></div>';
     }
-    h += '</tbody></table></div>';
-  }
-  h += '</div>';
-
-  // Summary
-  const total = pf.length + tbmt.length;
-  if (total > 0) {
-    h += '<div style="padding:8px 12px;background:#fef9e7;border-radius:6px;font-size:13px;color:#856404">🔄 Sẽ xử lý ' + pf.length + ' gói fetch portal + ' + tbmt.length + ' gói tải TBMT</div>';
+    document.getElementById('syncAllRunBtn').textContent = '🚀 Tải TBMT';
+    document.getElementById('syncAllRunBtn').style.display = tbmt.length > 0 ? '' : 'none';
   }
 
   document.getElementById('syncAllContent').innerHTML = h;
-  document.getElementById('syncAllRunBtn').style.display = total > 0 ? '' : 'none';
   syncAllRunning = false;
 }
 
 async function runSyncAll() {
-  if (syncAllRunning) return;
+  if (syncAllRunning || !syncAllMode) return;
   syncAllRunning = true;
   const btn = document.getElementById('syncAllRunBtn');
   btn.disabled = true;
   btn.textContent = '⏳ Đang xử lý...';
-  document.getElementById('syncAllContent').innerHTML += '<div id="syncAllProgress" style="padding:12px;background:#eaf2f8;border-radius:6px;margin-top:8px;font-size:13px;color:#1a3a5c">⏳ Đang đồng bộ dữ liệu... Vui lòng chờ.</div>';
+  document.getElementById('syncAllContent').innerHTML += '<div id="syncAllProgress" style="padding:12px;background:#eaf2f8;border-radius:6px;margin-top:8px;font-size:13px;color:#1a3a5c">⏳ Đang xử lý... Vui lòng chờ.</div>';
   try {
-    const result = await api('POST', '/api/admin/sync-all?execute=true');
-    renderSyncAllResults(result);
+    const result = await api('POST', '/api/admin/sync-all?execute=true&mode=' + syncAllMode);
+    renderSyncResults(result, syncAllMode);
   } catch (e) {
     document.getElementById('syncAllContent').innerHTML += '<div style="padding:12px;background:#fdecea;border-radius:6px;margin-top:8px;font-size:13px;color:#e74c3c">❌ Lỗi: ' + escHtml(e.message) + '</div>';
   } finally {
@@ -1099,6 +1101,43 @@ async function runSyncAll() {
     syncAllRunning = false;
     loadProjectList();
   }
+}
+
+function renderSyncResults(result, mode) {
+  let h = '<div style="margin-top:12px">';
+  h += '<h4 style="margin:0 0 8px 0">✅ Kết quả</h4>';
+  h += '<div style="padding:8px 12px;background:#eafaf1;border-radius:6px;font-size:13px;color:#27ae60;margin-bottom:12px">⏱ Thời gian: ' + (result.durationSec || 0) + 's</div>';
+
+  if (mode === 'portal') {
+    const items = result.portalFetch || [];
+    h += '<div class="table-wrap" style="max-height:300px;overflow-y:auto;border:1px solid #e0e0e0;border-radius:6px">';
+    h += '<table style="font-size:12px"><thead><tr><th>Mã IB</th><th>Kết quả</th><th>Chi tiết</th></tr></thead><tbody>';
+    for (const p of items) {
+      let icon, detail;
+      if (p.status === 'ok') { icon = '✅'; detail = p.items + ' items' + (p.preservedPrices ? ' (' + p.preservedPrices + ' đã giữ giá)' : ''); }
+      else if (p.status === 'no_items') { icon = '⚠️'; detail = 'Không có danh mục hàng hóa'; }
+      else if (p.status === 'not_found') { icon = '❌'; detail = 'Không tìm thấy trên cổng'; }
+      else { icon = '❌'; detail = p.error || 'Lỗi'; }
+      h += '<tr><td>' + escHtml(p.ib) + '</td><td>' + icon + '</td><td>' + escHtml(detail) + '</td></tr>';
+    }
+    h += '</tbody></table></div>';
+  } else {
+    const items = result.tbmtDownload || [];
+    h += '<div class="table-wrap" style="max-height:300px;overflow-y:auto;border:1px solid #e0e0e0;border-radius:6px">';
+    h += '<table style="font-size:12px"><thead><tr><th>Mã IB</th><th>Kết quả</th><th>Chi tiết</th></tr></thead><tbody>';
+    for (const p of items) {
+      let icon, detail;
+      if (p.status === 'downloaded') { icon = '✅'; detail = 'Đã tải (' + (p.type === 'extracted' ? p.files + ' files' : p.filename) + ')'; }
+      else if (p.status === 'scan_triggered') { icon = '⏳'; detail = 'Đã yêu cầu scan'; }
+      else if (p.status === 'not_found') { icon = '❌'; detail = 'Không có HSMT'; }
+      else { icon = '❌'; detail = p.error || 'Lỗi'; }
+      h += '<tr><td>' + escHtml(p.ib) + '</td><td>' + icon + '</td><td>' + escHtml(detail) + '</td></tr>';
+    }
+    h += '</tbody></table></div>';
+  }
+
+  h += '</div>';
+  document.getElementById('syncAllContent').innerHTML = h;
 }
 
 function renderSyncAllResults(result) {
