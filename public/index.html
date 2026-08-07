@@ -936,6 +936,7 @@ let phiTrungThauManual = false;
 let settings = {};
 let capCostDetail = null;
 let manualGiaChao = 0;
+let lastLNR = 0;
 
 function formatNumber(n) { return (n === 0 || !n) ? '0' : Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
 function parseNumber(s) { if (!s) return 0; return parseFloat(String(s).replace(/[.\s]/g, '').replace(/,/g, '')) || 0; }
@@ -2245,6 +2246,7 @@ function calculate() {
   const loiNhuanGopKD = loiNhuanGop - cpDuThau - cpVon - cpBaoLanh - cpTrienKhai;
   const hhKD = loiNhuanGopKD > 0 ? Math.round(loiNhuanGopKD * hoaHongKD / 100) : 0;
   const loiNhuanRong = loiNhuanGopKD - hhKD;
+  lastLNR = loiNhuanRong;
   const tiLeLNRVon = giaChaoToiThieuEff > 0 ? loiNhuanRong / giaChaoToiThieuEff * 100 : 0;
 
   const tbody = document.getElementById('itemsBody');
@@ -2762,6 +2764,14 @@ function validateFull() {
     document.getElementById('giaDuToan').classList.add('error');
     showToast('Giá chào dự kiến không được cao hơn giá dự toán', 'error');
     document.getElementById('giaDuToan').focus();
+    return false;
+  }
+  // Không cho phép trình duyệt gói có Lợi nhuận ròng (LNR) âm
+  calculate();
+  if (lastLNR < 0) {
+    const lnrEl = document.getElementById('rLoiNhuanRong');
+    if (lnrEl) lnrEl.classList.add('error');
+    showToast('Không trình duyệt được: Lợi nhuận ròng (LNR) đang âm (' + toVND(-lastLNR) + ')', 'error');
     return false;
   }
   return true;
