@@ -618,7 +618,7 @@ table .td-num input{text-align:right}
         </div>
         <div class="param-row" style="margin-bottom:4px">
           <label>Tỷ lệ giảm giá</label>
-          <input type="number" id="tiLeGiamGia" step="0.1" min="0" max="100" value="0" oninput="onParamChange()">
+          <input type="number" id="tiLeGiamGia" step="0.1" min="0" max="100" value="0" oninput="onDiscountInput()">
           <span class="suffix">%</span>
         </div>
         <div class="result-row" style="align-items:center">
@@ -935,6 +935,7 @@ let phiDuThauManual = false;
 let phiTrungThauManual = false;
 let settings = {};
 let capCostDetail = null;
+let manualGiaChao = 0;
 
 function formatNumber(n) { return (n === 0 || !n) ? '0' : Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
 function parseNumber(s) { if (!s) return 0; return parseFloat(String(s).replace(/[.\s]/g, '').replace(/,/g, '')) || 0; }
@@ -1740,6 +1741,7 @@ function clearForm() {
   document.getElementById('rTongGiaNhap').textContent = '0';
   document.getElementById('rGiaDuToan').textContent = '0';
   document.getElementById('giaChaoToiThieu').value = '0';
+  manualGiaChao = 0;
   document.getElementById('rLoiNhuanGop').textContent = '0';
   document.getElementById('rChiPhiThau').textContent = '0';
   document.getElementById('rChiPhiVon').textContent = '0';
@@ -1816,6 +1818,9 @@ function loadProjectToForm(p) {
   const giaDuToan = params.giaDuToan || info.giaDuToan;
   document.getElementById('giaDuToan').value = giaDuToan ? formatNumber(giaDuToan) : '';
   document.getElementById('tiLeGiamGia').value = params.tiLeGiamGia != null && params.tiLeGiamGia !== '' ? params.tiLeGiamGia : '0';
+  // Khôi phục giá chào nhập tay (nếu có) để không bị tính lại từ % đã làm tròn
+  manualGiaChao = (params.giaChaoToiThieu != null && params.giaChaoToiThieu !== '' && params.giaChaoToiThieu > 0) ? params.giaChaoToiThieu : 0;
+  if (manualGiaChao > 0) document.getElementById('giaChaoToiThieu').value = formatNumber(manualGiaChao);
   phiDuThauManual = params.phiDuThauManual === true;
   phiTrungThauManual = params.phiTrungThauManual === true;
   document.getElementById('phiDuThau').value = params.phiDuThau != null && params.phiDuThau !== '' ? formatNumber(params.phiDuThau) : '';
@@ -2066,6 +2071,8 @@ function onItemChange(el) { calculate(); setFormDirty(); scheduleAutoSave(); }
 function onProjectInfoChange() { updateAutoFees(); calculate(); setFormDirty(); scheduleAutoSave(); }
 function onParamChange() { calculate(); setFormDirty(); scheduleAutoSave(); }
 
+function onDiscountInput() { manualGiaChao = 0; onParamChange(); }
+
 function switchParamTab(name) {
   const ids = { daysRatio: ['tabDaysRatio', 'tabRateFee'], rateFee: ['tabRateFee', 'tabDaysRatio'] };
   const [activeId, inactiveId] = ids[name] || ids.daysRatio;
@@ -2092,6 +2099,7 @@ function onGiaChaoInput(el) {
     const disc = Math.max(0, Math.min(100 * (1 - giaChao / giaDuToan), maxDisc));
     document.getElementById('tiLeGiamGia').value = disc.toFixed(1);
   }
+  manualGiaChao = giaChao;
   onParamChange();
 }
 
@@ -2206,13 +2214,17 @@ function calculate() {
     tiLeGiamGia = Math.max(0, maxGiamGia);
     document.getElementById('tiLeGiamGia').value = tiLeGiamGia.toFixed(1);
   }
-  const giaChaoToiThieu = giaDuToan > 0 ? Math.round(giaDuToan * (1 - tiLeGiamGia / 100)) : 0;
+  const giaChaoComputed = giaDuToan > 0 ? Math.round(giaDuToan * (1 - tiLeGiamGia / 100)) : 0;
+  // Giá chào: ưu tiên giá nhập tay (manualGiaChao), ngược lại tính từ tỷ lệ giảm giá
+  let giaChaoToiThieuEff = manualGiaChao > 0 ? manualGiaChao : giaChaoComputed;
+  if (giaDuToan > 0 && giaChaoToiThieuEff > giaDuToan) giaChaoToiThieuEff = giaDuToan;
+  if (giaChaoToiThieuEff < tongGiaNhap) giaChaoToiThieuEff = tongGiaNhap;
   const firstGiaNhap = items.length > 0 ? items[0].giaNhap : 0;
   for (const item of items) item.trongSo = firstGiaNhap > 0 ? item.giaNhap / firstGiaNhap : 0;
   const tongTrongSo = items.reduce((s, item) => s + (item.trongSo || 0), 0);
-  for (const item of items) item.donGiaChao = tongTrongSo > 0 && item.trongSo > 0 ? Math.round(giaChaoToiThieu * item.trongSo / tongTrongSo) : 0;
+  for (const item of items) item.donGiaChao = tongTrongSo > 0 && item.trongSo > 0 ? Math.round(giaChaoToiThieuEff * item.trongSo / tongTrongSo) : 0;
 
-  const loiNhuanGop = giaChaoToiThieu - tongGiaNhap;
+  const loiNhuanGop = giaChaoToiThieuEff - tongGiaNhap;
   const cpDuThau = phiDuThau + phiTrungThau;
   const vonNhap = tongGiaNhap * tiLeTamUngNCC / 100;
   const vonDuThau = giaDuToan * tiLeBaoLanhDuThau / 100;
@@ -2233,7 +2245,7 @@ function calculate() {
   const loiNhuanGopKD = loiNhuanGop - cpDuThau - cpVon - cpBaoLanh - cpTrienKhai;
   const hhKD = loiNhuanGopKD > 0 ? Math.round(loiNhuanGopKD * hoaHongKD / 100) : 0;
   const loiNhuanRong = loiNhuanGopKD - hhKD;
-  const tiLeLNRVon = giaChaoToiThieu > 0 ? loiNhuanRong / giaChaoToiThieu * 100 : 0;
+  const tiLeLNRVon = giaChaoToiThieuEff > 0 ? loiNhuanRong / giaChaoToiThieuEff * 100 : 0;
 
   const tbody = document.getElementById('itemsBody');
   for (let i = 0; i < items.length && i < tbody.children.length; i++) {
@@ -2265,9 +2277,9 @@ function calculate() {
   document.getElementById('rTongGiaNhap').textContent = '-' + toVND(tongGiaNhap);
   document.getElementById('rTongGiaNhap').className = 'rvalue cost';
   document.getElementById('rGiaDuToan').textContent = toVND(giaDuToan);
-  document.getElementById('giaChaoToiThieu').value = formatNumber(giaChaoToiThieu);
+  document.getElementById('giaChaoToiThieu').value = formatNumber(giaChaoToiThieuEff);
   const profitEl = document.getElementById('rLoiNhuanGop');
-  const tiLeLNGActual = giaChaoToiThieu > 0 ? (loiNhuanGop / giaChaoToiThieu * 100) : 0;
+  const tiLeLNGActual = giaChaoToiThieuEff > 0 ? (loiNhuanGop / giaChaoToiThieuEff * 100) : 0;
   profitEl.textContent = (loiNhuanGop >= 0 ? '' : '-') + toVND(Math.abs(loiNhuanGop)) + ' (' + toPct(tiLeLNGActual) + ')';
   profitEl.className = 'rvalue ' + (loiNhuanGop >= 0 ? 'profit' : 'loss');
 
@@ -2427,6 +2439,7 @@ function collectFormData() {
     items: items,
     params: {
       tiLeGiamGia: parseFloat(document.getElementById('tiLeGiamGia').value) || 0,
+      giaChaoToiThieu: parseNumber(document.getElementById('giaChaoToiThieu').value),
       phiDuThau: parseNumber(document.getElementById('phiDuThau').value),
       phiDuThauManual: phiDuThauManual,
       phiTrungThau: parseNumber(document.getElementById('phiTrungThau').value),
