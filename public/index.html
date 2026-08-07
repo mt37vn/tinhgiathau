@@ -163,8 +163,9 @@ table .td-num input{text-align:right}
   .form-group input,.form-group select{padding:8px 8px;font-size:13px;min-height:40px}
   .param-row{flex-direction:column;align-items:stretch;gap:2px;padding:4px 0;position:relative}
   .param-row label{flex:none;font-size:12px;text-align:left}
-  .param-row input{width:100%;padding:6px 10px;min-height:32px;padding-right:40px;text-align:right}
-  .param-row .suffix{position:absolute;right:8px;bottom:8px;flex:none;font-size:11px}
+  .param-row input{flex:0 0 auto;width:100%;padding:8px 8px;font-size:13px;min-height:40px;padding-right:40px;text-align:right}
+  .result-row input{flex:0 0 auto !important;width:100% !important;margin-left:0;font-size:15px}
+  .param-row .suffix{position:absolute;right:8px;bottom:9px;flex:none;font-size:11px}
 
   .result-row{flex-direction:column;gap:0;padding:4px 0}
   .result-row .rlabel{flex:none;font-size:12px}
@@ -223,7 +224,8 @@ table .td-num input{text-align:right}
   .card{padding:8px}
   .card h2{font-size:13px}
 
-  .param-row input{min-height:30px;font-size:12px}
+  .param-row input{flex:0 0 auto;min-height:38px;font-size:12px}
+  .result-row input{font-size:13px}
 
   table td input,table td select{font-size:11px;min-height:36px}
   table th{font-size:10px;padding:4px 3px}
