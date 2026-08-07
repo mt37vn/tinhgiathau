@@ -2810,25 +2810,30 @@ app.get('/admin/report', auth, (req, res) => {
       phanTich = 'LNR ' + pct(tiLeLNR) + ' — ' + lnrLabel;
       phanTichCls = tiLeLNR >= 0 ? 'text-green' : 'text-red';
       chiSo = 'Giá chào ' + fmt(giaChao) + ' / TT ' + fmt(giaTrungThau) + ', LNG ' + pct(tiLeLNG);
-    } else if (p.ketQuaTrungThau === 'lose' && giaTrungThau > 0) {
+    } else if (p.ketQuaTrungThau === 'lose') {
       totalLose++;
       ketQuaIcon = '🔴 Trượt';
       ketQuaCls = 'lose';
-      if (tongGiaNhap >= giaTrungThau) {
+      if (giaTrungThau > 0 && tongGiaNhap >= giaTrungThau) {
         loseGiaNhap++;
         phanTich = 'Giá nhập cao hơn giá trúng thầu — không thể cạnh tranh';
         phanTichCls = 'text-red';
         chiSo = 'Nhập ' + fmt(tongGiaNhap) + ' / TT ' + fmt(giaTrungThau) + ' (' + fmtChenh(tongGiaNhap, giaTrungThau) + ')';
-      } else if (giaChao > giaTrungThau) {
+      } else if (giaTrungThau > 0 && giaChao > giaTrungThau) {
         loseGiaChao++;
         phanTich = 'Giá chào cao hơn giá trúng thầu — bỏ thầu quá cao';
         phanTichCls = 'text-yellow';
         chiSo = 'Chào ' + fmt(giaChao) + ' / TT ' + fmt(giaTrungThau) + ' (' + fmtChenh(giaChao, giaTrungThau) + ')';
-      } else {
+      } else if (giaTrungThau > 0) {
         loseKhac++;
         phanTich = 'Giá cạnh tranh — có thể do tiêu chí kỹ thuật / khác';
         phanTichCls = 'text-yellow';
         chiSo = 'Giá chào ' + fmt(giaChao) + ' / TT ' + fmt(giaTrungThau);
+      } else {
+        loseKhac++;
+        phanTich = 'Trượt thầu — chưa có giá trúng thầu, không phân tích chi tiết được';
+        phanTichCls = 'text-yellow';
+        chiSo = 'Giá chào ' + fmt(giaChao) + ' / Nhập ' + fmt(tongGiaNhap);
       }
     }
 
