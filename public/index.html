@@ -491,6 +491,13 @@ table .td-num input{text-align:right}
           <span id="phiDuThauAutoBadge" style="flex:0 0 auto;font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;white-space:nowrap">auto</span>
         </div>
         <div class="param-row">
+          <label>Phí trúng thầu</label>
+          <input type="text" id="phiTrungThau" oninput="onPhiTrungThauInput(this)">
+          <span class="suffix">VNĐ</span>
+          <button type="button" id="phiTrungThauAutoBtn" title="Tự tính lại theo NĐ 214/2025" onclick="resetPhiTrungThauAuto()" style="flex:0 0 auto;padding:5px 9px;border:1px solid #d0d5dd;border-radius:4px;background:#f5f7fa;cursor:pointer;font-size:13px">↻</button>
+          <span id="phiTrungThauAutoBadge" style="flex:0 0 auto;font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;white-space:nowrap">auto</span>
+        </div>
+        <div class="param-row">
           <label>Chi phí bảo hành</label>
           <input type="number" id="phiBaoHanh" step="0.1" min="0" max="100" oninput="onParamChange()">
           <span class="suffix">%</span>
@@ -547,6 +554,10 @@ table .td-num input{text-align:right}
         <div class="result-row">
           <span class="rlabel">Chi phí dự thầu</span>
           <span class="rvalue" id="rPhiDuThau" style="font-size:13px;font-weight:400;color:#666">0</span>
+        </div>
+        <div class="result-row">
+          <span class="rlabel">Phí trúng thầu</span>
+          <span class="rvalue" id="rPhiTrungThau" style="font-size:13px;font-weight:400;color:#666">0</span>
         </div>
         <div class="result-row">
           <span class="rlabel">Chi phí bảo hành</span>
@@ -767,6 +778,7 @@ let users = [];
 let editingUserId = null;
 let formDirty = false;
 let phiDuThauManual = false;
+let phiTrungThauManual = false;
 
 function formatNumber(n) { return (n === 0 || !n) ? '0' : Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
 function parseNumber(s) { if (!s) return 0; return parseFloat(String(s).replace(/[.\s]/g, '').replace(/,/g, '')) || 0; }
@@ -1454,6 +1466,7 @@ function clearForm() {
   document.getElementById('noiDungTrinh').value = '';
   document.getElementById('tiLeLNG').value = '';
   document.getElementById('phiDuThau').value = '';
+  document.getElementById('phiTrungThau').value = '';
   document.getElementById('phiBaoHanh').value = '';
   document.getElementById('phiBanHang').value = '';
   document.getElementById('phiCongTac').value = '';
@@ -1464,6 +1477,7 @@ function clearForm() {
   document.getElementById('rTiLeGiamGia').textContent = '0%';
   document.getElementById('rLoiNhuanGop').textContent = '0';
   document.getElementById('rPhiDuThau').textContent = '0';
+  document.getElementById('rPhiTrungThau').textContent = '0';
   document.getElementById('rPhiBaoHanh').textContent = '0';
   document.getElementById('rPhiBanHang').textContent = '0';
   document.getElementById('rPhiCongTac').textContent = '0';
@@ -1539,8 +1553,10 @@ function loadProjectToForm(p) {
   document.getElementById('giaDuToan').value = giaDuToan ? formatNumber(giaDuToan) : '';
   document.getElementById('tiLeLNG').value = params.tiLeLNG != null && params.tiLeLNG !== '' ? params.tiLeLNG : '';
   phiDuThauManual = params.phiDuThauManual === true;
+  phiTrungThauManual = params.phiTrungThauManual === true;
   document.getElementById('phiDuThau').value = params.phiDuThau != null && params.phiDuThau !== '' ? formatNumber(params.phiDuThau) : '';
-  if (!phiDuThauManual) updatePhiDuThauAuto();
+  document.getElementById('phiTrungThau').value = params.phiTrungThau != null && params.phiTrungThau !== '' ? formatNumber(params.phiTrungThau) : '';
+  updateAutoFees();
   document.getElementById('phiBaoHanh').value = params.phiBaoHanh != null && params.phiBaoHanh !== '' ? params.phiBaoHanh : '';
   document.getElementById('phiBanHang').value = params.phiBanHang != null && params.phiBanHang !== '' ? params.phiBanHang : '';
   document.getElementById('phiCongTac').value = params.phiCongTac != null && params.phiCongTac !== '' ? formatNumber(params.phiCongTac) : '';
@@ -1770,41 +1786,64 @@ function getItemsFromTable() {
 }
 
 function onItemChange(el) { calculate(); setFormDirty(); scheduleAutoSave(); }
-function onProjectInfoChange() { updatePhiDuThauAuto(); calculate(); setFormDirty(); scheduleAutoSave(); }
+function onProjectInfoChange() { updateAutoFees(); calculate(); setFormDirty(); scheduleAutoSave(); }
 function onParamChange() { calculate(); setFormDirty(); scheduleAutoSave(); }
 
-function computeAutoPhiDuThau() {
+function computeSubmissionFee() {
   const info = (currentProject && currentProject.projectInfo) || {};
   const hinhThucLCNT = info.hinhThucLCNT || document.getElementById('hinhThucLCNTInput').dataset.label || '';
+  const s = String(hinhThucLCNT || '').toLowerCase();
+  if (s.includes('chào hàng cạnh tranh')) return 220000;                       // CHTH, CGTTRG, CHTRG
+  if (s.includes('mua sắm trực tiếp') || s.includes('chỉ định thầu')) return 0; // MSTT, CDH
+  return 330000; // default (thiếu hình thức, DTRR, DTHC, DTTH)
+}
+
+function computeWinFee() {
   const ketQuaTrungThau = (currentProject && currentProject.ketQuaTrungThau) || null;
   const giaTrungThau = (currentProject && currentProject.giaTrungThau) || 0;
   const giaDuToan = parseNumber(document.getElementById('giaDuToan').value);
-  const s = String(hinhThucLCNT || '').toLowerCase();
-  let submissionFee = 330000; // default (thiếu hình thức, DTRR, DTHC, DTTH)
-  if (s.includes('chào hàng cạnh tranh')) submissionFee = 220000;        // CHTH, CGTTRG, CHTRG
-  else if (s.includes('mua sắm trực tiếp') || s.includes('chỉ định thầu')) submissionFee = 0; // MSTT, CDH
   let winBase = 0;
   if (ketQuaTrungThau === 'win' && giaTrungThau > 0) winBase = giaTrungThau; // actual
   else if (ketQuaTrungThau == null) winBase = giaDuToan;                      // dự trù; lose → 0
-  const winFee = winBase > 0 ? Math.min(Math.round(winBase * 0.022 / 100), 2200000) : 0;
-  return submissionFee + winFee;
+  return winBase > 0 ? Math.min(Math.round(winBase * 0.022 / 100), 2200000) : 0;
+}
+
+function setAutoBadge(id, manual) {
+  const badge = document.getElementById(id);
+  if (!badge) return;
+  badge.textContent = manual ? 'manual' : 'auto';
+  badge.style.background = manual ? '#fdecea' : '#e7f4ee';
+  badge.style.color = manual ? '#c0392b' : '#1e8449';
 }
 
 function updatePhiDuThauAuto() {
-  const badge = document.getElementById('phiDuThauAutoBadge');
-  if (phiDuThauManual) {
-    if (badge) { badge.textContent = 'manual'; badge.style.background = '#fdecea'; badge.style.color = '#c0392b'; }
-    return;
-  }
-  document.getElementById('phiDuThau').value = formatNumber(computeAutoPhiDuThau());
-  if (badge) { badge.textContent = 'auto'; badge.style.background = '#e7f4ee'; badge.style.color = '#1e8449'; }
+  if (phiDuThauManual) { setAutoBadge('phiDuThauAutoBadge', true); return; }
+  document.getElementById('phiDuThau').value = formatNumber(computeSubmissionFee());
+  setAutoBadge('phiDuThauAutoBadge', false);
+}
+
+function updatePhiTrungThauAuto() {
+  if (phiTrungThauManual) { setAutoBadge('phiTrungThauAutoBadge', true); return; }
+  document.getElementById('phiTrungThau').value = formatNumber(computeWinFee());
+  setAutoBadge('phiTrungThauAutoBadge', false);
+}
+
+function updateAutoFees() {
+  updatePhiDuThauAuto();
+  updatePhiTrungThauAuto();
 }
 
 function onPhiDuThauInput(el) {
   formatCurrencyInput(el);
   phiDuThauManual = true;
-  const badge = document.getElementById('phiDuThauAutoBadge');
-  if (badge) { badge.textContent = 'manual'; badge.style.background = '#fdecea'; badge.style.color = '#c0392b'; }
+  setAutoBadge('phiDuThauAutoBadge', true);
+  onParamChange();
+}
+
+function onPhiTrungThauInput(el) {
+  formatCurrencyInput(el);
+  phiTrungThauManual = true;
+  setAutoBadge('phiTrungThauAutoBadge', true);
   onParamChange();
 }
 
@@ -1814,10 +1853,17 @@ function resetPhiDuThauAuto() {
   onParamChange();
 }
 
+function resetPhiTrungThauAuto() {
+  phiTrungThauManual = false;
+  updatePhiTrungThauAuto();
+  onParamChange();
+}
+
 function calculate() {
   const items = getItemsFromTable();
   const tiLeLNG = parseFloat(document.getElementById('tiLeLNG').value) || 0;
   const phiDuThau = parseNumber(document.getElementById('phiDuThau').value);
+  const phiTrungThau = parseNumber(document.getElementById('phiTrungThau').value);
   const phiBaoHanh = parseFloat(document.getElementById('phiBaoHanh').value) || 0;
   const phiBanHang = parseFloat(document.getElementById('phiBanHang').value) || 0;
   const phiCongTac = parseNumber(document.getElementById('phiCongTac').value);
@@ -1833,7 +1879,7 @@ function calculate() {
   for (const item of items) item.donGiaChao = tongTrongSo > 0 && item.trongSo > 0 ? Math.round(giaChaoToiThieu * item.trongSo / tongTrongSo) : 0;
 
   const loiNhuanGop = giaChaoToiThieu - tongGiaNhap;
-  const cpDuThau = phiDuThau;
+  const cpDuThau = phiDuThau + phiTrungThau;
   const cpBaoHanh = Math.round(giaChaoToiThieu * phiBaoHanh / 100);
   const cpBanHang = Math.round(giaChaoToiThieu * phiBanHang / 100);
   const cpCongTac = phiCongTac;
@@ -1899,8 +1945,10 @@ function calculate() {
   profitPctEl.textContent = toPct(tiLeLNGActual);
   profitPctEl.className = 'rvalue ' + (loiNhuanGop >= 0 ? 'profit' : 'loss');
 
-  document.getElementById('rPhiDuThau').textContent = '-' + toVND(cpDuThau);
+  document.getElementById('rPhiDuThau').textContent = '-' + toVND(phiDuThau);
   document.getElementById('rPhiDuThau').className = 'rvalue cost';
+  document.getElementById('rPhiTrungThau').textContent = '-' + toVND(phiTrungThau);
+  document.getElementById('rPhiTrungThau').className = 'rvalue cost';
   document.getElementById('rPhiBaoHanh').textContent = '-' + toVND(cpBaoHanh) + ' (' + toPct(phiBaoHanh) + ')';
   document.getElementById('rPhiBaoHanh').className = 'rvalue cost';
   document.getElementById('rPhiBanHang').textContent = '-' + toVND(cpBanHang) + ' (' + toPct(phiBanHang) + ')';
@@ -2050,6 +2098,8 @@ function collectFormData() {
       tiLeLNG: parseFloat(document.getElementById('tiLeLNG').value) || 0,
       phiDuThau: parseNumber(document.getElementById('phiDuThau').value),
       phiDuThauManual: phiDuThauManual,
+      phiTrungThau: parseNumber(document.getElementById('phiTrungThau').value),
+      phiTrungThauManual: phiTrungThauManual,
       phiBaoHanh: parseFloat(document.getElementById('phiBaoHanh').value) || 0,
       phiBanHang: parseFloat(document.getElementById('phiBanHang').value) || 0,
       phiCongTac: parseNumber(document.getElementById('phiCongTac').value),
@@ -2074,7 +2124,7 @@ function applyPermissions() {
   document.getElementById('btnSubmit').style.display = canSubmit ? '' : 'none';
 
   // Tất cả field đều cho sửa
-  const editableFields = ['tenCongTrinh','maDauThau','benMoiThau','giaDuToan','diaDiem','tiLeLNG','phiDuThau','phiBaoHanh','phiBanHang','phiCongTac','hoaHongKD'];
+  const editableFields = ['tenCongTrinh','maDauThau','benMoiThau','giaDuToan','diaDiem','tiLeLNG','phiDuThau','phiTrungThau','phiBaoHanh','phiBanHang','phiCongTac','hoaHongKD'];
   for (const id of editableFields) document.getElementById(id).readOnly = false;
   document.getElementById('nguoiLap').disabled = false;
   document.getElementById('noiDungTrinh').readOnly = false;
@@ -2149,7 +2199,7 @@ async function fetchBiddingInfo() {
       hlcntInput.dataset.rutgon = '0';
       hlcntDiv.style.display = 'none';
     }
-    if (!phiDuThauManual) updatePhiDuThauAuto();
+    updateAutoFees();
 
     // Lock portal-fetched project fields (all info from portal is read-only)
     var fetchSucceeded = !!(data.tenCongTrinh || data.benMoiThau);
@@ -2316,6 +2366,7 @@ function validateFull() {
   const paramChecks = [
     { id:'tiLeLNG', msg:'Nhập tỉ lệ LNG dự kiến' },
     { id:'phiDuThau', msg:'Nhập chi phí dự thầu' },
+    { id:'phiTrungThau', msg:'Nhập phí trúng thầu' },
     { id:'phiBaoHanh', msg:'Nhập chi phí bảo hành' },
     { id:'phiBanHang', msg:'Nhập chi phí bán hàng' },
     { id:'phiCongTac', msg:'Nhập chi phí công tác/khác' },
@@ -2639,7 +2690,7 @@ function onBidResultChange() {
   if (currentProject && currentProject.id) {
     currentProject.ketQuaTrungThau = kr || null;
     currentProject.giaTrungThau = parseNumber(giaTT) || null;
-    if (!phiDuThauManual) updatePhiDuThauAuto();
+    updateAutoFees();
   }
   calculate();
   setFormDirty();
@@ -2672,7 +2723,7 @@ async function fetchBidResult() {
     const project = await api('POST', '/api/projects/' + currentProject.id + '/fetch-bid-result');
     Object.assign(currentProject, project);
     document.getElementById('giaTrungThau').value = project.giaTrungThau ? formatNumber(project.giaTrungThau) : '';
-    if (!phiDuThauManual) { updatePhiDuThauAuto(); calculate(); }
+    updateAutoFees(); calculate();
     document.getElementById('bidResultNhaThauTrung').textContent = project.nhaThauTrung || '—';
     const bidPrice = project.giaChaoCongTy || (project.ketQuaTrungThau === 'win' ? project.giaTrungThau : 0);
     document.getElementById('bidResultGiaChao').value = bidPrice ? formatNumber(bidPrice) : '';

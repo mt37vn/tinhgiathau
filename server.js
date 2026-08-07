@@ -728,7 +728,7 @@ app.post('/api/receive-bid', (req, res) => {
           giaDuToan: projectInfo && projectInfo.giaDuToan ? projectInfo.giaDuToan : 0
         },
         items: defaultItems,
-        params: { tiLeLNG: 30, phiDuThau: 330000, phiBaoHanh: 5, phiBanHang: 2, phiCongTac: 0, hoaHongKD: 12.5, giaDuToan: 0 }
+        params: { tiLeLNG: 30, phiDuThau: 330000, phiTrungThau: 0, phiBaoHanh: 5, phiBanHang: 2, phiCongTac: 0, hoaHongKD: 12.5, giaDuToan: 0 }
       };
       projData.projects.push(newProject);
       writeData(PROJ_FILE, projData);
@@ -829,7 +829,7 @@ app.post('/api/trello/sync', auth, async (req, res) => {
               noiDungTrinh: ''
             },
             items: [{ id: uuidv4(), stt: 1, tenHangHoa: '', donViTinh: 'Gói', soLuong: 1, donGiaNhap: 0, trongSo: 1, ghiChu: '', nhaCungCap: '' }],
-            params: { tiLeLNG: 30, phiDuThau: 330000, phiBaoHanh: 5, phiBanHang: 2, phiCongTac: 0, hoaHongKD: 12.5, giaDuToan: 0 }
+            params: { tiLeLNG: 30, phiDuThau: 330000, phiTrungThau: 0, phiBaoHanh: 5, phiBanHang: 2, phiCongTac: 0, hoaHongKD: 12.5, giaDuToan: 0 }
           };
           projData.projects.push(newProject);
           result.created++;
@@ -932,7 +932,7 @@ app.post('/api/projects', auth, (req, res) => {
       thoiGianDongThau: ''
     },
     items: [{ id: uuidv4(), stt: 1, tenHangHoa: '', donViTinh: 'Gói', soLuong: 1, donGiaNhap: 0, trongSo: 1, ghiChu: '', nhaCungCap: '' }],
-    params: { tiLeLNG: 30, phiDuThau: 330000, phiBaoHanh: 5, phiBanHang: 2, phiCongTac: 0, hoaHongKD: getDefaultHoaHongKD(req.body.projectInfo && req.body.projectInfo.thoiGianDongThau), giaDuToan: 0 }
+    params: { tiLeLNG: 30, phiDuThau: 330000, phiTrungThau: 0, phiBaoHanh: 5, phiBanHang: 2, phiCongTac: 0, hoaHongKD: getDefaultHoaHongKD(req.body.projectInfo && req.body.projectInfo.thoiGianDongThau), giaDuToan: 0 }
   };
   data.projects.push(project);
   writeData(PROJ_FILE, data);
@@ -1072,10 +1072,10 @@ app.patch('/api/projects/:id/bid-result', auth, adminOnly, (req, res) => {
   if (giaTrungThau !== undefined) project.giaTrungThau = giaTrungThau || null;
   if (nhaThauTrung !== undefined) project.nhaThauTrung = nhaThauTrung || null;
   const pParams = project.params || {};
-  if (pParams.phiDuThauManual !== true) {
-    pParams.phiDuThau = computeAutoPhiDuThau((project.projectInfo && project.projectInfo.hinhThucLCNT) || '', project.ketQuaTrungThau, project.giaTrungThau, pParams.giaDuToan);
-    project.params = pParams;
-  }
+  const hinhThuc = (project.projectInfo && project.projectInfo.hinhThucLCNT) || '';
+  if (pParams.phiDuThauManual !== true) pParams.phiDuThau = computeSubmissionFee(hinhThuc);
+  if (pParams.phiTrungThauManual !== true) pParams.phiTrungThau = computeWinFee(project.ketQuaTrungThau, project.giaTrungThau, pParams.giaDuToan);
+  project.params = pParams;
   project.updatedAt = new Date().toISOString();
   writeData(PROJ_FILE, data);
   res.json(project);
@@ -2138,16 +2138,17 @@ function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt
 function fmt(n) { if (n === 0 || !n) return '0'; return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
 
 // Auto chi phí dự thầu theo Nghị định 214/2025/NĐ-CP
-function computeAutoPhiDuThau(hinhThucLCNT, ketQuaTrungThau, giaTrungThau, giaDuToan) {
+function computeSubmissionFee(hinhThucLCNT) {
   const s = String(hinhThucLCNT || '').toLowerCase();
-  let submissionFee = 330000; // default (thiếu hình thức, DTRR, DTHC, DTTH)
-  if (s.includes('chào hàng cạnh tranh')) submissionFee = 220000;        // CHTH, CGTTRG, CHTRG
-  else if (s.includes('mua sắm trực tiếp') || s.includes('chỉ định thầu')) submissionFee = 0; // MSTT, CDH
+  if (s.includes('chào hàng cạnh tranh')) return 220000;                        // CHTH, CGTTRG, CHTRG
+  if (s.includes('mua sắm trực tiếp') || s.includes('chỉ định thầu')) return 0; // MSTT, CDH
+  return 330000; // default (thiếu hình thức, DTRR, DTHC, DTTH)
+}
+function computeWinFee(ketQuaTrungThau, giaTrungThau, giaDuToan) {
   let winBase = 0;
   if (ketQuaTrungThau === 'win' && giaTrungThau > 0) winBase = giaTrungThau; // actual
   else if (ketQuaTrungThau == null) winBase = giaDuToan;                      // dự trù; lose → 0
-  const winFee = winBase > 0 ? Math.min(Math.round(winBase * 0.022 / 100), 2200000) : 0;
-  return submissionFee + winFee;
+  return winBase > 0 ? Math.min(Math.round(winBase * 0.022 / 100), 2200000) : 0;
 }
 function toDateStr(s) { if (!s) return ''; const d = new Date(s); if (isNaN(d)) return s; const dd = String(d.getDate()).padStart(2,'0'); const mm = String(d.getMonth()+1).padStart(2,'0'); const yyyy = d.getFullYear(); return dd+'/'+mm+'/'+yyyy; }
 function toDateTimeStr(s) { if (!s) return ''; const d = new Date(s); if (isNaN(d)) return s; const dd = String(d.getDate()).padStart(2,'0'); const mm = String(d.getMonth()+1).padStart(2,'0'); const yyyy = d.getFullYear(); const h = String(d.getHours()).padStart(2,'0'); const m = String(d.getMinutes()).padStart(2,'0'); return dd+'/'+mm+'/'+yyyy+' '+h+':'+m; }
@@ -2164,7 +2165,10 @@ app.get('/share/:id', (req, res) => {
   const tiLeLNG = params.tiLeLNG || 0;
   const phiDuThau = params.phiDuThauManual === true
     ? (params.phiDuThau || 0)
-    : computeAutoPhiDuThau(info.hinhThucLCNT, p.ketQuaTrungThau, p.giaTrungThau, params.giaDuToan);
+    : computeSubmissionFee(info.hinhThucLCNT);
+  const phiTrungThau = params.phiTrungThauManual === true
+    ? (params.phiTrungThau || 0)
+    : computeWinFee(p.ketQuaTrungThau, p.giaTrungThau, params.giaDuToan);
   const phiBaoHanh = params.phiBaoHanh || 0;
   const phiBanHang = params.phiBanHang || 0;
   const phiCongTac = params.phiCongTac || 0;
@@ -2176,7 +2180,7 @@ app.get('/share/:id', (req, res) => {
   const firstGiaNhap = items.length > 0 ? (items[0].soLuong || 0) * (items[0].donGiaNhap || 0) : 0;
   const tongTrongSo = items.reduce((s, item) => { const gn = (item.soLuong || 0) * (item.donGiaNhap || 0); return s + (firstGiaNhap > 0 ? gn / firstGiaNhap : 0); }, 0);
   const loiNhuanGop = giaChaoToiThieu - tongGiaNhap;
-  const cpDuThau = phiDuThau;
+  const cpDuThau = phiDuThau + phiTrungThau;
   const cpBaoHanh = Math.round(giaChaoToiThieu * phiBaoHanh / 100);
   const cpBanHang = Math.round(giaChaoToiThieu * phiBanHang / 100);
   const cpCongTac = phiCongTac;
@@ -2256,7 +2260,8 @@ app.get('/share/:id', (req, res) => {
   const tiLeLNGActual = giaChaoToiThieu > 0 ? (loiNhuanGop / giaChaoToiThieu * 100) : 0;
   h += '<tr><td>Lợi nhuận gộp</td><td class="n pr">' + (loiNhuanGop >= 0 ? '' : '-') + fmt(Math.abs(loiNhuanGop)) + ' ₫</td></tr>';
   h += '<tr><td>Tỷ lệ LNG</td><td class="n pr">' + tiLeLNGActual.toFixed(1) + '%</td></tr>';
-  h += '<tr><td>Phí dự thầu</td><td class="n" style="color:#e74c3c">-' + fmt(cpDuThau) + ' ₫</td></tr>';
+  h += '<tr><td>Phí dự thầu</td><td class="n" style="color:#e74c3c">-' + fmt(phiDuThau) + ' ₫</td></tr>';
+  h += '<tr><td>Phí trúng thầu</td><td class="n" style="color:#e74c3c">-' + fmt(phiTrungThau) + ' ₫</td></tr>';
   h += '<tr><td>Phí bảo hành</td><td class="n" style="color:#e74c3c">-' + fmt(cpBaoHanh) + ' (' + phiBaoHanh + '%)</td></tr>';
   h += '<tr><td>Phí bán hàng</td><td class="n" style="color:#e74c3c">-' + fmt(cpBanHang) + ' (' + phiBanHang + '%)</td></tr>';
   h += '<tr><td>Phí công tác/khác</td><td class="n" style="color:#e74c3c">-' + fmt(cpCongTac) + ' ₫</td></tr>';
@@ -2461,7 +2466,7 @@ app.get('/admin/report', auth, (req, res) => {
     const giaChao = p.giaChaoCongTy || items.reduce((s, i) => s + (i.donGiaChao || 0), 0);
 
     const loiNhuanGop = giaBan - tongGiaNhap;
-    const cpDuThau = params.phiDuThau || 0;
+    const cpDuThau = (params.phiDuThau || 0) + (params.phiTrungThau || 0);
     const cpBaoHanh = Math.round(giaBan * (params.phiBaoHanh || 0) / 100);
     const cpBanHang = Math.round(giaBan * (params.phiBanHang || 0) / 100);
     const cpCongTac = params.phiCongTac || 0;
