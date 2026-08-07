@@ -2388,7 +2388,7 @@ async function autoSave() {
 async function manualSave() {
   if (!currentProject) { showToast('Chưa chọn dự án', 'error'); return; }
   clearErrors();
-  if (!validateProjectInfo()) return;
+  // Nút Lưu chỉ lưu bản nháp — không yêu cầu validation đầy đủ (việc đó thuộc nút Trình duyệt)
   if (!validatePriceConstraint()) return;
   await autoSave();
   showToast('Đã lưu thành công', 'success');
