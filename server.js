@@ -1002,8 +1002,9 @@ app.put('/api/projects/:id', auth, (req, res) => {
     for (const f of ['phiDuThau','phiTrungThau','phiDuThauManual','phiTrungThauManual']) {
       if (oldP[f] != null) updated.params[f] = oldP[f];
     }
-    // Tham số chi phí vốn & bảo lãnh chỉ admin chỉnh
-    for (const f of ['laiSuatCoSo','vonLuuDongChuan','soNgayNhapHang','tiLeTamUngNCC','soNgayBaoHanh','tiLeBaoHanh','tiLeBaoLanhDuThau','soNgayBaoLanhDuThau','tiLeBaoLanhThucHienHD','soNgayBaoLanhThucHienHD','phiBaoLanhDuThau','phiBaoLanhThucHienHD','phiBaoLanhBaoHanh','phiBaoLanhToiThieu']) {
+    // Lãi suất & phí (chi phí vốn & bảo lãnh) chỉ admin chỉnh: user giữ nguyên.
+    // Số ngày & tỷ lệ là tham số gói thầu nên cho phép user lưu theo request.
+    for (const f of ['laiSuatCoSo','vonLuuDongChuan','phiBaoLanhDuThau','phiBaoLanhThucHienHD','phiBaoLanhBaoHanh','phiBaoLanhToiThieu']) {
       if (oldP[f] != null) updated.params[f] = oldP[f];
     }
   }

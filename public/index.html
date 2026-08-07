@@ -71,6 +71,11 @@ table .td-num input{text-align:right}
   .split-panel{grid-template-columns:1fr}
   .container > div[style*="grid-template-columns"]{grid-template-columns:1fr !important}
 }
+.param-tabs{display:flex;gap:6px;margin-bottom:12px;border-bottom:1px solid #eef2f7;padding-bottom:8px}
+.param-tabs .tab-btn{flex:1;padding:8px 10px;border:1px solid #d0d5dd;border-radius:6px;background:#f5f7fa;color:#333;font-size:13px;font-weight:600;cursor:pointer;text-align:center}
+.param-tabs .tab-btn.active{background:#1a3a5c;color:#fff;border-color:#1a3a5c}
+.param-tab-panel{display:none}
+.param-tab-panel.active{display:block}
 .param-group{display:flex;flex-direction:column;gap:10px}
 .param-row{display:flex;align-items:center;gap:10px}
 .param-row label{flex:0 0 auto;min-width:130px;font-size:13px;color:#333;font-weight:500;text-align:left;white-space:nowrap}
@@ -519,17 +524,12 @@ table .td-num input{text-align:right}
     <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
     <div class="card">
       <h2>Tham số chi phí vốn &amp; bảo lãnh</h2>
+      <div class="param-tabs">
+        <button type="button" class="tab-btn active" onclick="switchParamTab('daysRatio')">Số ngày &amp; Tỷ lệ</button>
+        <button type="button" class="tab-btn" onclick="switchParamTab('rateFee')">Lãi suất &amp; Phí</button>
+      </div>
+      <div class="param-tab-panel active" id="tabDaysRatio">
       <div class="param-group">
-        <div class="param-row">
-          <label>Lãi suất cơ sở</label>
-          <input type="number" id="laiSuatCoSo" step="0.1" min="0" max="100" oninput="onParamChange()">
-          <span class="suffix">%/năm</span>
-        </div>
-        <div class="param-row">
-          <label>Vốn lưu động chuẩn</label>
-          <input type="text" id="vonLuuDongChuan" oninput="formatCurrencyInput(this); onParamChange()">
-          <span class="suffix">VNĐ</span>
-        </div>
         <div class="param-row">
           <label>Số ngày bảo lãnh dự thầu</label>
           <input type="number" id="soNgayBaoLanhDuThau" min="1" oninput="onParamChange()">
@@ -570,6 +570,20 @@ table .td-num input{text-align:right}
           <input type="number" id="tiLeBaoHanh" step="0.1" min="0" max="100" oninput="onParamChange()">
           <span class="suffix">%</span>
         </div>
+      </div>
+      </div>
+      <div class="param-tab-panel" id="tabRateFee">
+      <div class="param-group">
+        <div class="param-row">
+          <label>Lãi suất cơ sở</label>
+          <input type="number" id="laiSuatCoSo" step="0.1" min="0" max="100" oninput="onParamChange()">
+          <span class="suffix">%/năm</span>
+        </div>
+        <div class="param-row">
+          <label>Vốn lưu động chuẩn</label>
+          <input type="text" id="vonLuuDongChuan" oninput="formatCurrencyInput(this); onParamChange()">
+          <span class="suffix">VNĐ</span>
+        </div>
         <div class="param-row">
           <label>Phí bảo lãnh dự thầu</label>
           <input type="number" id="phiBaoLanhDuThau" step="0.1" min="0" max="100" oninput="onParamChange()">
@@ -590,6 +604,7 @@ table .td-num input{text-align:right}
           <input type="text" id="phiBaoLanhToiThieu" oninput="formatCurrencyInput(this); onParamChange()">
           <span class="suffix">VNĐ/loại</span>
         </div>
+      </div>
       </div>
     </div>
     </div>
@@ -2051,6 +2066,16 @@ function onItemChange(el) { calculate(); setFormDirty(); scheduleAutoSave(); }
 function onProjectInfoChange() { updateAutoFees(); calculate(); setFormDirty(); scheduleAutoSave(); }
 function onParamChange() { calculate(); setFormDirty(); scheduleAutoSave(); }
 
+function switchParamTab(name) {
+  const ids = { daysRatio: ['tabDaysRatio', 'tabRateFee'], rateFee: ['tabRateFee', 'tabDaysRatio'] };
+  const [activeId, inactiveId] = ids[name] || ids.daysRatio;
+  document.getElementById(activeId).classList.add('active');
+  document.getElementById(inactiveId).classList.remove('active');
+  const btns = document.querySelectorAll('.param-tabs .tab-btn');
+  btns[0].classList.toggle('active', name === 'daysRatio');
+  btns[1].classList.toggle('active', name === 'rateFee');
+}
+
 function onGiaChaoInput(el) {
   const giaDuToan = parseNumber(document.getElementById('giaDuToan').value);
   const items = getItemsFromTable();
@@ -2448,9 +2473,12 @@ function applyPermissions() {
   // Phí dự thầu / trúng thầu, hoa hồng KD (mặc định 12.5%) chỉ admin chỉnh
   const adminOnlyFields = ['phiDuThau','phiTrungThau','hoaHongKD'];
   for (const id of adminOnlyFields) document.getElementById(id).readOnly = !isAdmin;
-  // Tham số chi phí vốn & bảo lãnh chỉ admin chỉnh (user readonly)
-  const capOnlyFields = ['laiSuatCoSo','vonLuuDongChuan','soNgayNhapHang','tiLeTamUngNCC','soNgayBaoHanh','tiLeBaoHanh','tiLeBaoLanhDuThau','soNgayBaoLanhDuThau','tiLeBaoLanhThucHienHD','soNgayBaoLanhThucHienHD','phiBaoLanhDuThau','phiBaoLanhThucHienHD','phiBaoLanhBaoHanh','phiBaoLanhToiThieu'];
-  for (const id of capOnlyFields) document.getElementById(id).readOnly = !isAdmin;
+  // Tham số chi phí vốn & bảo lãnh: số ngày & tỷ lệ là tham số gói thầu (user sửa được)
+  const capDaysRatioFields = ['soNgayBaoLanhDuThau','tiLeBaoLanhDuThau','soNgayNhapHang','tiLeTamUngNCC','soNgayBaoLanhThucHienHD','tiLeBaoLanhThucHienHD','soNgayBaoHanh','tiLeBaoHanh'];
+  for (const id of capDaysRatioFields) document.getElementById(id).readOnly = false;
+  // Lãi suất & phí (chi phí vốn & bảo lãnh) chỉ admin chỉnh (user readonly)
+  const capRateFeeFields = ['laiSuatCoSo','vonLuuDongChuan','phiBaoLanhDuThau','phiBaoLanhThucHienHD','phiBaoLanhBaoHanh','phiBaoLanhToiThieu'];
+  for (const id of capRateFeeFields) document.getElementById(id).readOnly = !isAdmin;
   document.getElementById('phiDuThauAutoBtn').style.display = isAdmin ? '' : 'none';
   document.getElementById('phiTrungThauAutoBtn').style.display = isAdmin ? '' : 'none';
   document.getElementById('phiDuThauAutoBadge').style.display = isAdmin ? '' : 'none';
