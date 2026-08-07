@@ -16,5 +16,8 @@ services:
       - TRELLO_LIST_LOSE=${TRELLO_LIST_LOSE}
       - APP_VERSION=${APP_VERSION:-dev}
       - SYNC_TOKEN=${SYNC_TOKEN}
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
+      - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:admin@hapro.com.vn}
     volumes:
       - ./data:/app/data
