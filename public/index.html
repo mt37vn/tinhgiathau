@@ -475,47 +475,47 @@ table .td-num input{text-align:right}
     </div>
   </div>
 
-  <div class="split-panel">
-    <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
-    <div class="card" style="display:flex;flex-direction:column">
-      <h2>Chi phí bán hàng/triển khai</h2>
-      <div class="param-group">
-        <div class="param-row" style="display:none">
-          <label>Chi phí dự thầu</label>
-          <input type="text" id="phiDuThau" oninput="onPhiDuThauInput(this)">
-          <span class="suffix">VNĐ</span>
-          <button type="button" id="phiDuThauAutoBtn" title="Tự tính lại theo NĐ 214/2025" onclick="resetPhiDuThauAuto()" style="flex:0 0 auto;padding:5px 9px;border:1px solid #d0d5dd;border-radius:4px;background:#f5f7fa;cursor:pointer;font-size:13px">↻</button>
-          <span id="phiDuThauAutoBadge" style="flex:0 0 auto;font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;white-space:nowrap">auto</span>
-        </div>
-        <div class="param-row" style="display:none">
-          <label>Phí trúng thầu</label>
-          <input type="text" id="phiTrungThau" oninput="onPhiTrungThauInput(this)">
-          <span class="suffix">VNĐ</span>
-          <button type="button" id="phiTrungThauAutoBtn" title="Tự tính lại theo NĐ 214/2025" onclick="resetPhiTrungThauAuto()" style="flex:0 0 auto;padding:5px 9px;border:1px solid #d0d5dd;border-radius:4px;background:#f5f7fa;cursor:pointer;font-size:13px">↻</button>
-          <span id="phiTrungThauAutoBadge" style="flex:0 0 auto;font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;white-space:nowrap">auto</span>
-        </div>
-        <div class="param-row" style="display:none">
-          <label>Lãi suất vốn (tự tính)</label>
-          <input type="text" id="laiSuatVon" readonly title="Tự tính từ cài đặt hệ thống (lãi suất cơ sở, vốn lưu động chuẩn, số ngày) và giá trị dự án">
-          <span class="suffix">%/năm</span>
-        </div>
-        <div class="param-row" style="display:none">
-          <label>Hoa hồng kinh doanh</label>
-          <input type="number" id="hoaHongKD" step="0.1" min="0" max="100" oninput="onParamChange()">
-          <span class="suffix">%</span>
-        </div>
-        <div class="param-row">
-          <label>Chi phí bán hàng/triển khai</label>
-          <input type="text" id="phiBanHangTrienKhai" oninput="formatCurrencyInput(this); onParamChange()">
-          <span class="suffix">VNĐ</span>
-        </div>
+  <div class="card" style="display:flex;flex-direction:column">
+    <h2>Chi phí bán hàng/triển khai</h2>
+    <div class="param-group">
+      <div class="param-row" style="display:none">
+        <label>Chi phí dự thầu</label>
+        <input type="text" id="phiDuThau" oninput="onPhiDuThauInput(this)">
+        <span class="suffix">VNĐ</span>
+        <button type="button" id="phiDuThauAutoBtn" title="Tự tính lại theo NĐ 214/2025" onclick="resetPhiDuThauAuto()" style="flex:0 0 auto;padding:5px 9px;border:1px solid #d0d5dd;border-radius:4px;background:#f5f7fa;cursor:pointer;font-size:13px">↻</button>
+        <span id="phiDuThauAutoBadge" style="flex:0 0 auto;font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;white-space:nowrap">auto</span>
       </div>
-      <div style="margin-top:12px;display:flex;flex-direction:column;flex:1;min-height:0">
-        <label style="font-size:12px;font-weight:600;color:#555">Giải trình chi tiết chi phí bán hàng/triển khai</label>
-        <textarea id="noiDungTrinh" oninput="onProjectInfoChange()" style="width:100%;flex:1;min-height:200px;padding:7px 10px;border:1px solid #d0d5dd;border-radius:4px;font-size:14px;background:#f5f7fa;resize:vertical;margin-top:3px;font-family:inherit" placeholder="Chi tiết chi phí bán hàng/triển khai..."></textarea>
+      <div class="param-row" style="display:none">
+        <label>Phí trúng thầu</label>
+        <input type="text" id="phiTrungThau" oninput="onPhiTrungThauInput(this)">
+        <span class="suffix">VNĐ</span>
+        <button type="button" id="phiTrungThauAutoBtn" title="Tự tính lại theo NĐ 214/2025" onclick="resetPhiTrungThauAuto()" style="flex:0 0 auto;padding:5px 9px;border:1px solid #d0d5dd;border-radius:4px;background:#f5f7fa;cursor:pointer;font-size:13px">↻</button>
+        <span id="phiTrungThauAutoBadge" style="flex:0 0 auto;font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;white-space:nowrap">auto</span>
+      </div>
+      <div class="param-row" style="display:none">
+        <label>Lãi suất vốn (tự tính)</label>
+        <input type="text" id="laiSuatVon" readonly title="Tự tính từ cài đặt hệ thống (lãi suất cơ sở, vốn lưu động chuẩn, số ngày) và giá trị dự án">
+        <span class="suffix">%/năm</span>
+      </div>
+      <div class="param-row" style="display:none">
+        <label>Hoa hồng kinh doanh</label>
+        <input type="number" id="hoaHongKD" step="0.1" min="0" max="100" oninput="onParamChange()">
+        <span class="suffix">%</span>
+      </div>
+      <div class="param-row">
+        <label>Chi phí bán hàng/triển khai</label>
+        <input type="text" id="phiBanHangTrienKhai" oninput="formatCurrencyInput(this); onParamChange()">
+        <span class="suffix">VNĐ</span>
       </div>
     </div>
+    <div style="margin-top:12px;display:flex;flex-direction:column;flex:1;min-height:0">
+      <label style="font-size:12px;font-weight:600;color:#555">Giải trình chi tiết chi phí bán hàng/triển khai</label>
+      <textarea id="noiDungTrinh" oninput="onProjectInfoChange()" style="width:100%;flex:1;min-height:160px;padding:7px 10px;border:1px solid #d0d5dd;border-radius:4px;font-size:14px;background:#f5f7fa;resize:vertical;margin-top:3px;font-family:inherit" placeholder="Chi tiết chi phí bán hàng/triển khai..."></textarea>
+    </div>
+  </div>
 
+  <div class="split-panel">
+    <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
     <div class="card">
       <h2>Tham số chi phí vốn &amp; bảo lãnh</h2>
       <div class="param-group">
@@ -615,12 +615,8 @@ table .td-num input{text-align:right}
           <span class="rvalue" id="rTongGiaNhap">0</span>
         </div>
         <div class="result-row">
-          <span class="rlabel">Lợi nhuận gộp</span>
+          <span class="rlabel">Lợi nhuận gộp (LNG)</span>
           <span class="rvalue profit" id="rLoiNhuanGop">0</span>
-        </div>
-        <div class="result-row">
-          <span class="rlabel">Tỷ lệ LNG</span>
-          <span class="rvalue" id="rLoiNhuanGopPct">0%</span>
         </div>
         <div class="result-row">
           <span class="rlabel">Chi phí thầu</span>
@@ -647,12 +643,8 @@ table .td-num input{text-align:right}
           <span class="rvalue" id="rHoaHongKD" style="font-size:13px;font-weight:400;color:#666">0</span>
         </div>
         <div class="result-row" style="border-top:2px solid #1a3a5c;padding-top:8px;margin-top:4px">
-          <span class="rlabel" style="font-weight:700;color:#1a3a5c">Lợi nhuận ròng</span>
+          <span class="rlabel" style="font-weight:700;color:#1a3a5c">Lợi nhuận ròng (LNR)</span>
           <span class="rvalue profit highlight" id="rLoiNhuanRong">0</span>
-        </div>
-        <div class="result-row">
-          <span class="rlabel">Tỷ lệ LNR / Doanh thu</span>
-          <span class="rvalue profit" id="rLNRVon" style="font-size:18px">0%</span>
         </div>
       </div>
     </div>
@@ -1741,7 +1733,6 @@ function clearForm() {
   document.getElementById('rLoiNhuanGopKD').textContent = '0';
   document.getElementById('rHoaHongKD').textContent = '0';
   document.getElementById('rLoiNhuanRong').textContent = '0';
-  document.getElementById('rLNRVon').textContent = '0%';
   document.getElementById('statusBadge').innerHTML = '';
   document.getElementById('nguoiDuyetGroup').style.display = 'none';
   document.getElementById('ngayDuyetGroup').style.display = 'none';
@@ -2250,12 +2241,9 @@ function calculate() {
   document.getElementById('rGiaDuToan').textContent = toVND(giaDuToan);
   document.getElementById('giaChaoToiThieu').value = formatNumber(giaChaoToiThieu);
   const profitEl = document.getElementById('rLoiNhuanGop');
-  const profitPctEl = document.getElementById('rLoiNhuanGopPct');
   const tiLeLNGActual = giaChaoToiThieu > 0 ? (loiNhuanGop / giaChaoToiThieu * 100) : 0;
-  profitEl.textContent = (loiNhuanGop >= 0 ? '' : '-') + toVND(Math.abs(loiNhuanGop));
+  profitEl.textContent = (loiNhuanGop >= 0 ? '' : '-') + toVND(Math.abs(loiNhuanGop)) + ' (' + toPct(tiLeLNGActual) + ')';
   profitEl.className = 'rvalue ' + (loiNhuanGop >= 0 ? 'profit' : 'loss');
-  profitPctEl.textContent = toPct(tiLeLNGActual);
-  profitPctEl.className = 'rvalue ' + (loiNhuanGop >= 0 ? 'profit' : 'loss');
 
   const cpThau = phiDuThau + phiTrungThau;
   document.getElementById('rChiPhiThau').textContent = '-' + toVND(cpThau);
@@ -2283,13 +2271,9 @@ function calculate() {
   document.getElementById('rHoaHongKD').textContent = '-' + toVND(hhKD) + ' (' + toPct(hoaHongKD) + ')';
   document.getElementById('rHoaHongKD').className = 'rvalue cost';
   const lnrEl = document.getElementById('rLoiNhuanRong');
-  lnrEl.textContent = toVND(loiNhuanRong >= 0 ? loiNhuanRong : -loiNhuanRong);
+  lnrEl.textContent = toVND(loiNhuanRong >= 0 ? loiNhuanRong : -loiNhuanRong) + ' (' + toPct(tiLeLNRVon) + ')';
   lnrEl.className = 'rvalue profit highlight';
   if (loiNhuanRong < 0) lnrEl.className = 'rvalue loss highlight';
-  const lnrVonEl = document.getElementById('rLNRVon');
-  lnrVonEl.textContent = giaChaoToiThieu > 0 ? toPct(tiLeLNRVon) : '0%';
-  lnrVonEl.className = 'rvalue profit' + (tiLeLNRVon >= 20 ? ' highlight' : '');
-  if (tiLeLNRVon < 0) lnrVonEl.className = 'rvalue loss';
   const el3 = document.getElementById('itemCount'); if (el3) el3.textContent = items.length + ' mặt hàng';
   updateBottomBarProjectInfo();
 }
