@@ -272,6 +272,7 @@ table .td-num input{text-align:right}
       <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" id="tbmtDownloadBtn" onclick="showSyncModal('tbmt')">📥 Tải TBMT</button>
       <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" id="reportBtn" onclick="window.open('/admin/report')">📊 Báo cáo</button>
       <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" onclick="showSupplierList()">🏭 Nhà cung cấp</button>
+      <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" id="btnPushToggle" onclick="toggleNotifications()">🔕 Thông báo</button>
       <button class="btn btn-outline btn-sm btn-menu-toggle" onclick="toggleMobileMenu()" style="border-color:#fff;color:#fff;display:none">☰</button>
       <span style="width:1px;height:20px;background:rgba(255,255,255,.2);display:inline-block;margin:0 4px"></span>
       <button class="btn btn-danger btn-sm" onclick="doLogout()">Đăng xuất</button>
@@ -288,6 +289,7 @@ table .td-num input{text-align:right}
   <button class="btn" id="mobileTbmtDownloadBtn" onclick="showSyncModal('tbmt');toggleMobileMenu()">📥 Tải TBMT</button>
   <button class="btn" id="mobileReportBtn" onclick="window.open('/admin/report');toggleMobileMenu()">📊 Báo cáo</button>
   <button class="btn" onclick="showSupplierList();toggleMobileMenu()">🏭 Nhà cung cấp</button>
+  <button class="btn" id="mobilePushBtn" onclick="toggleNotifications();toggleMobileMenu()">🔕 Thông báo</button>
 </div>
 
 <div class="container" id="mainContent">
@@ -351,6 +353,7 @@ table .td-num input{text-align:right}
       <select id="projectSelect" onchange="switchProject(this.value)" style="display:none"><option value="">--</option></select>
     </div>
 
+    <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
     <div class="card" id="projectInfoCard" style="margin-bottom:0">
       <h2>Thông tin dự án <span id="statusBadge" style="margin-left:8px"></span></h2>
       <div style="display:flex;flex-direction:column;gap:8px">
@@ -454,6 +457,24 @@ table .td-num input{text-align:right}
           </div>
         </div>
       </div>
+    </div>
+    <div class="card" id="historyCard" style="display:none">
+      <h2 style="font-size:14px;font-weight:700;color:#1a3a5c">Lịch sử dự án <span id="historyCount" style="color:#888;font-weight:400;font-size:12px"></span></h2>
+      <div style="margin-top:8px;max-height:260px;overflow-y:auto">
+        <table style="width:100%;font-size:12px">
+          <thead>
+            <tr style="color:#888">
+              <th style="text-align:left;padding:4px 6px">Thời gian</th>
+              <th style="text-align:left;padding:4px 6px">Người</th>
+              <th style="text-align:left;padding:4px 6px">Hành động</th>
+              <th style="text-align:left;padding:4px 6px">Trạng thái</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody"></tbody>
+        </table>
+        <div id="historyEmpty" style="color:#999;padding:8px">Chưa có hoạt động nào.</div>
+      </div>
+    </div>
     </div>
   </div>
 
@@ -1033,7 +1054,7 @@ async function loadVersion() {
   } catch { /* ignore */ }
 }
 
-async function initApp() { loadVersion(); populateThoiGianDongThau(new Date()); loadProjectList(); applyPermissions(); try { settings = await api('GET', '/api/settings'); } catch (e) {} loadSettingsToForm(); }
+async function initApp() { loadVersion(); populateThoiGianDongThau(new Date()); loadProjectList(); applyPermissions(); try { settings = await api('GET', '/api/settings'); } catch (e) {} loadSettingsToForm(); initPush(); }
 
 function loadSettingsToForm() {
   const defaults = {
@@ -1464,7 +1485,7 @@ async function submitProject() {
     const saveData = collectFormData();
     await api('PUT', '/api/projects/' + currentProject.id, saveData);
     const p = await api('PATCH', '/api/projects/' + currentProject.id + '/submit');
-    currentProject = p; updateStatusUI(); applyPermissions(); await loadProjectList();
+    currentProject = p; updateStatusUI(); applyPermissions(); await loadProjectList(); loadHistory();
     showToast('Đã trình duyệt', 'success');
   } catch (e) { showToast(e.message, 'error'); }
 }
@@ -1473,7 +1494,7 @@ async function approveProject() {
   if (!confirm('Duyệt dự án "' + currentProject.name + '"?')) return;
   try {
     const p = await api('PATCH', '/api/projects/' + currentProject.id + '/approve');
-    currentProject = p; updateStatusUI(); applyPermissions(); await loadProjectList();
+    currentProject = p; updateStatusUI(); applyPermissions(); await loadProjectList(); loadHistory();
     showToast('Đã duyệt', 'success');
   } catch (e) { showToast(e.message, 'error'); }
 }
@@ -1482,7 +1503,7 @@ async function rejectProject() {
   if (!confirm('Không duyệt dự án "' + currentProject.name + '"?')) return;
   try {
     const p = await api('PATCH', '/api/projects/' + currentProject.id + '/reject');
-    currentProject = p; updateStatusUI(); applyPermissions(); await loadProjectList();
+    currentProject = p; updateStatusUI(); applyPermissions(); await loadProjectList(); loadHistory();
     showToast('Đã từ chối', 'success');
   } catch (e) { showToast(e.message, 'error'); }
 }
@@ -1491,7 +1512,7 @@ async function unapproveProject() {
   if (!confirm('Huỷ duyệt dự án "' + currentProject.name + '"?')) return;
   try {
     const p = await api('PATCH', '/api/projects/' + currentProject.id + '/unapprove');
-    currentProject = p; updateStatusUI(); applyPermissions(); await loadProjectList();
+    currentProject = p; updateStatusUI(); applyPermissions(); await loadProjectList(); loadHistory();
     showToast('Đã huỷ duyệt', 'success');
   } catch (e) { showToast(e.message, 'error'); }
 }
@@ -1643,7 +1664,7 @@ async function selectProjectById(id) {
 }
 
 async function switchProject(id) {
-  if (!id) { currentProject = null; clearForm(); applyPermissions(); return; }
+  if (!id) { currentProject = null; clearForm(); applyPermissions(); hideHistory(); return; }
   document.getElementById('bottomBar').style.display = 'flex';
   currentProject = await api('GET', '/api/projects/' + id);
   // Highlight selected project in sidebar
@@ -1654,8 +1675,153 @@ async function switchProject(id) {
   updateStatusUI();
   applyPermissions();
   markFormClean();
+  loadHistory();
   const p = projects.find(pr => pr.id === id);
   if (p) document.getElementById('projectSearch').value = p.name;
+}
+
+// --- Lịch sử dự án ---
+const HISTORY_LABELS = {
+  create: 'Tạo dự án', edit: 'Sửa dự án', submit: 'Trình duyệt', approve: 'Duyệt',
+  reject: 'Không duyệt', unapprove: 'Huỷ duyệt', delete: 'Xoá', 'bid-result': 'Cập nhật kết quả thầu'
+};
+const HISTORY_STATUS_LABELS = {
+  draft: 'Dự thảo', upcoming: 'Sắp mở thầu', pending: 'Chờ duyệt', approved: 'Đã duyệt', rejected: 'Không duyệt'
+};
+function formatDateTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  return dd + '/' + mm + '/' + yyyy + ' ' + hh + ':' + mi;
+}
+async function loadHistory() {
+  const card = document.getElementById('historyCard');
+  if (!currentProject) { hideHistory(); return; }
+  let entries;
+  try {
+    entries = await api('GET', '/api/projects/' + currentProject.id + '/history');
+  } catch (e) {
+    hideHistory();
+    return;
+  }
+  if (!Array.isArray(entries)) { hideHistory(); return; }
+  card.style.display = '';
+  document.getElementById('historyCount').textContent = '(' + entries.length + ')';
+  const body = document.getElementById('historyBody');
+  const empty = document.getElementById('historyEmpty');
+  if (entries.length === 0) {
+    body.innerHTML = '';
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+  let h = '';
+  for (const en of entries) {
+    const label = HISTORY_LABELS[en.action] || en.action;
+    let statusHtml = en.detail || '';
+    if (en.fromStatus || en.toStatus) {
+      statusHtml = (HISTORY_STATUS_LABELS[en.fromStatus] || en.fromStatus) + ' → ' + (HISTORY_STATUS_LABELS[en.toStatus] || en.toStatus);
+    }
+    h += '<tr>' +
+      '<td style="padding:4px 6px;white-space:nowrap;color:#888">' + escHtml(formatDateTime(en.at)) + '</td>' +
+      '<td style="padding:4px 6px">' + escHtml(en.actorName || '') + '</td>' +
+      '<td style="padding:4px 6px">' + escHtml(label) + '</td>' +
+      '<td style="padding:4px 6px">' + escHtml(statusHtml) + '</td>' +
+      '</tr>';
+  }
+  body.innerHTML = h;
+}
+function hideHistory() {
+  const card = document.getElementById('historyCard');
+  if (card) card.style.display = 'none';
+}
+
+// --- Thông báo đẩy (Web Push) ---
+let pushReg = null;
+async function initPush() {
+  if (!('serviceWorker' in navigator) || !('Notification' in window) || !('PushManager' in window)) {
+    const btn = document.getElementById('btnPushToggle');
+    if (btn) btn.style.display = 'none';
+    return;
+  }
+  try {
+    pushReg = await navigator.serviceWorker.register('/sw.js');
+  } catch (e) {
+    console.warn('Service worker registration failed', e);
+    return;
+  }
+  updatePushButtonState();
+  if (Notification.permission === 'granted') {
+    await subscribePush();
+  }
+}
+async function subscribePush() {
+  try {
+    if (!pushReg) pushReg = await navigator.serviceWorker.register('/sw.js');
+    const keyRes = await api('GET', '/api/push/vapid-public-key');
+    if (!keyRes || !keyRes.publicKey) return;
+    let sub = await pushReg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await pushReg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(keyRes.publicKey)
+      });
+    }
+    await api('POST', '/api/push/subscribe', { endpoint: sub.endpoint, keys: sub.toJSON().keys });
+  } catch (e) {
+    console.warn('Push subscribe failed', e);
+  }
+  updatePushButtonState();
+}
+async function toggleNotifications() {
+  if (!('Notification' in window)) { showToast('Trình duyệt không hỗ trợ thông báo', 'error'); return; }
+  if (Notification.permission === 'default') {
+    const perm = await Notification.requestPermission();
+    if (perm === 'granted') {
+      await subscribePush();
+      showToast('Đã bật thông báo đẩy', 'success');
+    } else {
+      showToast('Bạn đã từ chối quyền thông báo', 'error');
+    }
+    updatePushButtonState();
+    return;
+  }
+  if (Notification.permission === 'granted') {
+    if (!pushReg) pushReg = await navigator.serviceWorker.register('/sw.js');
+    const sub = await pushReg.pushManager.getSubscription();
+    if (sub) {
+      await api('POST', '/api/push/unsubscribe', { endpoint: sub.endpoint });
+      await sub.unsubscribe();
+    }
+    showToast('Đã tắt thông báo đẩy', 'success');
+    updatePushButtonState();
+  }
+}
+function updatePushButtonState() {
+  const btn = document.getElementById('btnPushToggle');
+  if (!btn) return;
+  if (Notification.permission === 'granted') {
+    btn.textContent = '🔔 Đã bật';
+    btn.style.borderColor = '#27ae60';
+    btn.style.color = '#27ae60';
+  } else {
+    btn.textContent = '🔕 Thông báo';
+    btn.style.borderColor = '';
+    btn.style.color = '';
+  }
+}
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; i++) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
 }
 
 async function createProject() {
@@ -1690,6 +1856,7 @@ async function deleteProject() {
     currentProject = null;
     await loadProjectList();
     clearForm();
+    hideHistory();
     applyPermissions();
     showToast('Đã xóa', 'success');
   } catch (e) { showToast(e.message, 'error'); }

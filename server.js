@@ -7,9 +7,18 @@ const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const { execSync } = require('child_process');
 const { chromium } = require('playwright');
+const webpush = require('web-push');
 const trelloSync = require('./scripts/trello-sync');
 
 const app = express();
+
+// Web Push VAPID setup — dùng cho thông báo đẩy (bắt buộc HTTPS khi deploy thật)
+const VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY || '';
+const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || '';
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:admin@hapro.com.vn';
+if (VAPID_PUBLIC && VAPID_PRIVATE) {
+  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
+}
 
 // Concurrent Playwright fetch control – avoid OOM on shared server
 let activeFetches = 0;
@@ -22,6 +31,8 @@ const USER_FILE = path.join(DATA_DIR, 'users.json');
 const SUPPLIER_FILE = path.join(DATA_DIR, 'suppliers.json');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 const SCRAPED_BIDS_FILE = path.join(DATA_DIR, 'scraped-bids.json');
+const HISTORY_FILE = path.join(DATA_DIR, 'history.json');
+const PUSH_SUB_FILE = path.join(DATA_DIR, 'push-subscriptions.json');
 const TBMT_API_BASE = 'https://hsmt.haproinfo.vn/api';
 const TBMT_API_KEY = 'inf0@hapro';
 const TBMT_DIR = path.join(DATA_DIR, 'tbmt-files');
@@ -46,6 +57,8 @@ if (!fs.existsSync(PROJ_FILE)) fs.writeFileSync(PROJ_FILE, JSON.stringify({ proj
 if (!fs.existsSync(SUPPLIER_FILE)) fs.writeFileSync(SUPPLIER_FILE, JSON.stringify({ suppliers: [] }, null, 2));
 if (!fs.existsSync(CONFIG_FILE)) fs.writeFileSync(CONFIG_FILE, JSON.stringify({ companyName: 'CÔNG TY CỔ PHẦN THÔNG TIN HAPRO' }, null, 2));
 if (!fs.existsSync(SCRAPED_BIDS_FILE)) fs.writeFileSync(SCRAPED_BIDS_FILE, JSON.stringify({ entries: [] }, null, 2));
+if (!fs.existsSync(HISTORY_FILE)) fs.writeFileSync(HISTORY_FILE, JSON.stringify({ projects: {} }, null, 2));
+if (!fs.existsSync(PUSH_SUB_FILE)) fs.writeFileSync(PUSH_SUB_FILE, JSON.stringify({ subscriptions: [] }, null, 2));
 if (!fs.existsSync(TBMT_DIR)) fs.mkdirSync(TBMT_DIR, { recursive: true });
 
 function isRutGonProject(project) {
@@ -115,6 +128,70 @@ function readData(file) {
 }
 function writeData(file, data) {
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
+}
+
+// --- Lịch sử dự án (history) ---
+function readHistory() {
+  try { return JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf-8')); }
+  catch { return { projects: {} }; }
+}
+function writeHistory(data) {
+  fs.writeFileSync(HISTORY_FILE, JSON.stringify(data, null, 2));
+}
+function logHistory(projectId, entry) {
+  try {
+    const data = readHistory();
+    if (!data.projects[projectId]) data.projects[projectId] = [];
+    data.projects[projectId].unshift({
+      id: uuidv4(),
+      at: new Date().toISOString(),
+      actorId: entry.actorId || '',
+      actorName: entry.actorName || '',
+      action: entry.action,
+      fromStatus: entry.fromStatus || null,
+      toStatus: entry.toStatus || null,
+      detail: entry.detail || ''
+    });
+    if (data.projects[projectId].length > 200) data.projects[projectId].length = 200;
+    writeHistory(data);
+  } catch (e) { console.error('[history] Error:', e.message); }
+}
+
+// --- Thông báo đẩy (Web Push) ---
+function readPushSubs() {
+  try { return JSON.parse(fs.readFileSync(PUSH_SUB_FILE, 'utf-8')); }
+  catch { return { subscriptions: [] }; }
+}
+function writePushSubs(data) {
+  fs.writeFileSync(PUSH_SUB_FILE, JSON.stringify(data, null, 2));
+}
+async function sendPushNotification(userIds, payload) {
+  if (!VAPID_PUBLIC || !VAPID_PRIVATE) return;
+  const targets = userIds.filter(Boolean);
+  if (targets.length === 0) return;
+  let subs;
+  try { subs = readPushSubs().subscriptions.filter(s => targets.includes(s.userId)); }
+  catch { return; }
+  const stale = [];
+  await Promise.all(subs.map(async (sub) => {
+    try {
+      await webpush.sendNotification({ endpoint: sub.endpoint, keys: sub.keys }, JSON.stringify(payload));
+    } catch (err) {
+      if (err.statusCode === 404 || err.statusCode === 410) stale.push(sub.endpoint);
+      else console.error('[push] Error:', err.message);
+    }
+  }));
+  if (stale.length > 0) {
+    try {
+      const data = readPushSubs();
+      data.subscriptions = data.subscriptions.filter(s => !stale.includes(s.endpoint));
+      writePushSubs(data);
+    } catch (e) { /* ignore */ }
+  }
+}
+function isProjectOwner(user, project) {
+  const info = project && project.projectInfo;
+  return !!info && (info.nguoiLapId === user.id || info.nguoiLap === user.fullName);
 }
 
 function auth(req, res, next) {
@@ -967,6 +1044,7 @@ app.post('/api/projects', auth, (req, res) => {
   };
   data.projects.push(project);
   writeData(PROJ_FILE, data);
+  logHistory(project.id, { actorId: req.currentUser.id, actorName: req.currentUser.fullName, action: 'create', toStatus: 'draft' });
   res.status(201).json(project);
 });
 
@@ -1022,6 +1100,12 @@ app.put('/api/projects/:id', auth, (req, res) => {
   data.projects[idx] = updated;
   writeData(PROJ_FILE, data);
   if (updated.items) syncSuppliersFromItems(updated.items);
+  // Chỉ ghi "edit" khi thay đổi quan trọng (rework sau khi đã trình) — bỏ qua auto-save draft
+  if (project.status === 'rejected' || project.status === 'approved') {
+    logHistory(project.id, { actorId: req.currentUser.id, actorName: req.currentUser.fullName, action: 'edit', fromStatus: project.status, toStatus: updated.status, detail: 'Sửa nội dung dự án' });
+  } else if (project.status === 'upcoming' && updated.status === 'draft') {
+    logHistory(project.id, { actorId: req.currentUser.id, actorName: req.currentUser.fullName, action: 'edit', fromStatus: 'upcoming', toStatus: 'draft', detail: 'Kích hoạt dự án tự tạo' });
+  }
   res.json(data.projects[idx]);
   trelloSync.syncProjectToTrello(data.projects[idx]).catch(() => {});
 });
@@ -1091,10 +1175,16 @@ app.patch('/api/projects/:id/submit', auth, (req, res) => {
   if (lnr < 0) {
     return res.status(400).json({ error: 'Không trình duyệt được: Lợi nhuận ròng (LNR) đang âm (' + lnr.toLocaleString('vi-VN') + ' ₫)' });
   }
+  const fromStatus = project.status;
   project.status = 'pending';
   project.updatedAt = new Date().toISOString();
   writeData(PROJ_FILE, data);
+  logHistory(project.id, { actorId: req.currentUser.id, actorName: req.currentUser.fullName, action: 'submit', fromStatus, toStatus: 'pending' });
   res.json(project);
+  const userData = readData(USER_FILE);
+  const adminIds = userData.users.filter(u => u.role === 'admin').map(u => u.id);
+  const projName = (project.projectInfo && project.projectInfo.tenCongTrinh) || project.name || '';
+  sendPushNotification(adminIds, { title: projName, body: (req.currentUser.fullName || 'Ai đó') + ' đã trình duyệt gói thầu này', url: '/' });
 });
 
 app.patch('/api/projects/:id/approve', auth, adminOnly, (req, res) => {
@@ -1103,6 +1193,7 @@ app.patch('/api/projects/:id/approve', auth, adminOnly, (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'Không tìm thấy' });
   const project = data.projects[idx];
   if (project.status === 'approved') return res.status(400).json({ error: 'Dự án đã được duyệt' });
+  const fromStatus = project.status;
   const now = new Date().toISOString();
   project.status = 'approved';
   project.approvedBy = req.currentUser.fullName;
@@ -1113,7 +1204,10 @@ app.patch('/api/projects/:id/approve', auth, adminOnly, (req, res) => {
   project.projectInfo.nguoiDuyet = req.currentUser.fullName;
   project.projectInfo.ngayDuyet = now.split('T')[0];
   writeData(PROJ_FILE, data);
+  logHistory(project.id, { actorId: req.currentUser.id, actorName: req.currentUser.fullName, action: 'approve', fromStatus, toStatus: 'approved' });
   res.json(project);
+  const projName = (project.projectInfo && project.projectInfo.tenCongTrinh) || project.name || '';
+  sendPushNotification([project.projectInfo.nguoiLapId], { title: projName, body: 'Gói thầu đã được duyệt', url: '/' });
   trelloSync.syncProjectToTrello(project).catch(() => {});
 });
 
@@ -1126,7 +1220,10 @@ app.patch('/api/projects/:id/reject', auth, adminOnly, (req, res) => {
   project.status = 'rejected';
   project.updatedAt = new Date().toISOString();
   writeData(PROJ_FILE, data);
+  logHistory(project.id, { actorId: req.currentUser.id, actorName: req.currentUser.fullName, action: 'reject', fromStatus: 'pending', toStatus: 'rejected' });
   res.json(project);
+  const projName = (project.projectInfo && project.projectInfo.tenCongTrinh) || project.name || '';
+  sendPushNotification([project.projectInfo && project.projectInfo.nguoiLapId], { title: projName, body: 'Gói thầu không được duyệt', url: '/' });
   trelloSync.syncProjectToTrello(project).catch(() => {});
 });
 
@@ -1146,7 +1243,10 @@ app.patch('/api/projects/:id/unapprove', auth, adminOnly, (req, res) => {
   }
   project.updatedAt = new Date().toISOString();
   writeData(PROJ_FILE, data);
+  logHistory(project.id, { actorId: req.currentUser.id, actorName: req.currentUser.fullName, action: 'unapprove', fromStatus: 'approved', toStatus: 'rejected' });
   res.json(project);
+  const projName = (project.projectInfo && project.projectInfo.tenCongTrinh) || project.name || '';
+  sendPushNotification([project.projectInfo && project.projectInfo.nguoiLapId], { title: projName, body: 'Gói thầu bị huỷ duyệt', url: '/' });
   trelloSync.syncProjectToTrello(project).catch(() => {});
 });
 
@@ -1164,6 +1264,7 @@ app.delete('/api/projects/:id', auth, (req, res) => {
   }
   data.projects.splice(idx, 1);
   writeData(PROJ_FILE, data);
+  logHistory(project.id, { actorId: req.currentUser.id, actorName: req.currentUser.fullName, action: 'delete', detail: project.name || '' });
   res.json({ ok: true });
 });
 
@@ -1187,8 +1288,45 @@ app.patch('/api/projects/:id/bid-result', auth, adminOnly, (req, res) => {
   project.params = pParams;
   project.updatedAt = new Date().toISOString();
   writeData(PROJ_FILE, data);
+  logHistory(project.id, { actorId: req.currentUser.id, actorName: req.currentUser.fullName, action: 'bid-result', detail: project.ketQuaTrungThau || 'null' });
   res.json(project);
   trelloSync.syncProjectToTrello(project).catch(() => {});
+});
+
+// --- Lịch sử dự án ---
+app.get('/api/projects/:id/history', auth, (req, res) => {
+  const data = readData(PROJ_FILE);
+  const project = data.projects.find(p => p.id === req.params.id);
+  if (!project) return res.status(404).json({ error: 'Không tìm thấy' });
+  if (req.currentUser.role !== 'admin' && !isProjectOwner(req.currentUser, project))
+    return res.status(403).json({ error: 'Từ chối: chỉ xem lịch sử dự án do mình tạo' });
+  const hist = readHistory();
+  res.json(hist.projects[req.params.id] || []);
+});
+
+// --- Thông báo đẩy ---
+app.get('/api/push/vapid-public-key', auth, (req, res) => {
+  if (!VAPID_PUBLIC) return res.status(500).json({ error: 'VAPID chưa được cấu hình' });
+  res.json({ publicKey: VAPID_PUBLIC });
+});
+
+app.post('/api/push/subscribe', auth, (req, res) => {
+  const { endpoint, keys } = req.body;
+  if (!endpoint || !keys || !keys.p256dh || !keys.auth)
+    return res.status(400).json({ error: 'Thiếu thông tin subscription' });
+  const data = readPushSubs();
+  data.subscriptions = data.subscriptions.filter(s => s.userId !== req.currentUser.id || s.endpoint !== endpoint);
+  data.subscriptions.push({ userId: req.currentUser.id, endpoint, keys, createdAt: new Date().toISOString() });
+  writePushSubs(data);
+  res.status(201).json({ ok: true });
+});
+
+app.post('/api/push/unsubscribe', auth, (req, res) => {
+  const { endpoint } = req.body;
+  const data = readPushSubs();
+  data.subscriptions = data.subscriptions.filter(s => !(s.userId === req.currentUser.id && (!endpoint || s.endpoint === endpoint)));
+  writePushSubs(data);
+  res.json({ ok: true });
 });
 
 function extractValue(v) {
