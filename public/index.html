@@ -575,8 +575,10 @@ table .td-num input{text-align:right}
         </div>
         <div class="param-row">
           <label>Chi phí dự thầu</label>
-          <input type="text" id="phiDuThau" oninput="formatCurrencyInput(this); onParamChange()">
+          <input type="text" id="phiDuThau" oninput="onPhiDuThauInput(this)">
           <span class="suffix">VNĐ</span>
+          <button type="button" id="phiDuThauAutoBtn" title="Tự tính lại theo NĐ 214/2025" onclick="resetPhiDuThauAuto()" style="flex:0 0 auto;padding:5px 9px;border:1px solid #d0d5dd;border-radius:4px;background:#f5f7fa;cursor:pointer;font-size:13px">↻</button>
+          <span id="phiDuThauAutoBadge" style="flex:0 0 auto;font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;white-space:nowrap">auto</span>
         </div>
         <div class="param-row">
           <label>Chi phí bảo hành</label>
@@ -987,6 +989,7 @@ let currentUser = null;
 let autoSaveTimer = null;
 let users = [];
 let editingUserId = null;
+let phiDuThauManual = false;
 let formDirty = false;
 
 function formatNumber(n) { return (n === 0 || !n) ? '0' : Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
@@ -1823,7 +1826,9 @@ function loadProjectToForm(p) {
   const params = p.params || {};
   document.getElementById('giaDuToan').value = params.giaDuToan ? formatNumber(params.giaDuToan) : '';
   document.getElementById('tiLeLNG').value = params.tiLeLNG != null && params.tiLeLNG !== '' ? params.tiLeLNG : '';
+  phiDuThauManual = params.phiDuThauManual === true;
   document.getElementById('phiDuThau').value = params.phiDuThau != null && params.phiDuThau !== '' ? formatNumber(params.phiDuThau) : '';
+  if (!phiDuThauManual) updatePhiDuThauAuto();
   document.getElementById('phiBaoHanh').value = params.phiBaoHanh != null && params.phiBaoHanh !== '' ? params.phiBaoHanh : '';
   document.getElementById('phiBanHang').value = params.phiBanHang != null && params.phiBanHang !== '' ? params.phiBanHang : '';
   document.getElementById('phiCongTac').value = params.phiCongTac != null && params.phiCongTac !== '' ? formatNumber(params.phiCongTac) : '';
@@ -2052,8 +2057,49 @@ function getItemsFromTable() {
 }
 
 function onItemChange(el) { calculate(); setFormDirty(); scheduleAutoSave(); }
-function onProjectInfoChange() { calculate(); setFormDirty(); scheduleAutoSave(); }
+function onProjectInfoChange() { updatePhiDuThauAuto(); calculate(); setFormDirty(); scheduleAutoSave(); }
 function onParamChange() { calculate(); setFormDirty(); scheduleAutoSave(); }
+
+function computeAutoPhiDuThau() {
+  const info = (currentProject && currentProject.projectInfo) || {};
+  const hinhThucLCNT = info.hinhThucLCNT || document.getElementById('hinhThucLCNTInput').dataset.label || '';
+  const ketQuaTrungThau = (currentProject && currentProject.ketQuaTrungThau) || null;
+  const giaTrungThau = (currentProject && currentProject.giaTrungThau) || 0;
+  const giaDuToan = parseNumber(document.getElementById('giaDuToan').value);
+  const s = String(hinhThucLCNT || '').toLowerCase();
+  let submissionFee = 330000; // default (thiếu hình thức, DTRR, DTHC, DTTH)
+  if (s.includes('chào hàng cạnh tranh')) submissionFee = 220000;        // CHTH, CGTTRG, CHTRG
+  else if (s.includes('mua sắm trực tiếp') || s.includes('chỉ định thầu')) submissionFee = 0; // MSTT, CDH
+  let winBase = 0;
+  if (ketQuaTrungThau === 'win' && giaTrungThau > 0) winBase = giaTrungThau; // actual
+  else if (ketQuaTrungThau == null) winBase = giaDuToan;                      // dự trù; lose → 0
+  const winFee = winBase > 0 ? Math.min(Math.round(winBase * 0.022 / 100), 2200000) : 0;
+  return submissionFee + winFee;
+}
+
+function updatePhiDuThauAuto() {
+  const badge = document.getElementById('phiDuThauAutoBadge');
+  if (phiDuThauManual) {
+    if (badge) { badge.textContent = 'manual'; badge.style.background = '#fdecea'; badge.style.color = '#c0392b'; }
+    return;
+  }
+  document.getElementById('phiDuThau').value = formatNumber(computeAutoPhiDuThau());
+  if (badge) { badge.textContent = 'auto'; badge.style.background = '#e7f4ee'; badge.style.color = '#1e8449'; }
+}
+
+function onPhiDuThauInput(el) {
+  formatCurrencyInput(el);
+  phiDuThauManual = true;
+  const badge = document.getElementById('phiDuThauAutoBadge');
+  if (badge) { badge.textContent = 'manual'; badge.style.background = '#fdecea'; badge.style.color = '#c0392b'; }
+  onParamChange();
+}
+
+function resetPhiDuThauAuto() {
+  phiDuThauManual = false;
+  updatePhiDuThauAuto();
+  onParamChange();
+}
 
 function calculate() {
   const items = getItemsFromTable();
@@ -2269,6 +2315,7 @@ function collectFormData() {
     params: {
       tiLeLNG: parseFloat(document.getElementById('tiLeLNG').value) || 0,
       phiDuThau: parseNumber(document.getElementById('phiDuThau').value),
+      phiDuThauManual: phiDuThauManual,
       phiBaoHanh: parseFloat(document.getElementById('phiBaoHanh').value) || 0,
       phiBanHang: parseFloat(document.getElementById('phiBanHang').value) || 0,
       phiCongTac: parseNumber(document.getElementById('phiCongTac').value),
@@ -2356,6 +2403,7 @@ async function fetchBiddingInfo() {
       hlcntInput.dataset.rutgon = '0';
       hlcntDiv.style.display = 'none';
     }
+    if (!phiDuThauManual) updatePhiDuThauAuto();
 
     // Lock portal-fetched project fields (all info from portal is read-only)
     var fetchSucceeded = !!(data.tenCongTrinh || data.benMoiThau);
@@ -3129,10 +3177,16 @@ async function onCompanyBidPriceChange(el) {
 
 // --- Bid Result ---
 function onBidResultChange() {
-  setFormDirty();
-  scheduleAutoSave();
   const kr = document.getElementById('ketQuaTrungThau').value;
   const giaTT = document.getElementById('giaTrungThau').value;
+  if (currentProject && currentProject.id) {
+    currentProject.ketQuaTrungThau = kr || null;
+    currentProject.giaTrungThau = parseNumber(giaTT) || null;
+    if (!phiDuThauManual) updatePhiDuThauAuto();
+  }
+  calculate();
+  setFormDirty();
+  scheduleAutoSave();
   if (currentProject && currentProject.id) {
     saveBidResult(kr, giaTT);
   }
@@ -3161,6 +3215,7 @@ async function fetchBidResult() {
     const project = await api('POST', '/api/projects/' + currentProject.id + '/fetch-bid-result');
     Object.assign(currentProject, project);
     document.getElementById('giaTrungThau').value = project.giaTrungThau ? formatNumber(project.giaTrungThau) : '';
+    if (!phiDuThauManual) { updatePhiDuThauAuto(); calculate(); }
     document.getElementById('bidResultNhaThauTrung').textContent = project.nhaThauTrung || '—';
     const bidPrice = project.giaChaoCongTy || (project.ketQuaTrungThau === 'win' ? project.giaTrungThau : 0);
     document.getElementById('bidResultGiaChao').value = bidPrice ? formatNumber(bidPrice) : '';

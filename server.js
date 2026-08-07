@@ -1029,6 +1029,11 @@ app.patch('/api/projects/:id/bid-result', auth, adminOnly, (req, res) => {
   }
   if (giaTrungThau !== undefined) project.giaTrungThau = giaTrungThau || null;
   if (nhaThauTrung !== undefined) project.nhaThauTrung = nhaThauTrung || null;
+  const pParams = project.params || {};
+  if (pParams.phiDuThauManual !== true) {
+    pParams.phiDuThau = computeAutoPhiDuThau((project.projectInfo && project.projectInfo.hinhThucLCNT) || '', project.ketQuaTrungThau, project.giaTrungThau, pParams.giaDuToan);
+    project.params = pParams;
+  }
   project.updatedAt = new Date().toISOString();
   writeData(PROJ_FILE, data);
   res.json(project);
@@ -1864,6 +1869,19 @@ function extractXepHang(items) {
 
 function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function fmt(n) { if (n === 0 || !n) return '0'; return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+
+// Auto chi phí dự thầu theo Nghị định 214/2025/NĐ-CP
+function computeAutoPhiDuThau(hinhThucLCNT, ketQuaTrungThau, giaTrungThau, giaDuToan) {
+  const s = String(hinhThucLCNT || '').toLowerCase();
+  let submissionFee = 330000; // default (thiếu hình thức, DTRR, DTHC, DTTH)
+  if (s.includes('chào hàng cạnh tranh')) submissionFee = 220000;        // CHTH, CGTTRG, CHTRG
+  else if (s.includes('mua sắm trực tiếp') || s.includes('chỉ định thầu')) submissionFee = 0; // MSTT, CDH
+  let winBase = 0;
+  if (ketQuaTrungThau === 'win' && giaTrungThau > 0) winBase = giaTrungThau; // actual
+  else if (ketQuaTrungThau == null) winBase = giaDuToan;                      // dự trù; lose → 0
+  const winFee = winBase > 0 ? Math.min(Math.round(winBase * 0.022 / 100), 2200000) : 0;
+  return submissionFee + winFee;
+}
 function toDateStr(s) { if (!s) return ''; const d = new Date(s); if (isNaN(d)) return s; const dd = String(d.getDate()).padStart(2,'0'); const mm = String(d.getMonth()+1).padStart(2,'0'); const yyyy = d.getFullYear(); return dd+'/'+mm+'/'+yyyy; }
 function toDateTimeStr(s) { if (!s) return ''; const d = new Date(s); if (isNaN(d)) return s; const dd = String(d.getDate()).padStart(2,'0'); const mm = String(d.getMonth()+1).padStart(2,'0'); const yyyy = d.getFullYear(); const h = String(d.getHours()).padStart(2,'0'); const m = String(d.getMinutes()).padStart(2,'0'); return dd+'/'+mm+'/'+yyyy+' '+h+':'+m; }
 
@@ -1877,7 +1895,9 @@ app.get('/share/:id', (req, res) => {
   const params = p.params || {};
   const items = p.items || [];
   const tiLeLNG = params.tiLeLNG || 0;
-  const phiDuThau = params.phiDuThau || 0;
+  const phiDuThau = params.phiDuThauManual === true
+    ? (params.phiDuThau || 0)
+    : computeAutoPhiDuThau(info.hinhThucLCNT, p.ketQuaTrungThau, p.giaTrungThau, params.giaDuToan);
   const phiBaoHanh = params.phiBaoHanh || 0;
   const phiBanHang = params.phiBanHang || 0;
   const phiCongTac = params.phiCongTac || 0;
