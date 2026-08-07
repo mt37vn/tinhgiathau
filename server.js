@@ -739,21 +739,15 @@ app.get('/api/project-ids', (req, res) => {
 });
 
 // --- Receive Bid Data (no auth – called by GitHub Actions) ---
-app.post('/api/receive-bid', (req, res) => {
-  const { trello_card_id, bid_no, bid_name, items, projectInfo, scrapedAt } = req.body;
-  if (!trello_card_id || !bid_no) {
-    return res.status(400).json({ error: 'Thiếu trello_card_id hoặc bid_no' });
-  }
-
+// --- Save scraped bid to cache (upsert) ---
+function saveScrapedEntry({ trello_card_id, bid_no, bid_name, items, projectInfo, scrapedAt }) {
   const data = readData(SCRAPED_BIDS_FILE);
   if (!data.entries) data.entries = [];
-
   const existingIdx = data.entries.findIndex(e =>
     e.trello_card_id === trello_card_id || e.bid_no === bid_no
   );
-
   const entry = {
-    trello_card_id,
+    trello_card_id: trello_card_id || '',
     bid_no,
     bid_name: bid_name || '',
     items: items || [],
@@ -761,15 +755,23 @@ app.post('/api/receive-bid', (req, res) => {
     scrapedAt: scrapedAt || new Date().toISOString(),
     receivedAt: new Date().toISOString()
   };
-
   if (existingIdx >= 0) {
     entry.receivedAt = data.entries[existingIdx].receivedAt;
     data.entries[existingIdx] = entry;
   } else {
     data.entries.push(entry);
   }
-
   writeData(SCRAPED_BIDS_FILE, data);
+  return entry;
+}
+
+app.post('/api/receive-bid', (req, res) => {
+  const { trello_card_id, bid_no, bid_name, items, projectInfo, scrapedAt } = req.body;
+  if (!trello_card_id || !bid_no) {
+    return res.status(400).json({ error: 'Thiếu trello_card_id hoặc bid_no' });
+  }
+
+  saveScrapedEntry({ trello_card_id, bid_no, bid_name, items, projectInfo, scrapedAt });
 
   // Auto-link to existing project by maDauThau
   const projData = readData(PROJ_FILE);
@@ -878,66 +880,136 @@ app.post('/api/trello/sync', auth, async (req, res) => {
     const now = new Date().toISOString();
     const result = { synced: 0, created: 0, updated: 0, errors: [] };
 
+    const scrapedData = readData(SCRAPED_BIDS_FILE);
+    const cacheEntries = scrapedData.entries || [];
+    const bidFormLabels = { 'CGTTRG':'Chào hàng cạnh tranh rút gọn','CHTRG':'Chào hàng cạnh tranh rút gọn','DTRR':'Đấu thầu rộng rãi','CHCT':'Chào hàng cạnh tranh','DTHC':'Đấu thầu hạn chế','DTTH':'Đấu thầu thường','CHTH':'Chào hàng cạnh tranh thường','MSTT':'Mua sắm trực tiếp','CDH':'Chỉ định thầu' };
+
     for (const card of cards) {
       try {
-        // Extract bid_no from card name: "[IB...] Tên dự án"
+        // Chỉ lấy mã IB từ tên card — không dùng tên/desc linh tinh của Trello
         const nameMatch = card.name.match(/\[([^\]]+)\]/);
-        const bidNo = nameMatch ? nameMatch[1] : '';
+        let bidNo = nameMatch ? nameMatch[1] : '';
+        if (!bidNo) {
+          const ibMatch = card.name.match(/(IB\d+)/i);
+          bidNo = ibMatch ? ibMatch[1].toUpperCase() : '';
+        }
+        if (!bidNo) {
+          result.errors.push({ cardId: card.id, error: 'Không xác định mã IB trong tên card' });
+          continue;
+        }
 
-        // Parse description for project info
-        const desc = card.desc || '';
-        const bidName = card.name.replace(/\[([^\]]+)\]\s*/, '').trim();
+        // Mọi thông tin gói thầu lấy từ cache (scraped-bids.json)
+        const cacheEntry = cacheEntries.find(e => e.bid_no === bidNo);
+        const info = (cacheEntry && cacheEntry.projectInfo) || {};
+        const cacheItems = (cacheEntry && cacheEntry.items) || [];
 
-        const investRegex = /\*\*Bên mời thầu:\*\*\s*(.+)/i;
-        const investMatch = desc.match(investRegex);
-        const closeRegex = /\*\*Đóng thầu:\*\*\s*(.+)/i;
-        const closeMatch = desc.match(closeRegex);
-        const benMoiThau = investMatch ? investMatch[1].replace(/\\n/g, '').trim() : '';
-        const thoiGianDongThau = closeMatch ? closeMatch[1].replace(/\\n/g, '').trim() : '';
+        // Hình thức LCNT từ bidForm trong cache
+        const bidForm = info.bidForm || '';
+        let hinhThucLCNT = info.hinhThucLCNT || '';
+        if (!hinhThucLCNT && bidForm) {
+          let label = bidFormLabels[bidForm];
+          if (!label && bidForm.endsWith('RG')) {
+            for (let i = bidForm.length - 1; i >= 2; i--) {
+              const base = bidForm.substring(0, i);
+              if (bidFormLabels[base]) { label = bidFormLabels[base] + ' rút gọn'; break; }
+            }
+          }
+          hinhThucLCNT = label ? 'Hình thức LCNT: ' + label : '';
+        }
 
-        // Find existing project by trello_card_id, or by maDauThau if bidNo is available
+        const tenCongTrinh = info.tenCongTrinh || (cacheEntry && cacheEntry.bid_name) || bidNo;
+        const hasPortalItems = cacheItems.some(i => i.portalKyMaHieu || i.portalNhanHieu || i.portalHangSanXuat);
+        const isRutGon = !!(info.isRutGon || hinhThucLCNT.includes('rút gọn') || hasPortalItems);
+
+        const projectInfo = {
+          tenCongTrinh,
+          maDauThau: bidNo,
+          benMoiThau: info.benMoiThau || '',
+          noiDungTrinh: info.noiDungTrinh || '',
+          diaDiem: info.diaDiem || '',
+          nguoiLap: '',
+          nguoiLapId: '',
+          ngayLap: now.split('T')[0],
+          thoiGianDongThau: info.thoiGianDongThau || '',
+          isRutGon,
+          hinhThucLCNT,
+          bidForm,
+          planNo: info.planNo || '',
+          bidOpenDate: info.bidOpenDate || '',
+          publicDate: info.publicDate || '',
+          investField: info.investField || '',
+          bidMode: info.bidMode || '',
+          capitalDetail: info.capitalDetail || '',
+          processApply: info.processApply || '',
+          contractType: info.contractType || '',
+          contractPeriod: info.contractPeriod || '',
+          contractPeriodUnit: info.contractPeriodUnit || '',
+          giaDuToan: info.giaDuToan || 0
+        };
+
+        const items = cacheItems.length > 0
+          ? cacheItems.map((it, idx) => ({
+              id: uuidv4(), stt: idx + 1,
+              tenHangHoa: it.tenHangHoa || '',
+              donViTinh: it.donViTinh || 'Gói',
+              soLuong: it.soLuong || 1,
+              donGiaNhap: 0, giaNhap: 0, nhaCungCap: '', donGiaChao: 0, trongSo: 1,
+              ghiChu: it.ghiChu || '',
+              portalKyMaHieu: it.portalKyMaHieu || '',
+              portalNhanHieu: it.portalNhanHieu || '',
+              portalHangSanXuat: it.portalHangSanXuat || '',
+              portalXuatXu: it.portalXuatXu || '',
+              portalNamSanXuat: it.portalNamSanXuat || '',
+              portalDiaDiemDuAn: it.portalDiaDiemDuAn || '',
+              portalNgayGiaoSomNhat: it.portalNgayGiaoSomNhat || '',
+              portalNgayGiaoMuonNhat: it.portalNgayGiaoMuonNhat || '',
+              portalYeuCauKhac: it.portalYeuCauKhac || ''
+            }))
+          : [{ id: uuidv4(), stt: 1, tenHangHoa: '', donViTinh: 'Gói', soLuong: 1, donGiaNhap: 0, trongSo: 1, ghiChu: '', nhaCungCap: '' }];
+
+        // Find existing project by trello_card_id, or by maDauThau
         let existing = projData.projects.find(p => p.trello_card_id === card.id);
-        if (!existing && bidNo) {
+        if (!existing) {
           existing = projData.projects.find(p => p.projectInfo && p.projectInfo.maDauThau === bidNo);
         }
 
         if (existing) {
-          // Update project metadata unconditionally
-          if (existing.status === 'upcoming') {
-            existing.status = 'draft';
-          }
+          if (existing.status === 'upcoming') existing.status = 'draft';
           existing.updatedAt = now;
           if (!existing.projectInfo) existing.projectInfo = {};
           // Reset nguoiLap on Trello-synced projects — auto-assigned on first submit
           existing.projectInfo.nguoiLap = '';
           existing.projectInfo.nguoiLapId = '';
-          if (benMoiThau) existing.projectInfo.benMoiThau = benMoiThau;
-          if (thoiGianDongThau) existing.projectInfo.thoiGianDongThau = thoiGianDongThau;
-          if (bidNo) existing.projectInfo.maDauThau = bidNo;
+          // Chỉ điền thông tin từ cache, không ghi đè bằng tên card
+          existing.name = tenCongTrinh;
+          existing.projectInfo.tenCongTrinh = tenCongTrinh;
+          existing.projectInfo.maDauThau = bidNo;
+          if (info.benMoiThau) existing.projectInfo.benMoiThau = info.benMoiThau;
+          if (info.diaDiem) existing.projectInfo.diaDiem = info.diaDiem;
+          if (info.thoiGianDongThau) existing.projectInfo.thoiGianDongThau = info.thoiGianDongThau;
+          if (hinhThucLCNT) existing.projectInfo.hinhThucLCNT = hinhThucLCNT;
+          if (isRutGon) existing.projectInfo.isRutGon = true;
+          for (const k of ['bidForm','planNo','bidOpenDate','publicDate','investField','bidMode','capitalDetail','processApply','contractType','contractPeriod','contractPeriodUnit']) {
+            if (info[k] && !existing.projectInfo[k]) existing.projectInfo[k] = info[k];
+          }
+          if (info.giaDuToan) {
+            if (!existing.params) existing.params = {};
+            existing.params.giaDuToan = info.giaDuToan;
+          }
           if (!existing.trello_card_id) existing.trello_card_id = card.id;
+          if (cacheItems.length > 0) existing.items = items;
           result.updated++;
         } else {
-          // Create new project
           const newProject = {
             id: uuidv4(),
-            name: bidName || bidNo || 'Dự án từ Trello',
+            name: tenCongTrinh,
             createdAt: now,
             updatedAt: now,
             status: 'draft',
             trello_card_id: card.id,
-            projectInfo: {
-              tenCongTrinh: bidName || '',
-              maDauThau: bidNo || '',
-              benMoiThau: benMoiThau || '',
-              thoiGianDongThau: thoiGianDongThau || '',
-              nguoiLap: '',
-              nguoiLapId: '',
-              ngayLap: now.split('T')[0],
-              diaDiem: '',
-              noiDungTrinh: ''
-            },
-            items: [{ id: uuidv4(), stt: 1, tenHangHoa: '', donViTinh: 'Gói', soLuong: 1, donGiaNhap: 0, trongSo: 1, ghiChu: '', nhaCungCap: '' }],
-        params: { tiLeGiamGia: 0, phiDuThau: 330000, phiTrungThau: 0, phiBanHangTrienKhai: 0, hoaHongKD: 12.5, giaDuToan: 0 }
+            projectInfo,
+            items,
+            params: { tiLeGiamGia: 0, phiDuThau: 330000, phiTrungThau: 0, phiBanHangTrienKhai: 0, hoaHongKD: 12.5, giaDuToan: info.giaDuToan || 0 }
           };
           projData.projects.push(newProject);
           result.created++;
@@ -1734,6 +1806,35 @@ app.get('/api/fetch-bidding-info/:ibCode', auth, async (req, res) => {
     const linkedProj = projData.projects.find(p => p.projectInfo && p.projectInfo.maDauThau === ibCode);
     if (linkedProj && linkedProj.trello_card_id) {
       result.trello_card_id = linkedProj.trello_card_id;
+    }
+    // Lưu kết quả tra cứu vào cache (scraped-bids.json) để dùng lại sau này
+    if (result.tenCongTrinh) {
+      saveScrapedEntry({
+        trello_card_id: result.trello_card_id || '',
+        bid_no: ibCode,
+        bid_name: result.tenCongTrinh || '',
+        items: result.items || [],
+        projectInfo: {
+          tenCongTrinh: result.tenCongTrinh,
+          benMoiThau: result.benMoiThau || '',
+          thoiGianDongThau: result.thoiGianDongThau || '',
+          diaDiem: result.diaDiem || '',
+          giaDuToan: result.giaDuToan || 0,
+          bidForm: result.bidForm || '',
+          hinhThucLCNT: result.hinhThucLCNT || '',
+          isRutGon: !!result.isRutGon,
+          planNo: result.planNo || '',
+          bidOpenDate: result.bidOpenDate || '',
+          publicDate: result.publicDate || '',
+          investField: result.investField || '',
+          bidMode: result.bidMode || '',
+          capitalDetail: result.capitalDetail || '',
+          processApply: result.processApply || '',
+          contractType: result.contractType || '',
+          contractPeriod: result.contractPeriod || '',
+          contractPeriodUnit: result.contractPeriodUnit || ''
+        }
+      });
     }
     return res.json(result);
   } catch (error) {
