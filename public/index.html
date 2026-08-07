@@ -85,6 +85,7 @@ table .td-num input{text-align:right}
 .result-row .rvalue.loss{color:#e74c3c}
 .result-row .rvalue.cost{color:#e74c3c}
 .result-row .rvalue.highlight{font-size:18px}
+.result-row .rvalue.clickable{cursor:pointer;text-decoration:underline dotted;color:#2a5a8c !important}
 .toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
 .toolbar .spacer{flex:1}
 .status-bar{background:#e8f0fe;padding:6px 16px;border-radius:4px;font-size:12px;color:#2a5a8c;margin-top:8px;text-align:right;display:none}
@@ -475,6 +476,7 @@ table .td-num input{text-align:right}
   </div>
 
   <div class="split-panel">
+    <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
     <div class="card" style="display:flex;flex-direction:column">
       <h2>Chi phí bán hàng/triển khai</h2>
       <div class="param-group">
@@ -515,6 +517,83 @@ table .td-num input{text-align:right}
     </div>
 
     <div class="card">
+      <h2>Tham số chi phí vốn &amp; bảo lãnh</h2>
+      <div class="param-group">
+        <div class="param-row">
+          <label>Lãi suất cơ sở</label>
+          <input type="number" id="laiSuatCoSo" step="0.1" min="0" max="100" oninput="onParamChange()">
+          <span class="suffix">%/năm</span>
+        </div>
+        <div class="param-row">
+          <label>Vốn lưu động chuẩn</label>
+          <input type="text" id="vonLuuDongChuan" oninput="formatCurrencyInput(this); onParamChange()">
+          <span class="suffix">VNĐ</span>
+        </div>
+        <div class="param-row">
+          <label>Số ngày bảo lãnh dự thầu</label>
+          <input type="number" id="soNgayBaoLanhDuThau" min="1" oninput="onParamChange()">
+          <span class="suffix">ngày</span>
+        </div>
+        <div class="param-row">
+          <label>Tỷ lệ bảo lãnh dự thầu</label>
+          <input type="number" id="tiLeBaoLanhDuThau" step="0.1" min="0" max="100" oninput="onParamChange()">
+          <span class="suffix">%</span>
+        </div>
+        <div class="param-row">
+          <label>Số ngày nhập hàng</label>
+          <input type="number" id="soNgayNhapHang" min="1" oninput="onParamChange()">
+          <span class="suffix">ngày</span>
+        </div>
+        <div class="param-row">
+          <label>Tỷ lệ tạm ứng nhà cung cấp</label>
+          <input type="number" id="tiLeTamUngNCC" step="0.1" min="0" max="100" oninput="onParamChange()">
+          <span class="suffix">%</span>
+        </div>
+        <div class="param-row">
+          <label>Số ngày bảo lãnh thực hiện HĐ</label>
+          <input type="number" id="soNgayBaoLanhThucHienHD" min="1" oninput="onParamChange()">
+          <span class="suffix">ngày</span>
+        </div>
+        <div class="param-row">
+          <label>Tỷ lệ bảo lãnh thực hiện HĐ</label>
+          <input type="number" id="tiLeBaoLanhThucHienHD" step="0.1" min="0" max="100" oninput="onParamChange()">
+          <span class="suffix">%</span>
+        </div>
+        <div class="param-row">
+          <label>Số ngày bảo hành</label>
+          <input type="number" id="soNgayBaoHanh" min="1" oninput="onParamChange()">
+          <span class="suffix">ngày</span>
+        </div>
+        <div class="param-row">
+          <label>Tỷ lệ bảo hành</label>
+          <input type="number" id="tiLeBaoHanh" step="0.1" min="0" max="100" oninput="onParamChange()">
+          <span class="suffix">%</span>
+        </div>
+        <div class="param-row">
+          <label>Phí bảo lãnh dự thầu</label>
+          <input type="number" id="phiBaoLanhDuThau" step="0.1" min="0" max="100" oninput="onParamChange()">
+          <span class="suffix">%/năm</span>
+        </div>
+        <div class="param-row">
+          <label>Phí bảo lãnh thực hiện HĐ</label>
+          <input type="number" id="phiBaoLanhThucHienHD" step="0.1" min="0" max="100" oninput="onParamChange()">
+          <span class="suffix">%/năm</span>
+        </div>
+        <div class="param-row">
+          <label>Phí bảo lãnh bảo hành</label>
+          <input type="number" id="phiBaoLanhBaoHanh" step="0.1" min="0" max="100" oninput="onParamChange()">
+          <span class="suffix">%/năm</span>
+        </div>
+        <div class="param-row">
+          <label>Phí bảo lãnh tối thiểu</label>
+          <input type="text" id="phiBaoLanhToiThieu" oninput="formatCurrencyInput(this); onParamChange()">
+          <span class="suffix">VNĐ/loại</span>
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <div class="card">
       <h2>Hiệu quả dự án</h2>
       <div class="param-group">
         <div class="result-row">
@@ -544,16 +623,16 @@ table .td-num input{text-align:right}
           <span class="rvalue" id="rLoiNhuanGopPct">0%</span>
         </div>
         <div class="result-row">
-          <span class="rlabel">Chi phí dự thầu</span>
-          <span class="rvalue" id="rPhiDuThau" style="font-size:13px;font-weight:400;color:#666">0</span>
-        </div>
-        <div class="result-row">
-          <span class="rlabel">Phí trúng thầu</span>
-          <span class="rvalue" id="rPhiTrungThau" style="font-size:13px;font-weight:400;color:#666">0</span>
+          <span class="rlabel">Chi phí thầu</span>
+          <span class="rvalue clickable" id="rChiPhiThau" style="font-size:13px;font-weight:400;color:#666" onclick="showCapCostDetail('thau')" title="Xem chi tiết cách tính chi phí thầu">0</span>
         </div>
         <div class="result-row">
           <span class="rlabel">Chi phí vốn</span>
-          <span class="rvalue" id="rChiPhiVon" style="font-size:13px;font-weight:400;color:#666">0</span>
+          <span class="rvalue clickable" id="rChiPhiVon" style="font-size:13px;font-weight:400;color:#666" onclick="showCapCostDetail('von')" title="Xem chi tiết cách tính chi phí vốn">0</span>
+        </div>
+        <div class="result-row">
+          <span class="rlabel">Chi phí bảo lãnh</span>
+          <span class="rvalue clickable" id="rChiPhiBaoLanh" style="font-size:13px;font-weight:400;color:#666" onclick="showCapCostDetail('baolanh')" title="Xem chi tiết cách tính chi phí bảo lãnh">0</span>
         </div>
         <div class="result-row">
           <span class="rlabel">Chi phí bán hàng/triển khai</span>
@@ -572,7 +651,7 @@ table .td-num input{text-align:right}
           <span class="rvalue profit highlight" id="rLoiNhuanRong">0</span>
         </div>
         <div class="result-row">
-          <span class="rlabel">Tỷ lệ LNR / Vốn</span>
+          <span class="rlabel">Tỷ lệ LNR / Doanh thu</span>
           <span class="rvalue profit" id="rLNRVon" style="font-size:18px">0%</span>
         </div>
       </div>
@@ -681,17 +760,73 @@ table .td-num input{text-align:right}
         <input type="number" id="settingsSoNgayNhapHang" min="1" placeholder="90">
       </div>
       <div class="form-group" style="flex:1">
+        <label>Tỷ lệ tạm ứng nhà cung cấp (%)</label>
+        <input type="number" id="settingsTiLeTamUngNCC" step="0.1" min="0" max="100" placeholder="100">
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:10px">
+      <div class="form-group" style="flex:1">
         <label>Số ngày bảo hành</label>
         <input type="number" id="settingsSoNgayBaoHanh" min="1" placeholder="365">
       </div>
+      <div class="form-group" style="flex:1">
+        <label>Tỷ lệ bảo hành (%)</label>
+        <input type="number" id="settingsTiLeBaoHanh" step="0.1" min="0" max="100" placeholder="5">
+      </div>
+    </div>
+    <h4 style="margin:16px 0 8px;border-top:1px solid #eef2f7;padding-top:12px">Bảo lãnh</h4>
+    <div style="display:flex;gap:10px;margin-bottom:10px">
+      <div class="form-group" style="flex:1">
+        <label>Bảo lãnh dự thầu (%)</label>
+        <input type="number" id="settingsTiLeBaoLanhDuThau" step="0.1" min="0" max="100" placeholder="2">
+      </div>
+      <div class="form-group" style="flex:1">
+        <label>Số ngày bảo lãnh dự thầu</label>
+        <input type="number" id="settingsSoNgayBaoLanhDuThau" min="1" placeholder="90">
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:10px">
+      <div class="form-group" style="flex:1">
+        <label>Bảo lãnh thực hiện HĐ (%)</label>
+        <input type="number" id="settingsTiLeBaoLanhThucHienHD" step="0.1" min="0" max="100" placeholder="5">
+      </div>
+      <div class="form-group" style="flex:1">
+        <label>Số ngày bảo lãnh thực hiện HĐ</label>
+        <input type="number" id="settingsSoNgayBaoLanhThucHienHD" min="1" placeholder="90">
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:10px">
+      <div class="form-group" style="flex:1">
+        <label>Phí bảo lãnh dự thầu (%/năm)</label>
+        <input type="number" id="settingsPhiBaoLanhDuThau" step="0.1" min="0" max="100" placeholder="0.48">
+      </div>
+      <div class="form-group" style="flex:1">
+        <label>Phí bảo lãnh thực hiện HĐ (%/năm)</label>
+        <input type="number" id="settingsPhiBaoLanhThucHienHD" step="0.1" min="0" max="100" placeholder="0.6">
+      </div>
+      <div class="form-group" style="flex:1">
+        <label>Phí bảo lãnh bảo hành (%/năm)</label>
+        <input type="number" id="settingsPhiBaoLanhBaoHanh" step="0.1" min="0" max="100" placeholder="0.6">
+      </div>
     </div>
     <div class="form-group" style="margin-bottom:10px">
-      <label>Tỷ lệ bảo hành (%)</label>
-      <input type="number" id="settingsTiLeBaoHanh" step="0.1" min="0" max="100" placeholder="5">
+      <label>Phí tối thiểu/loại (VNĐ)</label>
+      <input type="text" id="settingsPhiBaoLanhToiThieu" oninput="formatCurrencyInput(this)" placeholder="500.000">
     </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeSettings()">Hủy</button>
       <button class="btn btn-primary" onclick="saveSettings()">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- Capital Cost Detail Modal -->
+<div class="modal-overlay" id="capCostModal">
+  <div class="modal" style="min-width:540px;max-width:640px;max-height:80vh;overflow-y:auto">
+    <h3 id="capCostTitle">Chi tiết chi phí vốn</h3>
+    <div id="capCostBody"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeCapCostDetail()">Đóng</button>
     </div>
   </div>
 </div>
@@ -791,6 +926,7 @@ let formDirty = false;
 let phiDuThauManual = false;
 let phiTrungThauManual = false;
 let settings = {};
+let capCostDetail = null;
 
 function formatNumber(n) { return (n === 0 || !n) ? '0' : Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
 function parseNumber(s) { if (!s) return 0; return parseFloat(String(s).replace(/[.\s]/g, '').replace(/,/g, '')) || 0; }
@@ -894,8 +1030,17 @@ function loadSettingsToForm() {
     laiSuatCoSo: 12,
     vonLuuDongChuan: 4000000000,
     soNgayNhapHang: 90,
+    tiLeTamUngNCC: 100,
     soNgayBaoHanh: 365,
-    tiLeBaoHanh: 5
+    tiLeBaoHanh: 5,
+    tiLeBaoLanhDuThau: 2,
+    soNgayBaoLanhDuThau: 90,
+    tiLeBaoLanhThucHienHD: 5,
+    soNgayBaoLanhThucHienHD: 90,
+    phiBaoLanhDuThau: 0.48,
+    phiBaoLanhThucHienHD: 0.6,
+    phiBaoLanhBaoHanh: 0.6,
+    phiBaoLanhToiThieu: 500000
   };
   for (const k of Object.keys(defaults)) if (settings[k] == null) settings[k] = defaults[k];
 }
@@ -1022,12 +1167,65 @@ async function showSettings() {
     document.getElementById('settingsLaiSuatCoSo').value = cfg.laiSuatCoSo != null ? cfg.laiSuatCoSo : 12;
     document.getElementById('settingsVonLuuDongChuan').value = cfg.vonLuuDongChuan != null ? formatNumber(cfg.vonLuuDongChuan) : formatNumber(4000000000);
     document.getElementById('settingsSoNgayNhapHang').value = cfg.soNgayNhapHang != null ? cfg.soNgayNhapHang : 90;
+    document.getElementById('settingsTiLeTamUngNCC').value = cfg.tiLeTamUngNCC != null ? cfg.tiLeTamUngNCC : 100;
     document.getElementById('settingsSoNgayBaoHanh').value = cfg.soNgayBaoHanh != null ? cfg.soNgayBaoHanh : 365;
     document.getElementById('settingsTiLeBaoHanh').value = cfg.tiLeBaoHanh != null ? cfg.tiLeBaoHanh : 5;
+    document.getElementById('settingsTiLeBaoLanhDuThau').value = cfg.tiLeBaoLanhDuThau != null ? cfg.tiLeBaoLanhDuThau : 2;
+    document.getElementById('settingsSoNgayBaoLanhDuThau').value = cfg.soNgayBaoLanhDuThau != null ? cfg.soNgayBaoLanhDuThau : 90;
+    document.getElementById('settingsTiLeBaoLanhThucHienHD').value = cfg.tiLeBaoLanhThucHienHD != null ? cfg.tiLeBaoLanhThucHienHD : 5;
+    document.getElementById('settingsSoNgayBaoLanhThucHienHD').value = cfg.soNgayBaoLanhThucHienHD != null ? cfg.soNgayBaoLanhThucHienHD : 90;
+    document.getElementById('settingsPhiBaoLanhDuThau').value = cfg.phiBaoLanhDuThau != null ? cfg.phiBaoLanhDuThau : 0.48;
+    document.getElementById('settingsPhiBaoLanhThucHienHD').value = cfg.phiBaoLanhThucHienHD != null ? cfg.phiBaoLanhThucHienHD : 0.6;
+    document.getElementById('settingsPhiBaoLanhBaoHanh').value = cfg.phiBaoLanhBaoHanh != null ? cfg.phiBaoLanhBaoHanh : 0.6;
+    document.getElementById('settingsPhiBaoLanhToiThieu').value = cfg.phiBaoLanhToiThieu != null ? formatNumber(cfg.phiBaoLanhToiThieu) : formatNumber(500000);
     document.getElementById('settingsModal').className = 'modal-overlay show';
   } catch (e) { showToast(e.message, 'error'); }
 }
 function closeSettings() { document.getElementById('settingsModal').className = 'modal-overlay'; }
+
+function capRow(name, von, days, cost) {
+  return '<tr><td>' + name + '</td><td class="n">' + formatNumber(von || 0) + '</td><td class="n">' + (days || 0) + '</td><td class="n" style="color:#e74c3c">-' + formatNumber(cost || 0) + ' ₫</td></tr>';
+}
+function capBlRow(name, von, days, fee, pct) {
+  return '<tr><td>' + name + '</td><td class="n">' + formatNumber(von || 0) + '</td><td class="n">' + (pct || 0) + '% × ' + (days || 0) + '/365</td><td class="n" style="color:#e74c3c">-' + formatNumber(fee || 0) + ' ₫</td></tr>';
+}
+function showCapCostDetail(type) {
+  const d = capCostDetail || {};
+  const min = d.phiBaoLanhToiThieu || 0;
+  let title, body;
+  if (type === 'thau') {
+    title = 'Chi tiết chi phí thầu';
+    body = '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:#eef2f7"><th style="padding:6px;text-align:left">Khoản</th><th style="padding:6px;text-align:right">Số tiền (₫)</th></tr></thead><tbody>'
+      + '<tr><td>Chi phí dự thầu</td><td class="n">' + formatNumber(d.phiDuThau || 0) + '</td></tr>'
+      + '<tr><td>Phí trúng thầu</td><td class="n">' + formatNumber(d.phiTrungThau || 0) + '</td></tr>'
+      + '</tbody></table>'
+      + '<p style="margin-top:10px;font-size:13px;color:#555">• Chi phí dự thầu: theo Nghị định 214/2025 (phí nộp hồ sơ) hoặc nhập tay.<br>• Phí trúng thầu: 0,022% × giá trúng thầu (hoặc giá dự toán khi dự trù), trần 2.200.000 ₫, hoặc nhập tay.</p>'
+      + '<p style="font-weight:700;color:#1a3a5c">Tổng chi phí thầu: ' + formatNumber(d.cpThau || 0) + ' ₫</p>';
+  } else if (type === 'von') {
+    title = 'Chi tiết chi phí vốn (lãi suất vốn ' + ((d.laiSuatVon||0).toFixed(1)) + '%/năm)';
+    body = '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:#eef2f7"><th style="padding:6px;text-align:left">Thành phần</th><th style="padding:6px;text-align:right">Vốn (₫)</th><th style="padding:6px;text-align:right">Số ngày</th><th style="padding:6px;text-align:right">Chi phí (₫)</th></tr></thead><tbody>'
+      + capRow('Vốn nhập hàng (' + (d.tiLeTamUngNCC||0) + '% tạm ứng)', d.vonNhap, d.soNgayNhapHang, Math.round((d.vonNhap||0) * (d.laiSuatVon||0) * (d.soNgayNhapHang||0) / 100 / 365))
+      + capRow('Bảo lãnh dự thầu', d.vonDuThau, d.soNgayBaoLanhDuThau, Math.round((d.vonDuThau||0) * (d.laiSuatVon||0) * (d.soNgayBaoLanhDuThau||0) / 100 / 365))
+      + capRow('Bảo lãnh thực hiện HĐ', d.vonThucHien, d.soNgayBaoLanhThucHienHD, Math.round((d.vonThucHien||0) * (d.laiSuatVon||0) * (d.soNgayBaoLanhThucHienHD||0) / 100 / 365))
+      + capRow('Bảo lãnh bảo hành', d.vonBaoHanh, d.soNgayBaoHanh, Math.round((d.vonBaoHanh||0) * (d.laiSuatVon||0) * (d.soNgayBaoHanh||0) / 100 / 365))
+      + '</tbody></table>'
+      + '<p style="margin-top:10px;font-size:13px;color:#555">Chi phí vốn = Vốn bị giam × lãi suất vốn × số ngày / 365.</p>'
+      + '<p style="font-weight:700;color:#1a3a5c">Tổng chi phí vốn: ' + formatNumber(d.cpVon || 0) + ' ₫</p>';
+  } else {
+    title = 'Chi tiết chi phí bảo lãnh (phí ký quỹ, tối thiểu ' + formatNumber(min) + ' ₫/loại)';
+    body = '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:#eef2f7"><th style="padding:6px;text-align:left">Loại bảo lãnh</th><th style="padding:6px;text-align:right">Giá trị bảo lãnh (₫)</th><th style="padding:6px;text-align:right">Phí tính</th><th style="padding:6px;text-align:right">Phí áp dụng (₫)</th></tr></thead><tbody>'
+      + capBlRow('Dự thầu', d.vonDuThau, d.soNgayBaoLanhDuThau, d.phiBLDuThau, d.phiBaoLanhDuThau)
+      + capBlRow('Thực hiện HĐ', d.vonThucHien, d.soNgayBaoLanhThucHienHD, d.phiBLThucHien, d.phiBaoLanhThucHienHD)
+      + capBlRow('Bảo hành', d.vonBaoHanh, d.soNgayBaoHanh, d.phiBLBaoHanh, d.phiBaoLanhBaoHanh)
+      + '</tbody></table>'
+      + '<p style="margin-top:10px;font-size:13px;color:#555">Phí áp dụng = max(' + formatNumber(min) + ', giá trị bảo lãnh × phí ký quỹ% × số ngày / 365).</p>'
+      + '<p style="font-weight:700;color:#1a3a5c">Tổng chi phí bảo lãnh: ' + formatNumber(d.cpBaoLanh || 0) + ' ₫</p>';
+  }
+  document.getElementById('capCostTitle').textContent = title;
+  document.getElementById('capCostBody').innerHTML = body;
+  document.getElementById('capCostModal').className = 'modal-overlay show';
+}
+function closeCapCostDetail() { document.getElementById('capCostModal').className = 'modal-overlay'; }
 async function saveSettings() {
   const companyName = document.getElementById('settingsCompanyName').value.trim();
   const keywordsRaw = document.getElementById('settingsKeywords').value.trim();
@@ -1047,8 +1245,17 @@ async function saveSettings() {
       laiSuatCoSo: parseFloat(document.getElementById('settingsLaiSuatCoSo').value) || 0,
       vonLuuDongChuan,
       soNgayNhapHang: parseFloat(document.getElementById('settingsSoNgayNhapHang').value) || 0,
+      tiLeTamUngNCC: parseFloat(document.getElementById('settingsTiLeTamUngNCC').value) || 0,
       soNgayBaoHanh: parseFloat(document.getElementById('settingsSoNgayBaoHanh').value) || 0,
-      tiLeBaoHanh: parseFloat(document.getElementById('settingsTiLeBaoHanh').value) || 0
+      tiLeBaoHanh: parseFloat(document.getElementById('settingsTiLeBaoHanh').value) || 0,
+      tiLeBaoLanhDuThau: parseFloat(document.getElementById('settingsTiLeBaoLanhDuThau').value) || 0,
+      soNgayBaoLanhDuThau: parseFloat(document.getElementById('settingsSoNgayBaoLanhDuThau').value) || 0,
+      tiLeBaoLanhThucHienHD: parseFloat(document.getElementById('settingsTiLeBaoLanhThucHienHD').value) || 0,
+      soNgayBaoLanhThucHienHD: parseFloat(document.getElementById('settingsSoNgayBaoLanhThucHienHD').value) || 0,
+      phiBaoLanhDuThau: parseFloat(document.getElementById('settingsPhiBaoLanhDuThau').value) || 0,
+      phiBaoLanhThucHienHD: parseFloat(document.getElementById('settingsPhiBaoLanhThucHienHD').value) || 0,
+      phiBaoLanhBaoHanh: parseFloat(document.getElementById('settingsPhiBaoLanhBaoHanh').value) || 0,
+      phiBaoLanhToiThieu: parseNumber(document.getElementById('settingsPhiBaoLanhToiThieu').value)
     });
     try { settings = await api('GET', '/api/settings'); } catch (e) {}
     closeSettings();
@@ -1507,13 +1714,29 @@ function clearForm() {
   document.getElementById('laiSuatVon').value = '';
   document.getElementById('phiBanHangTrienKhai').value = '0';
   document.getElementById('hoaHongKD').value = '12.5';
+  loadSettingsToForm();
+  document.getElementById('laiSuatCoSo').value = settings.laiSuatCoSo;
+  document.getElementById('vonLuuDongChuan').value = formatNumber(settings.vonLuuDongChuan);
+  document.getElementById('soNgayNhapHang').value = settings.soNgayNhapHang;
+  document.getElementById('tiLeTamUngNCC').value = settings.tiLeTamUngNCC;
+  document.getElementById('soNgayBaoHanh').value = settings.soNgayBaoHanh;
+  document.getElementById('tiLeBaoHanh').value = settings.tiLeBaoHanh;
+  document.getElementById('tiLeBaoLanhDuThau').value = settings.tiLeBaoLanhDuThau;
+  document.getElementById('soNgayBaoLanhDuThau').value = settings.soNgayBaoLanhDuThau;
+  document.getElementById('tiLeBaoLanhThucHienHD').value = settings.tiLeBaoLanhThucHienHD;
+  document.getElementById('soNgayBaoLanhThucHienHD').value = settings.soNgayBaoLanhThucHienHD;
+  document.getElementById('phiBaoLanhDuThau').value = settings.phiBaoLanhDuThau;
+  document.getElementById('phiBaoLanhThucHienHD').value = settings.phiBaoLanhThucHienHD;
+  document.getElementById('phiBaoLanhBaoHanh').value = settings.phiBaoLanhBaoHanh;
+  document.getElementById('phiBaoLanhToiThieu').value = formatNumber(settings.phiBaoLanhToiThieu);
   document.getElementById('rTongGiaNhap').textContent = '0';
   document.getElementById('rGiaDuToan').textContent = '0';
   document.getElementById('giaChaoToiThieu').value = '0';
   document.getElementById('rLoiNhuanGop').textContent = '0';
-  document.getElementById('rPhiDuThau').textContent = '0';
-  document.getElementById('rPhiTrungThau').textContent = '0';
+  document.getElementById('rChiPhiThau').textContent = '0';
   document.getElementById('rChiPhiVon').textContent = '0';
+  document.getElementById('rChiPhiBaoLanh').textContent = '0';
+  capCostDetail = null;
   document.getElementById('rPhiBanHangTrienKhai').textContent = '0';
   document.getElementById('rLoiNhuanGopKD').textContent = '0';
   document.getElementById('rHoaHongKD').textContent = '0';
@@ -1593,6 +1816,21 @@ function loadProjectToForm(p) {
   updateAutoFees();
   document.getElementById('phiBanHangTrienKhai').value = params.phiBanHangTrienKhai != null && params.phiBanHangTrienKhai !== '' ? formatNumber(params.phiBanHangTrienKhai) : '0';
   document.getElementById('hoaHongKD').value = params.hoaHongKD != null && params.hoaHongKD !== '' ? params.hoaHongKD : '';
+  loadSettingsToForm();
+  document.getElementById('laiSuatCoSo').value = params.laiSuatCoSo != null && params.laiSuatCoSo !== '' ? params.laiSuatCoSo : settings.laiSuatCoSo;
+  document.getElementById('vonLuuDongChuan').value = params.vonLuuDongChuan != null && params.vonLuuDongChuan !== '' ? formatNumber(params.vonLuuDongChuan) : formatNumber(settings.vonLuuDongChuan);
+  document.getElementById('soNgayNhapHang').value = params.soNgayNhapHang != null && params.soNgayNhapHang !== '' ? params.soNgayNhapHang : settings.soNgayNhapHang;
+  document.getElementById('tiLeTamUngNCC').value = params.tiLeTamUngNCC != null && params.tiLeTamUngNCC !== '' ? params.tiLeTamUngNCC : settings.tiLeTamUngNCC;
+  document.getElementById('soNgayBaoHanh').value = params.soNgayBaoHanh != null && params.soNgayBaoHanh !== '' ? params.soNgayBaoHanh : settings.soNgayBaoHanh;
+  document.getElementById('tiLeBaoHanh').value = params.tiLeBaoHanh != null && params.tiLeBaoHanh !== '' ? params.tiLeBaoHanh : settings.tiLeBaoHanh;
+  document.getElementById('tiLeBaoLanhDuThau').value = params.tiLeBaoLanhDuThau != null && params.tiLeBaoLanhDuThau !== '' ? params.tiLeBaoLanhDuThau : settings.tiLeBaoLanhDuThau;
+  document.getElementById('soNgayBaoLanhDuThau').value = params.soNgayBaoLanhDuThau != null && params.soNgayBaoLanhDuThau !== '' ? params.soNgayBaoLanhDuThau : settings.soNgayBaoLanhDuThau;
+  document.getElementById('tiLeBaoLanhThucHienHD').value = params.tiLeBaoLanhThucHienHD != null && params.tiLeBaoLanhThucHienHD !== '' ? params.tiLeBaoLanhThucHienHD : settings.tiLeBaoLanhThucHienHD;
+  document.getElementById('soNgayBaoLanhThucHienHD').value = params.soNgayBaoLanhThucHienHD != null && params.soNgayBaoLanhThucHienHD !== '' ? params.soNgayBaoLanhThucHienHD : settings.soNgayBaoLanhThucHienHD;
+  document.getElementById('phiBaoLanhDuThau').value = params.phiBaoLanhDuThau != null && params.phiBaoLanhDuThau !== '' ? params.phiBaoLanhDuThau : settings.phiBaoLanhDuThau;
+  document.getElementById('phiBaoLanhThucHienHD').value = params.phiBaoLanhThucHienHD != null && params.phiBaoLanhThucHienHD !== '' ? params.phiBaoLanhThucHienHD : settings.phiBaoLanhThucHienHD;
+  document.getElementById('phiBaoLanhBaoHanh').value = params.phiBaoLanhBaoHanh != null && params.phiBaoLanhBaoHanh !== '' ? params.phiBaoLanhBaoHanh : settings.phiBaoLanhBaoHanh;
+  document.getElementById('phiBaoLanhToiThieu').value = params.phiBaoLanhToiThieu != null && params.phiBaoLanhToiThieu !== '' ? formatNumber(params.phiBaoLanhToiThieu) : formatNumber(settings.phiBaoLanhToiThieu);
   renderItems(p.items || []);
   // Recalculate efficiency display after loading project data
   calculate();
@@ -1910,17 +2148,35 @@ function resetPhiTrungThauAuto() {
   onParamChange();
 }
 
+function capGet(id, fallback, isCurrency) {
+  const el = document.getElementById(id);
+  if (!el) return fallback;
+  const raw = String(el.value).trim();
+  if (raw === '') return fallback;
+  const v = isCurrency ? parseNumber(raw) : parseFloat(raw);
+  return isNaN(v) ? fallback : v;
+}
+
 function calculate() {
   const items = getItemsFromTable();
   let tiLeGiamGia = parseFloat(document.getElementById('tiLeGiamGia').value) || 0;
   const phiDuThau = parseNumber(document.getElementById('phiDuThau').value);
   const phiTrungThau = parseNumber(document.getElementById('phiTrungThau').value);
   loadSettingsToForm();
-  const laiSuatCoSo = parseFloat(settings.laiSuatCoSo) || 0;
-  const vonLuuDongChuan = parseFloat(settings.vonLuuDongChuan) || 0;
-  const soNgayNhapHang = parseFloat(settings.soNgayNhapHang) || 0;
-  const soNgayBaoHanh = parseFloat(settings.soNgayBaoHanh) || 0;
-  const tiLeBaoHanh = parseFloat(settings.tiLeBaoHanh) || 0;
+  const laiSuatCoSo = capGet('laiSuatCoSo', settings.laiSuatCoSo) || 0;
+  const vonLuuDongChuan = capGet('vonLuuDongChuan', settings.vonLuuDongChuan, true) || 0;
+  const soNgayNhapHang = capGet('soNgayNhapHang', settings.soNgayNhapHang) || 0;
+  const tiLeTamUngNCC = capGet('tiLeTamUngNCC', settings.tiLeTamUngNCC) || 0;
+  const soNgayBaoHanh = capGet('soNgayBaoHanh', settings.soNgayBaoHanh) || 0;
+  const tiLeBaoHanh = capGet('tiLeBaoHanh', settings.tiLeBaoHanh) || 0;
+  const tiLeBaoLanhDuThau = capGet('tiLeBaoLanhDuThau', settings.tiLeBaoLanhDuThau) || 0;
+  const soNgayBaoLanhDuThau = capGet('soNgayBaoLanhDuThau', settings.soNgayBaoLanhDuThau) || 0;
+  const tiLeBaoLanhThucHienHD = capGet('tiLeBaoLanhThucHienHD', settings.tiLeBaoLanhThucHienHD) || 0;
+  const soNgayBaoLanhThucHienHD = capGet('soNgayBaoLanhThucHienHD', settings.soNgayBaoLanhThucHienHD) || 0;
+  const phiBaoLanhDuThau = capGet('phiBaoLanhDuThau', settings.phiBaoLanhDuThau) || 0;
+  const phiBaoLanhThucHienHD = capGet('phiBaoLanhThucHienHD', settings.phiBaoLanhThucHienHD) || 0;
+  const phiBaoLanhBaoHanh = capGet('phiBaoLanhBaoHanh', settings.phiBaoLanhBaoHanh) || 0;
+  const phiBaoLanhToiThieu = capGet('phiBaoLanhToiThieu', settings.phiBaoLanhToiThieu, true) || 0;
   const phiBanHangTrienKhai = parseNumber(document.getElementById('phiBanHangTrienKhai').value);
   const hoaHongKD = parseFloat(document.getElementById('hoaHongKD').value) || 0;
   const giaDuToan = parseNumber(document.getElementById('giaDuToan').value);
@@ -1941,14 +2197,26 @@ function calculate() {
 
   const loiNhuanGop = giaChaoToiThieu - tongGiaNhap;
   const cpDuThau = phiDuThau + phiTrungThau;
+  const vonNhap = tongGiaNhap * tiLeTamUngNCC / 100;
+  const vonDuThau = giaDuToan * tiLeBaoLanhDuThau / 100;
+  const vonThucHien = giaDuToan * tiLeBaoLanhThucHienHD / 100;
   const vonBaoHanh = giaDuToan * tiLeBaoHanh / 100;
-  const laiSuatVon = vonLuuDongChuan > 0 ? laiSuatCoSo * (1 + (tongGiaNhap + vonBaoHanh) / vonLuuDongChuan) : laiSuatCoSo;
-  const cpVon = Math.round(tongGiaNhap * laiSuatVon * soNgayNhapHang / 100 / 365 + vonBaoHanh * laiSuatVon * soNgayBaoHanh / 100 / 365);
+  const laiSuatVon = vonLuuDongChuan > 0 ? laiSuatCoSo * (1 + (vonNhap + vonDuThau + vonThucHien + vonBaoHanh) / vonLuuDongChuan) : laiSuatCoSo;
+  const cpVon = Math.round(
+    vonNhap * laiSuatVon * soNgayNhapHang / 100 / 365
+    + vonDuThau * laiSuatVon * soNgayBaoLanhDuThau / 100 / 365
+    + vonThucHien * laiSuatVon * soNgayBaoLanhThucHienHD / 100 / 365
+    + vonBaoHanh * laiSuatVon * soNgayBaoHanh / 100 / 365
+  );
+  const phiBLDuThau = Math.max(phiBaoLanhToiThieu, vonDuThau * phiBaoLanhDuThau / 100 * soNgayBaoLanhDuThau / 365);
+  const phiBLThucHien = Math.max(phiBaoLanhToiThieu, vonThucHien * phiBaoLanhThucHienHD / 100 * soNgayBaoLanhThucHienHD / 365);
+  const phiBLBaoHanh = Math.max(phiBaoLanhToiThieu, vonBaoHanh * phiBaoLanhBaoHanh / 100 * soNgayBaoHanh / 365);
+  const cpBaoLanh = giaDuToan > 0 ? Math.round(phiBLDuThau + phiBLThucHien + phiBLBaoHanh) : 0;
   const cpTrienKhai = phiBanHangTrienKhai;
-  const loiNhuanGopKD = loiNhuanGop - cpDuThau - cpVon - cpTrienKhai;
+  const loiNhuanGopKD = loiNhuanGop - cpDuThau - cpVon - cpBaoLanh - cpTrienKhai;
   const hhKD = loiNhuanGopKD > 0 ? Math.round(loiNhuanGopKD * hoaHongKD / 100) : 0;
   const loiNhuanRong = loiNhuanGopKD - hhKD;
-  const tiLeLNRVon = tongGiaNhap > 0 ? loiNhuanRong / tongGiaNhap * 100 : 0;
+  const tiLeLNRVon = giaChaoToiThieu > 0 ? loiNhuanRong / giaChaoToiThieu * 100 : 0;
 
   const tbody = document.getElementById('itemsBody');
   for (let i = 0; i < items.length && i < tbody.children.length; i++) {
@@ -1989,13 +2257,23 @@ function calculate() {
   profitPctEl.textContent = toPct(tiLeLNGActual);
   profitPctEl.className = 'rvalue ' + (loiNhuanGop >= 0 ? 'profit' : 'loss');
 
-  document.getElementById('rPhiDuThau').textContent = '-' + toVND(phiDuThau);
-  document.getElementById('rPhiDuThau').className = 'rvalue cost';
-  document.getElementById('rPhiTrungThau').textContent = '-' + toVND(phiTrungThau);
-  document.getElementById('rPhiTrungThau').className = 'rvalue cost';
+  const cpThau = phiDuThau + phiTrungThau;
+  document.getElementById('rChiPhiThau').textContent = '-' + toVND(cpThau);
+  document.getElementById('rChiPhiThau').className = 'rvalue cost';
   document.getElementById('rChiPhiVon').textContent = '-' + toVND(cpVon) + ' (lãi suất vốn ' + toPct(laiSuatVon) + ')';
   document.getElementById('rChiPhiVon').className = 'rvalue cost';
   document.getElementById('laiSuatVon').value = laiSuatVon != null ? laiSuatVon.toFixed(1) : '';
+  document.getElementById('rChiPhiBaoLanh').textContent = '-' + toVND(cpBaoLanh) + ' (tối thiểu ' + toVND(phiBaoLanhToiThieu) + '/loại)';
+  document.getElementById('rChiPhiBaoLanh').className = 'rvalue cost';
+  capCostDetail = {
+    cpVon, cpBaoLanh, cpThau, phiDuThau, phiTrungThau,
+    laiSuatVon, tongGiaNhap, vonNhap, tiLeTamUngNCC, soNgayNhapHang,
+    vonDuThau, soNgayBaoLanhDuThau,
+    vonThucHien, soNgayBaoLanhThucHienHD,
+    vonBaoHanh, soNgayBaoHanh,
+    phiBaoLanhDuThau, phiBaoLanhThucHienHD, phiBaoLanhBaoHanh, phiBaoLanhToiThieu,
+    phiBLDuThau, phiBLThucHien, phiBLBaoHanh
+  };
   document.getElementById('rPhiBanHangTrienKhai').textContent = '-' + toVND(cpTrienKhai);
   document.getElementById('rPhiBanHangTrienKhai').className = 'rvalue cost';
   const lnkdEl = document.getElementById('rLoiNhuanGopKD');
@@ -2009,7 +2287,7 @@ function calculate() {
   lnrEl.className = 'rvalue profit highlight';
   if (loiNhuanRong < 0) lnrEl.className = 'rvalue loss highlight';
   const lnrVonEl = document.getElementById('rLNRVon');
-  lnrVonEl.textContent = tongGiaNhap > 0 ? toPct(tiLeLNRVon) : '0%';
+  lnrVonEl.textContent = giaChaoToiThieu > 0 ? toPct(tiLeLNRVon) : '0%';
   lnrVonEl.className = 'rvalue profit' + (tiLeLNRVon >= 20 ? ' highlight' : '');
   if (tiLeLNRVon < 0) lnrVonEl.className = 'rvalue loss';
   const el3 = document.getElementById('itemCount'); if (el3) el3.textContent = items.length + ' mặt hàng';
@@ -2145,6 +2423,20 @@ function collectFormData() {
       phiTrungThauManual: phiTrungThauManual,
       phiBanHangTrienKhai: parseNumber(document.getElementById('phiBanHangTrienKhai').value),
       hoaHongKD: parseFloat(document.getElementById('hoaHongKD').value) || 0,
+      laiSuatCoSo: capGet('laiSuatCoSo', settings.laiSuatCoSo),
+      vonLuuDongChuan: capGet('vonLuuDongChuan', settings.vonLuuDongChuan, true),
+      soNgayNhapHang: capGet('soNgayNhapHang', settings.soNgayNhapHang),
+      tiLeTamUngNCC: capGet('tiLeTamUngNCC', settings.tiLeTamUngNCC),
+      soNgayBaoHanh: capGet('soNgayBaoHanh', settings.soNgayBaoHanh),
+      tiLeBaoHanh: capGet('tiLeBaoHanh', settings.tiLeBaoHanh),
+      tiLeBaoLanhDuThau: capGet('tiLeBaoLanhDuThau', settings.tiLeBaoLanhDuThau),
+      soNgayBaoLanhDuThau: capGet('soNgayBaoLanhDuThau', settings.soNgayBaoLanhDuThau),
+      tiLeBaoLanhThucHienHD: capGet('tiLeBaoLanhThucHienHD', settings.tiLeBaoLanhThucHienHD),
+      soNgayBaoLanhThucHienHD: capGet('soNgayBaoLanhThucHienHD', settings.soNgayBaoLanhThucHienHD),
+      phiBaoLanhDuThau: capGet('phiBaoLanhDuThau', settings.phiBaoLanhDuThau),
+      phiBaoLanhThucHienHD: capGet('phiBaoLanhThucHienHD', settings.phiBaoLanhThucHienHD),
+      phiBaoLanhBaoHanh: capGet('phiBaoLanhBaoHanh', settings.phiBaoLanhBaoHanh),
+      phiBaoLanhToiThieu: capGet('phiBaoLanhToiThieu', settings.phiBaoLanhToiThieu, true),
       giaDuToan: parseNumber(document.getElementById('giaDuToan').value)
     }
   };
@@ -2171,6 +2463,9 @@ function applyPermissions() {
   // Phí dự thầu / trúng thầu, hoa hồng KD (mặc định 12.5%) chỉ admin chỉnh
   const adminOnlyFields = ['phiDuThau','phiTrungThau','hoaHongKD'];
   for (const id of adminOnlyFields) document.getElementById(id).readOnly = !isAdmin;
+  // Tham số chi phí vốn & bảo lãnh chỉ admin chỉnh (user readonly)
+  const capOnlyFields = ['laiSuatCoSo','vonLuuDongChuan','soNgayNhapHang','tiLeTamUngNCC','soNgayBaoHanh','tiLeBaoHanh','tiLeBaoLanhDuThau','soNgayBaoLanhDuThau','tiLeBaoLanhThucHienHD','soNgayBaoLanhThucHienHD','phiBaoLanhDuThau','phiBaoLanhThucHienHD','phiBaoLanhBaoHanh','phiBaoLanhToiThieu'];
+  for (const id of capOnlyFields) document.getElementById(id).readOnly = !isAdmin;
   document.getElementById('phiDuThauAutoBtn').style.display = isAdmin ? '' : 'none';
   document.getElementById('phiTrungThauAutoBtn').style.display = isAdmin ? '' : 'none';
   document.getElementById('phiDuThauAutoBadge').style.display = isAdmin ? '' : 'none';

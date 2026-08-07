@@ -573,8 +573,17 @@ app.get('/api/settings', (req, res) => {
     laiSuatCoSo: config.laiSuatCoSo != null ? config.laiSuatCoSo : 12,
     vonLuuDongChuan: config.vonLuuDongChuan != null ? config.vonLuuDongChuan : 4000000000,
     soNgayNhapHang: config.soNgayNhapHang != null ? config.soNgayNhapHang : 90,
+    tiLeTamUngNCC: config.tiLeTamUngNCC != null ? config.tiLeTamUngNCC : 100,
     soNgayBaoHanh: config.soNgayBaoHanh != null ? config.soNgayBaoHanh : 365,
-    tiLeBaoHanh: config.tiLeBaoHanh != null ? config.tiLeBaoHanh : 5
+    tiLeBaoHanh: config.tiLeBaoHanh != null ? config.tiLeBaoHanh : 5,
+    tiLeBaoLanhDuThau: config.tiLeBaoLanhDuThau != null ? config.tiLeBaoLanhDuThau : 2,
+    soNgayBaoLanhDuThau: config.soNgayBaoLanhDuThau != null ? config.soNgayBaoLanhDuThau : 90,
+    tiLeBaoLanhThucHienHD: config.tiLeBaoLanhThucHienHD != null ? config.tiLeBaoLanhThucHienHD : 5,
+    soNgayBaoLanhThucHienHD: config.soNgayBaoLanhThucHienHD != null ? config.soNgayBaoLanhThucHienHD : 90,
+    phiBaoLanhDuThau: config.phiBaoLanhDuThau != null ? config.phiBaoLanhDuThau : 0.48,
+    phiBaoLanhThucHienHD: config.phiBaoLanhThucHienHD != null ? config.phiBaoLanhThucHienHD : 0.6,
+    phiBaoLanhBaoHanh: config.phiBaoLanhBaoHanh != null ? config.phiBaoLanhBaoHanh : 0.6,
+    phiBaoLanhToiThieu: config.phiBaoLanhToiThieu != null ? config.phiBaoLanhToiThieu : 500000
   });
 });
 app.put('/api/settings', auth, adminOnly, (req, res) => {
@@ -588,8 +597,17 @@ app.put('/api/settings', auth, adminOnly, (req, res) => {
   if (req.body.scraperOnlyOnline !== undefined) config.scraperOnlyOnline = req.body.scraperOnlyOnline;
   if (req.body.laiSuatCoSo !== undefined) config.laiSuatCoSo = req.body.laiSuatCoSo;
   if (req.body.soNgayNhapHang !== undefined) config.soNgayNhapHang = req.body.soNgayNhapHang;
+  if (req.body.tiLeTamUngNCC !== undefined) config.tiLeTamUngNCC = req.body.tiLeTamUngNCC;
   if (req.body.soNgayBaoHanh !== undefined) config.soNgayBaoHanh = req.body.soNgayBaoHanh;
   if (req.body.tiLeBaoHanh !== undefined) config.tiLeBaoHanh = req.body.tiLeBaoHanh;
+  if (req.body.tiLeBaoLanhDuThau !== undefined) config.tiLeBaoLanhDuThau = req.body.tiLeBaoLanhDuThau;
+  if (req.body.soNgayBaoLanhDuThau !== undefined) config.soNgayBaoLanhDuThau = req.body.soNgayBaoLanhDuThau;
+  if (req.body.tiLeBaoLanhThucHienHD !== undefined) config.tiLeBaoLanhThucHienHD = req.body.tiLeBaoLanhThucHienHD;
+  if (req.body.soNgayBaoLanhThucHienHD !== undefined) config.soNgayBaoLanhThucHienHD = req.body.soNgayBaoLanhThucHienHD;
+  if (req.body.phiBaoLanhDuThau !== undefined) config.phiBaoLanhDuThau = req.body.phiBaoLanhDuThau;
+  if (req.body.phiBaoLanhThucHienHD !== undefined) config.phiBaoLanhThucHienHD = req.body.phiBaoLanhThucHienHD;
+  if (req.body.phiBaoLanhBaoHanh !== undefined) config.phiBaoLanhBaoHanh = req.body.phiBaoLanhBaoHanh;
+  if (req.body.phiBaoLanhToiThieu !== undefined) config.phiBaoLanhToiThieu = req.body.phiBaoLanhToiThieu;
   if (req.body.vonLuuDongChuan !== undefined) {
     if (!(req.body.vonLuuDongChuan > 0)) return res.status(400).json({ error: 'Vốn lưu động chuẩn phải lớn hơn 0' });
     config.vonLuuDongChuan = req.body.vonLuuDongChuan;
@@ -982,6 +1000,10 @@ app.put('/api/projects/:id', auth, (req, res) => {
     if (oldP.hoaHongKD != null) updated.params.hoaHongKD = oldP.hoaHongKD;
     else updated.params.hoaHongKD = 12.5;
     for (const f of ['phiDuThau','phiTrungThau','phiDuThauManual','phiTrungThauManual']) {
+      if (oldP[f] != null) updated.params[f] = oldP[f];
+    }
+    // Tham số chi phí vốn & bảo lãnh chỉ admin chỉnh
+    for (const f of ['laiSuatCoSo','vonLuuDongChuan','soNgayNhapHang','tiLeTamUngNCC','soNgayBaoHanh','tiLeBaoHanh','tiLeBaoLanhDuThau','soNgayBaoLanhDuThau','tiLeBaoLanhThucHienHD','soNgayBaoLanhThucHienHD','phiBaoLanhDuThau','phiBaoLanhThucHienHD','phiBaoLanhBaoHanh','phiBaoLanhToiThieu']) {
       if (oldP[f] != null) updated.params[f] = oldP[f];
     }
   }
@@ -2197,11 +2219,20 @@ app.get('/share/:id', (req, res) => {
   const phiTrungThau = params.phiTrungThauManual === true
     ? (params.phiTrungThau || 0)
     : computeWinFee(p.ketQuaTrungThau, p.giaTrungThau, params.giaDuToan);
-  const laiSuatCoSo = cfg.laiSuatCoSo != null ? cfg.laiSuatCoSo : 12;
-  const vonLuuDongChuan = cfg.vonLuuDongChuan != null ? cfg.vonLuuDongChuan : 4000000000;
-  const soNgayNhapHang = cfg.soNgayNhapHang != null ? cfg.soNgayNhapHang : 90;
-  const soNgayBaoHanh = cfg.soNgayBaoHanh != null ? cfg.soNgayBaoHanh : 365;
-  const tiLeBaoHanh = cfg.tiLeBaoHanh != null ? cfg.tiLeBaoHanh : 5;
+  const laiSuatCoSo = params.laiSuatCoSo != null ? params.laiSuatCoSo : (cfg.laiSuatCoSo != null ? cfg.laiSuatCoSo : 12);
+  const vonLuuDongChuan = params.vonLuuDongChuan != null ? params.vonLuuDongChuan : (cfg.vonLuuDongChuan != null ? cfg.vonLuuDongChuan : 4000000000);
+  const soNgayNhapHang = params.soNgayNhapHang != null ? params.soNgayNhapHang : (cfg.soNgayNhapHang != null ? cfg.soNgayNhapHang : 90);
+  const tiLeTamUngNCC = params.tiLeTamUngNCC != null ? params.tiLeTamUngNCC : (cfg.tiLeTamUngNCC != null ? cfg.tiLeTamUngNCC : 100);
+  const soNgayBaoHanh = params.soNgayBaoHanh != null ? params.soNgayBaoHanh : (cfg.soNgayBaoHanh != null ? cfg.soNgayBaoHanh : 365);
+  const tiLeBaoHanh = params.tiLeBaoHanh != null ? params.tiLeBaoHanh : (cfg.tiLeBaoHanh != null ? cfg.tiLeBaoHanh : 5);
+  const tiLeBaoLanhDuThau = params.tiLeBaoLanhDuThau != null ? params.tiLeBaoLanhDuThau : (cfg.tiLeBaoLanhDuThau != null ? cfg.tiLeBaoLanhDuThau : 2);
+  const soNgayBaoLanhDuThau = params.soNgayBaoLanhDuThau != null ? params.soNgayBaoLanhDuThau : (cfg.soNgayBaoLanhDuThau != null ? cfg.soNgayBaoLanhDuThau : 90);
+  const tiLeBaoLanhThucHienHD = params.tiLeBaoLanhThucHienHD != null ? params.tiLeBaoLanhThucHienHD : (cfg.tiLeBaoLanhThucHienHD != null ? cfg.tiLeBaoLanhThucHienHD : 5);
+  const soNgayBaoLanhThucHienHD = params.soNgayBaoLanhThucHienHD != null ? params.soNgayBaoLanhThucHienHD : (cfg.soNgayBaoLanhThucHienHD != null ? cfg.soNgayBaoLanhThucHienHD : 90);
+  const phiBaoLanhDuThau = params.phiBaoLanhDuThau != null ? params.phiBaoLanhDuThau : (cfg.phiBaoLanhDuThau != null ? cfg.phiBaoLanhDuThau : 0.48);
+  const phiBaoLanhThucHienHD = params.phiBaoLanhThucHienHD != null ? params.phiBaoLanhThucHienHD : (cfg.phiBaoLanhThucHienHD != null ? cfg.phiBaoLanhThucHienHD : 0.6);
+  const phiBaoLanhBaoHanh = params.phiBaoLanhBaoHanh != null ? params.phiBaoLanhBaoHanh : (cfg.phiBaoLanhBaoHanh != null ? cfg.phiBaoLanhBaoHanh : 0.6);
+  const phiBaoLanhToiThieu = params.phiBaoLanhToiThieu != null ? params.phiBaoLanhToiThieu : (cfg.phiBaoLanhToiThieu != null ? cfg.phiBaoLanhToiThieu : 500000);
   const phiBanHangTrienKhai = params.phiBanHangTrienKhai || 0;
   const hoaHongKD = params.hoaHongKD || 0;
   const giaDuToan = params.giaDuToan || 0;
@@ -2215,14 +2246,26 @@ app.get('/share/:id', (req, res) => {
   const tongTrongSo = items.reduce((s, item) => { const gn = (item.soLuong || 0) * (item.donGiaNhap || 0); return s + (firstGiaNhap > 0 ? gn / firstGiaNhap : 0); }, 0);
   const loiNhuanGop = giaChaoToiThieu - tongGiaNhap;
   const cpDuThau = phiDuThau + phiTrungThau;
+  const vonNhap = tongGiaNhap * tiLeTamUngNCC / 100;
+  const vonDuThau = giaDuToan * tiLeBaoLanhDuThau / 100;
+  const vonThucHien = giaDuToan * tiLeBaoLanhThucHienHD / 100;
   const vonBaoHanh = giaDuToan * tiLeBaoHanh / 100;
-  const laiSuatVon = vonLuuDongChuan > 0 ? laiSuatCoSo * (1 + (tongGiaNhap + vonBaoHanh) / vonLuuDongChuan) : laiSuatCoSo;
-  const cpVon = Math.round(tongGiaNhap * laiSuatVon * soNgayNhapHang / 100 / 365 + vonBaoHanh * laiSuatVon * soNgayBaoHanh / 100 / 365);
+  const laiSuatVon = vonLuuDongChuan > 0 ? laiSuatCoSo * (1 + (vonNhap + vonDuThau + vonThucHien + vonBaoHanh) / vonLuuDongChuan) : laiSuatCoSo;
+  const cpVon = Math.round(
+    vonNhap * laiSuatVon * soNgayNhapHang / 100 / 365
+    + vonDuThau * laiSuatVon * soNgayBaoLanhDuThau / 100 / 365
+    + vonThucHien * laiSuatVon * soNgayBaoLanhThucHienHD / 100 / 365
+    + vonBaoHanh * laiSuatVon * soNgayBaoHanh / 100 / 365
+  );
+  const phiBLDuThau = Math.max(phiBaoLanhToiThieu, vonDuThau * phiBaoLanhDuThau / 100 * soNgayBaoLanhDuThau / 365);
+  const phiBLThucHien = Math.max(phiBaoLanhToiThieu, vonThucHien * phiBaoLanhThucHienHD / 100 * soNgayBaoLanhThucHienHD / 365);
+  const phiBLBaoHanh = Math.max(phiBaoLanhToiThieu, vonBaoHanh * phiBaoLanhBaoHanh / 100 * soNgayBaoHanh / 365);
+  const cpBaoLanh = giaDuToan > 0 ? Math.round(phiBLDuThau + phiBLThucHien + phiBLBaoHanh) : 0;
   const cpTrienKhai = phiBanHangTrienKhai;
-  const loiNhuanGopKD = loiNhuanGop - cpDuThau - cpVon - cpTrienKhai;
+  const loiNhuanGopKD = loiNhuanGop - cpDuThau - cpVon - cpBaoLanh - cpTrienKhai;
   const hhKD = loiNhuanGopKD > 0 ? Math.round(loiNhuanGopKD * hoaHongKD / 100) : 0;
   const loiNhuanRong = loiNhuanGopKD - hhKD;
-  const tiLeLNRVon = tongGiaNhap > 0 ? loiNhuanRong / tongGiaNhap * 100 : 0;
+  const tiLeLNRVon = giaChaoToiThieu > 0 ? loiNhuanRong / giaChaoToiThieu * 100 : 0;
 
   let h = '<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">';
   h += '<title>' + esc(p.name) + ' - Đề xuất giá dự thầu</title>';
@@ -2294,14 +2337,25 @@ app.get('/share/:id', (req, res) => {
   const tiLeLNGActual = giaChaoToiThieu > 0 ? (loiNhuanGop / giaChaoToiThieu * 100) : 0;
   h += '<tr><td>Lợi nhuận gộp</td><td class="n pr">' + (loiNhuanGop >= 0 ? '' : '-') + fmt(Math.abs(loiNhuanGop)) + ' ₫</td></tr>';
   h += '<tr><td>Tỷ lệ LNG</td><td class="n pr">' + tiLeLNGActual.toFixed(1) + '%</td></tr>';
-  h += '<tr><td>Phí dự thầu</td><td class="n" style="color:#e74c3c">-' + fmt(phiDuThau) + ' ₫</td></tr>';
-  h += '<tr><td>Phí trúng thầu</td><td class="n" style="color:#e74c3c">-' + fmt(phiTrungThau) + ' ₫</td></tr>';
+  const cpThau = phiDuThau + phiTrungThau;
+  h += '<tr><td>Chi phí thầu</td><td class="n" style="color:#e74c3c">-' + fmt(cpThau) + ' ₫</td></tr>';
+  const sub = 'style="font-size:11px;color:#888;padding-left:18px"';
+  h += '<tr><td ' + sub + '>• Chi phí dự thầu</td><td class="n" style="font-size:11px;color:#888">-' + fmt(phiDuThau) + ' ₫</td></tr>';
+  h += '<tr><td ' + sub + '>• Phí trúng thầu</td><td class="n" style="font-size:11px;color:#888">-' + fmt(phiTrungThau) + ' ₫</td></tr>';
   h += '<tr><td>Chi phí vốn</td><td class="n" style="color:#e74c3c">-' + fmt(cpVon) + ' (lãi suất vốn ' + laiSuatVon.toFixed(1) + '%)</td></tr>';
+  h += '<tr><td ' + sub + '>• Vốn nhập hàng (' + fmt(vonNhap) + ' × ' + soNgayNhapHang + ' ngày, ' + tiLeTamUngNCC.toFixed(0) + '% tạm ứng)</td><td class="n" style="font-size:11px;color:#888">-' + fmt(Math.round(vonNhap * laiSuatVon * soNgayNhapHang / 100 / 365)) + ' ₫</td></tr>';
+  h += '<tr><td ' + sub + '>• Bảo lãnh dự thầu (' + fmt(vonDuThau) + ' × ' + soNgayBaoLanhDuThau + ' ngày)</td><td class="n" style="font-size:11px;color:#888">-' + fmt(Math.round(vonDuThau * laiSuatVon * soNgayBaoLanhDuThau / 100 / 365)) + ' ₫</td></tr>';
+  h += '<tr><td ' + sub + '>• Bảo lãnh thực hiện HĐ (' + fmt(vonThucHien) + ' × ' + soNgayBaoLanhThucHienHD + ' ngày)</td><td class="n" style="font-size:11px;color:#888">-' + fmt(Math.round(vonThucHien * laiSuatVon * soNgayBaoLanhThucHienHD / 100 / 365)) + ' ₫</td></tr>';
+  h += '<tr><td ' + sub + '>• Bảo lãnh bảo hành (' + fmt(vonBaoHanh) + ' × ' + soNgayBaoHanh + ' ngày)</td><td class="n" style="font-size:11px;color:#888">-' + fmt(Math.round(vonBaoHanh * laiSuatVon * soNgayBaoHanh / 100 / 365)) + ' ₫</td></tr>';
+  h += '<tr><td>Chi phí bảo lãnh</td><td class="n" style="color:#e74c3c">-' + fmt(cpBaoLanh) + ' (phí ký quỹ ' + phiBaoLanhDuThau.toFixed(2) + '/' + phiBaoLanhThucHienHD.toFixed(2) + '/' + phiBaoLanhBaoHanh.toFixed(2) + '%/năm, tối thiểu ' + fmt(phiBaoLanhToiThieu) + '/loại)</td></tr>';
+  h += '<tr><td ' + sub + '>• Dự thầu</td><td class="n" style="font-size:11px;color:#888">-' + fmt(Math.round(phiBLDuThau)) + ' ₫</td></tr>';
+  h += '<tr><td ' + sub + '>• Thực hiện HĐ</td><td class="n" style="font-size:11px;color:#888">-' + fmt(Math.round(phiBLThucHien)) + ' ₫</td></tr>';
+  h += '<tr><td ' + sub + '>• Bảo hành</td><td class="n" style="font-size:11px;color:#888">-' + fmt(Math.round(phiBLBaoHanh)) + ' ₫</td></tr>';
   h += '<tr><td>Chi phí bán hàng/triển khai</td><td class="n" style="color:#e74c3c">-' + fmt(cpTrienKhai) + ' ₫</td></tr>';
   h += '<tr><td>Lợi nhuận gộp KD</td><td class="n pr">' + (loiNhuanGopKD >= 0 ? '' : '-') + fmt(Math.abs(loiNhuanGopKD)) + ' ₫</td></tr>';
   h += '<tr><td>Hoa hồng KD</td><td class="n" style="color:#e74c3c">-' + fmt(hhKD) + ' (' + hoaHongKD + '%)</td></tr>';
   h += '<tr style="border-top:2px solid #1a3a5c"><td style="font-weight:700">Lợi nhuận ròng</td><td class="n pr hl">' + (loiNhuanRong >= 0 ? '' : '-') + fmt(Math.abs(loiNhuanRong)) + ' ₫</td></tr>';
-  h += '<tr><td>Tỷ lệ LNR / Vốn</td><td class="n pr hl">' + (tiLeLNRVon >= 0 ? '' : '-') + Math.abs(tiLeLNRVon).toFixed(1) + '%</td></tr></table>';
+  h += '<tr><td>Tỷ lệ LNR / Doanh thu</td><td class="n pr hl">' + (tiLeLNRVon >= 0 ? '' : '-') + Math.abs(tiLeLNRVon).toFixed(1) + '%</td></tr></table>';
 
   let secIdx = 0;
   if (p.ketQuaTrungThau) {
@@ -2506,20 +2560,41 @@ app.get('/admin/report', auth, (req, res) => {
 
     const loiNhuanGop = giaBan - tongGiaNhap;
     const cpDuThau = (params.phiDuThau || 0) + (params.phiTrungThau || 0);
-    const laiSuatCoSo = cfg.laiSuatCoSo != null ? cfg.laiSuatCoSo : 12;
-    const vonLuuDongChuan = cfg.vonLuuDongChuan != null ? cfg.vonLuuDongChuan : 4000000000;
-    const soNgayNhapHang = cfg.soNgayNhapHang != null ? cfg.soNgayNhapHang : 90;
-    const soNgayBaoHanh = cfg.soNgayBaoHanh != null ? cfg.soNgayBaoHanh : 365;
-    const tiLeBaoHanh = cfg.tiLeBaoHanh != null ? cfg.tiLeBaoHanh : 5;
+    const laiSuatCoSo = params.laiSuatCoSo != null ? params.laiSuatCoSo : (cfg.laiSuatCoSo != null ? cfg.laiSuatCoSo : 12);
+    const vonLuuDongChuan = params.vonLuuDongChuan != null ? params.vonLuuDongChuan : (cfg.vonLuuDongChuan != null ? cfg.vonLuuDongChuan : 4000000000);
+    const soNgayNhapHang = params.soNgayNhapHang != null ? params.soNgayNhapHang : (cfg.soNgayNhapHang != null ? cfg.soNgayNhapHang : 90);
+    const tiLeTamUngNCC = params.tiLeTamUngNCC != null ? params.tiLeTamUngNCC : (cfg.tiLeTamUngNCC != null ? cfg.tiLeTamUngNCC : 100);
+    const soNgayBaoHanh = params.soNgayBaoHanh != null ? params.soNgayBaoHanh : (cfg.soNgayBaoHanh != null ? cfg.soNgayBaoHanh : 365);
+    const tiLeBaoHanh = params.tiLeBaoHanh != null ? params.tiLeBaoHanh : (cfg.tiLeBaoHanh != null ? cfg.tiLeBaoHanh : 5);
+    const tiLeBaoLanhDuThau = params.tiLeBaoLanhDuThau != null ? params.tiLeBaoLanhDuThau : (cfg.tiLeBaoLanhDuThau != null ? cfg.tiLeBaoLanhDuThau : 2);
+    const soNgayBaoLanhDuThau = params.soNgayBaoLanhDuThau != null ? params.soNgayBaoLanhDuThau : (cfg.soNgayBaoLanhDuThau != null ? cfg.soNgayBaoLanhDuThau : 90);
+    const tiLeBaoLanhThucHienHD = params.tiLeBaoLanhThucHienHD != null ? params.tiLeBaoLanhThucHienHD : (cfg.tiLeBaoLanhThucHienHD != null ? cfg.tiLeBaoLanhThucHienHD : 5);
+    const soNgayBaoLanhThucHienHD = params.soNgayBaoLanhThucHienHD != null ? params.soNgayBaoLanhThucHienHD : (cfg.soNgayBaoLanhThucHienHD != null ? cfg.soNgayBaoLanhThucHienHD : 90);
+    const phiBaoLanhDuThau = params.phiBaoLanhDuThau != null ? params.phiBaoLanhDuThau : (cfg.phiBaoLanhDuThau != null ? cfg.phiBaoLanhDuThau : 0.48);
+    const phiBaoLanhThucHienHD = params.phiBaoLanhThucHienHD != null ? params.phiBaoLanhThucHienHD : (cfg.phiBaoLanhThucHienHD != null ? cfg.phiBaoLanhThucHienHD : 0.6);
+    const phiBaoLanhBaoHanh = params.phiBaoLanhBaoHanh != null ? params.phiBaoLanhBaoHanh : (cfg.phiBaoLanhBaoHanh != null ? cfg.phiBaoLanhBaoHanh : 0.6);
+    const phiBaoLanhToiThieu = params.phiBaoLanhToiThieu != null ? params.phiBaoLanhToiThieu : (cfg.phiBaoLanhToiThieu != null ? cfg.phiBaoLanhToiThieu : 500000);
+    const vonNhap = tongGiaNhap * tiLeTamUngNCC / 100;
+    const vonDuThau = giaDuToanStat * tiLeBaoLanhDuThau / 100;
+    const vonThucHien = giaDuToanStat * tiLeBaoLanhThucHienHD / 100;
     const vonBaoHanh = giaDuToanStat * tiLeBaoHanh / 100;
-    const laiSuatVon = vonLuuDongChuan > 0 ? laiSuatCoSo * (1 + (tongGiaNhap + vonBaoHanh) / vonLuuDongChuan) : laiSuatCoSo;
-    const cpVon = Math.round(tongGiaNhap * laiSuatVon * soNgayNhapHang / 100 / 365 + vonBaoHanh * laiSuatVon * soNgayBaoHanh / 100 / 365);
+    const laiSuatVon = vonLuuDongChuan > 0 ? laiSuatCoSo * (1 + (vonNhap + vonDuThau + vonThucHien + vonBaoHanh) / vonLuuDongChuan) : laiSuatCoSo;
+    const cpVon = Math.round(
+      vonNhap * laiSuatVon * soNgayNhapHang / 100 / 365
+      + vonDuThau * laiSuatVon * soNgayBaoLanhDuThau / 100 / 365
+      + vonThucHien * laiSuatVon * soNgayBaoLanhThucHienHD / 100 / 365
+      + vonBaoHanh * laiSuatVon * soNgayBaoHanh / 100 / 365
+    );
+    const phiBLDuThau = Math.max(phiBaoLanhToiThieu, vonDuThau * phiBaoLanhDuThau / 100 * soNgayBaoLanhDuThau / 365);
+    const phiBLThucHien = Math.max(phiBaoLanhToiThieu, vonThucHien * phiBaoLanhThucHienHD / 100 * soNgayBaoLanhThucHienHD / 365);
+    const phiBLBaoHanh = Math.max(phiBaoLanhToiThieu, vonBaoHanh * phiBaoLanhBaoHanh / 100 * soNgayBaoHanh / 365);
+    const cpBaoLanh = giaDuToanStat > 0 ? Math.round(phiBLDuThau + phiBLThucHien + phiBLBaoHanh) : 0;
     const cpTrienKhai = params.phiBanHangTrienKhai || 0;
     const hoaHongKD = params.hoaHongKD || 0;
-    const loiNhuanGopKD = loiNhuanGop - cpDuThau - cpVon - cpTrienKhai;
+    const loiNhuanGopKD = loiNhuanGop - cpDuThau - cpVon - cpBaoLanh - cpTrienKhai;
     const hhKD = loiNhuanGopKD > 0 ? Math.round(loiNhuanGopKD * hoaHongKD / 100) : 0;
     const loiNhuanRong = loiNhuanGopKD - hhKD;
-    const tiLeLNR = tongGiaNhap > 0 ? loiNhuanRong / tongGiaNhap * 100 : 0;
+    const tiLeLNR = giaBan > 0 ? loiNhuanRong / giaBan * 100 : 0;
 
     const giaTrungThau = p.giaTrungThau;
 
