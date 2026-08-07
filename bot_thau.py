@@ -308,57 +308,53 @@ def fetch_tbmt_detail_json(page, tbmt_id):
 def find_plan_id_by_no(page, plan_no):
     """
     Search tìm Plan ID từ Plan No (Fallback logic - Homepage).
+    Trả về (plan_id, price, item).
+    price có thể lấy trực tiếp từ kết quả search, không cần vào Plan detail.
     """
     print(f"      🔎 [Fallback] Looking up Plan info for: {plan_no}")
     try:
-        # 1. Vào trang chủ (render=index) chứa selector radio-khlcnt như user cung cấp
         search_url = "https://muasamcong.mpi.gov.vn/web/guest/contractor-selection?render=index"
         page.goto(search_url, wait_until="domcontentloaded")
         
-        # 2. Click Radio Button KHLCNT
-        # Selector user cung cấp: <label for="radio-khlcnt"><input id="radio-khlcnt" ...></label>
         try:
-            # Click vào label là chuẩn nhất
             page.locator("label[for='radio-khlcnt']").first.click(timeout=5000)
-            
-            # Double check: kiểm tra xem input có checked không
             is_checked = page.evaluate("document.querySelector('#radio-khlcnt').checked")
             if not is_checked:
-                print("        ⚠️ Radio not checked after label click. Forcing JS click...")
                 page.evaluate("document.querySelector('#radio-khlcnt').click()")
-                
         except Exception as e:
             print(f"        ⚠️ Click radio KHLCNT failed: {e}")
-            # Fallback cuối cùng: Force click input
             try:
                 page.locator("#radio-khlcnt").click(timeout=2000, force=True)
             except:
                 pass
             
-        page.wait_for_timeout(2000) # Chờ UI switch mode
+        page.wait_for_timeout(2000)
             
-        # 3. Nhập từ khóa
         search_input = 'input[name="keyword"]'
         page.wait_for_selector(search_input, timeout=15000)
         page.fill(search_input, plan_no)
         
-        # 4. Trigger Search
         with page.expect_response(lambda r: "contractor-selection" in r.url and r.status == 200, timeout=15000) as resp:
             page.keyboard.press("Enter")
             
         data = resp.value.json()
         items = data.get('data') or data.get('page', {}).get('content') or []
         
-        # 5. Tìm chính xác planNo
         for item in items:
             p_no = safe_get_text(item.get('planNo') or item.get('notifyNo')).strip()
             if p_no == plan_no:
-                return safe_get_text(item.get('id')), item
+                plan_id = safe_get_text(item.get('id'))
+                # bidPrice từ KHLCNT search thường là list [value]
+                bid_price = item.get('bidPrice')
+                if isinstance(bid_price, (list, tuple)) and len(bid_price) > 0:
+                    bid_price = bid_price[0]
+                bid_price = normalize_price(bid_price)
+                return plan_id, bid_price, item
                 
-        return None, None
+        return None, None, None
     except Exception as e:
         print(f"      ⚠️ Lookup failed: {e}")
-        return None, None
+        return None, None, None
 
 def get_khlcnt_price_from_plan(kh_page, plan_cache, plan_no, tbmt_notify_no, tbmt_id):
     """
@@ -416,8 +412,11 @@ def get_khlcnt_price_from_plan(kh_page, plan_cache, plan_no, tbmt_notify_no, tbm
             
         if not plan_id:
             print(f"      ⚠️ Missing Plan ID. Switching to Search Fallback (Homepage)...")
-            # Fallback: Search thủ công
-            plan_id, _ = find_plan_id_by_no(kh_page, plan_no)
+            # Fallback: Search thủ công, có thể lấy luôn bidPrice từ kết quả
+            plan_id, search_price, _ = find_plan_id_by_no(kh_page, plan_no)
+            if search_price is not None:
+                print(f"      💰 Found Price from Plan Search: {format_vnd(search_price)}")
+                return search_price, 'VND', guarantee_val
             
         if not plan_id:
             print("      ❌ Fallback failed. Cannot find Plan ID.")
@@ -621,7 +620,8 @@ def send_bid_data(trello_card_id, item, bid_no, bid_name, keyword_tag, kh_price,
                 "benMoiThau": safe_get_text(item.get('investorName')),
                 "thoiGianDongThau": close_date_str or '',
                 "diaDiem": dia_diem,
-                "giaDuToan": int(gia_du_toan) if gia_du_toan else None
+                "giaDuToan": int(gia_du_toan) if gia_du_toan else None,
+                "bidForm": safe_get_text(item.get('bidForm')).upper() if item.get('bidForm') else ''
             },
             "scrapedAt": datetime.utcnow().isoformat() + 'Z'
         }
@@ -736,10 +736,14 @@ def run_bot():
             print(f"   🃏 Max cards per keyword: {max_cards_per_keyword}")
         only_rut_gon = config.get('onlyRutGon', True)
         if only_rut_gon:
-            print("   🎯 Only rút gọn packages (CGTTRG/CHTRG)")
+            print("   🎯 Only rút gọn packages (mã kết thúc bằng RG)")
+        only_online = config.get('onlyOnline', True)
+        if only_online:
+            print("   🌐 Only online bids (QUA_MANG)")
     else:
         print("   ℹ️ Using default keywords and filters")
         only_rut_gon = True
+        only_online = True
     # -------------------------------------------------
 
     with sync_playwright() as p:
@@ -850,10 +854,18 @@ def run_bot():
                         print(f"      ⚠️ Skip: '{bid_no}' already processed.")
                         continue
 
-                    # Rut Gon filter
+                    # Online bid filter
+                    if only_online:
+                        process_apply = safe_get_text(item.get('processApply')).upper()
+                        if process_apply != 'QUA_MANG':
+                            print(f"      ⚠️ Skip: Non-online bid (processApply={process_apply})")
+                            save_discarded_id(bid_no, "non-online bid", discarded_ids)
+                            continue
+
+                    # Rut Gon filter (mã kết thúc bằng RG)
                     if only_rut_gon:
                         bid_form = safe_get_text(item.get('bidForm')).upper()
-                        if bid_form not in ('CGTTRG', 'CHTRG'):
+                        if not bid_form.endswith('RG'):
                             continue
                         
                     print(f"   📦 Processing: [{bid_no}] {bid_name[:20]}...")

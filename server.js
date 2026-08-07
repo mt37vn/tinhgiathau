@@ -22,6 +22,9 @@ const USER_FILE = path.join(DATA_DIR, 'users.json');
 const SUPPLIER_FILE = path.join(DATA_DIR, 'suppliers.json');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 const SCRAPED_BIDS_FILE = path.join(DATA_DIR, 'scraped-bids.json');
+const TBMT_API_BASE = 'https://hsmt.haproinfo.vn/api';
+const TBMT_API_KEY = 'inf0@hapro';
+const TBMT_DIR = path.join(DATA_DIR, 'tbmt-files');
 
 app.use(express.json());
 app.get('/', (req, res) => {
@@ -43,6 +46,17 @@ if (!fs.existsSync(PROJ_FILE)) fs.writeFileSync(PROJ_FILE, JSON.stringify({ proj
 if (!fs.existsSync(SUPPLIER_FILE)) fs.writeFileSync(SUPPLIER_FILE, JSON.stringify({ suppliers: [] }, null, 2));
 if (!fs.existsSync(CONFIG_FILE)) fs.writeFileSync(CONFIG_FILE, JSON.stringify({ companyName: 'CÔNG TY CỔ PHẦN THÔNG TIN HAPRO' }, null, 2));
 if (!fs.existsSync(SCRAPED_BIDS_FILE)) fs.writeFileSync(SCRAPED_BIDS_FILE, JSON.stringify({ entries: [] }, null, 2));
+if (!fs.existsSync(TBMT_DIR)) fs.mkdirSync(TBMT_DIR, { recursive: true });
+
+function isRutGonProject(project) {
+  const info = project.projectInfo;
+  if (!info) return false;
+  if (info.isRutGon) return true;
+  if (info.hinhThucLCNT && (info.hinhThucLCNT.includes('rút gọn') || info.hinhThucLCNT.includes('rut gon'))) return true;
+  if (info.bidForm && info.bidForm.endsWith('RG')) return true;
+  if (project.items && project.items.some(i => i.portalKyMaHieu || i.portalNhanHieu || i.portalHangSanXuat)) return true;
+  return false;
+}
 
 function cleanupExpiredUpcoming() {
   try {
@@ -535,7 +549,7 @@ app.get('/api/version', (req, res) => {
   if (process.env.APP_VERSION) return res.json({ version: process.env.APP_VERSION });
   try {
     const v = execSync(
-      'git describe --tags --abbrev=0 || git rev-parse --short HEAD || echo unknown',
+      'git rev-parse --short HEAD || git describe --tags --abbrev=0 || echo unknown',
       { cwd: __dirname, encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }
     ).trim();
     res.json({ version: v || 'unknown' });
@@ -554,7 +568,8 @@ app.get('/api/settings', (req, res) => {
     scraperLocations: config.scraperLocations || [],
     scraperMaxBidPrice: config.scraperMaxBidPrice || 2000000000,
     scraperMaxCardsPerKeyword: config.scraperMaxCardsPerKeyword || 5,
-    scraperOnlyRutGon: config.scraperOnlyRutGon !== false
+    scraperOnlyRutGon: config.scraperOnlyRutGon !== false,
+    scraperOnlyOnline: config.scraperOnlyOnline !== false
   });
 });
 app.put('/api/settings', auth, adminOnly, (req, res) => {
@@ -565,6 +580,7 @@ app.put('/api/settings', auth, adminOnly, (req, res) => {
   if (req.body.scraperMaxBidPrice !== undefined) config.scraperMaxBidPrice = req.body.scraperMaxBidPrice;
   if (req.body.scraperMaxCardsPerKeyword !== undefined) config.scraperMaxCardsPerKeyword = req.body.scraperMaxCardsPerKeyword;
   if (req.body.scraperOnlyRutGon !== undefined) config.scraperOnlyRutGon = req.body.scraperOnlyRutGon;
+  if (req.body.scraperOnlyOnline !== undefined) config.scraperOnlyOnline = req.body.scraperOnlyOnline;
   writeData(CONFIG_FILE, config);
   res.json({ ok: true });
 });
@@ -581,7 +597,8 @@ app.get('/api/scraper-config', (req, res) => {
     locations: config.scraperLocations || [],
     maxBidPrice: config.scraperMaxBidPrice || 2000000000,
     maxCardsPerKeyword: config.scraperMaxCardsPerKeyword || 5,
-    onlyRutGon: config.scraperOnlyRutGon !== false
+    onlyRutGon: config.scraperOnlyRutGon !== false,
+    onlyOnline: config.scraperOnlyOnline !== false
   });
 });
 
@@ -602,12 +619,12 @@ app.get('/api/project-ids', (req, res) => {
   const p = path.join(DATA_DIR, 'projects.json');
   if (fs.existsSync(p)) {
     const data = readData(p);
-    const ids = data.projects.map(proj => ({
-      id: proj.id,
-      maDauThau: (proj.projectInfo && proj.projectInfo.maDauThau) || null,
-      name: (proj.projectInfo && proj.projectInfo.tenCongTrinh) || proj.name || '',
-      status: proj.status || 'draft'
-    }));
+    const ids = data.projects
+      .filter(proj => !isRutGonProject(proj))
+      .map(proj => ({
+        id: proj.id,
+        maDauThau: (proj.projectInfo && proj.projectInfo.maDauThau) || null,
+      }));
     return res.json({ projects: ids, count: ids.length });
   }
   res.json({ projects: [], count: 0 });
@@ -653,6 +670,22 @@ app.post('/api/receive-bid', (req, res) => {
   );
   if (matchingProj) {
     matchingProj.trello_card_id = trello_card_id;
+    const pInfo = matchingProj.projectInfo || {};
+    const incomingBidForm = (projectInfo && projectInfo.bidForm) || pInfo.bidForm || '';
+    if (incomingBidForm && !pInfo.bidForm) pInfo.bidForm = incomingBidForm;
+    if (incomingBidForm && !pInfo.hinhThucLCNT) {
+      const bidFormLabels = { 'CGTTRG':'Chào hàng cạnh tranh rút gọn','CHTRG':'Chào hàng cạnh tranh rút gọn','DTRR':'Đấu thầu rộng rãi','CHCT':'Chào hàng cạnh tranh','DTHC':'Đấu thầu hạn chế','DTTH':'Đấu thầu thường','CHTH':'Chào hàng cạnh tranh thường','MSTT':'Mua sắm trực tiếp','CDH':'Chỉ định thầu' };
+      let label = bidFormLabels[incomingBidForm];
+      if (!label && incomingBidForm.endsWith('RG')) {
+        for (let i = incomingBidForm.length - 1; i >= 2; i--) {
+          const base = incomingBidForm.substring(0, i);
+          if (bidFormLabels[base]) { label = bidFormLabels[base] + ' rút gọn'; break; }
+        }
+      }
+      pInfo.hinhThucLCNT = label ? 'Hình thức LCNT: ' + label : '';
+    }
+    if (!pInfo.isRutGon && (pInfo.hinhThucLCNT || '').includes('rút gọn')) pInfo.isRutGon = true;
+    if (items && items.length > 0) matchingProj.items = items;
     matchingProj.updatedAt = new Date().toISOString();
     writeData(PROJ_FILE, projData);
   } else {
@@ -913,6 +946,15 @@ app.put('/api/projects/:id', auth, (req, res) => {
   const maDauThau = req.body.projectInfo && req.body.projectInfo.maDauThau ? req.body.projectInfo.maDauThau.trim() : '';
   if (maDauThau && data.projects.some((p, i) => i !== idx && p.projectInfo && p.projectInfo.maDauThau === maDauThau))
     return res.status(400).json({ error: 'Mã đấu thầu đã tồn tại' });
+  const items = req.body.items || [];
+  const params = req.body.params || {};
+  const tiLeLNG = params.tiLeLNG || 0;
+  const giaDuToan = params.giaDuToan || 0;
+  let tongGiaNhap = 0;
+  for (const item of items) tongGiaNhap += (item.soLuong || 0) * (item.donGiaNhap || 0);
+  const giaChaoToiThieu = tiLeLNG >= 100 ? 0 : (tiLeLNG > 0 ? Math.round(tongGiaNhap / (1 - tiLeLNG / 100)) : tongGiaNhap);
+  if (giaDuToan > 0 && giaChaoToiThieu > giaDuToan)
+    return res.status(400).json({ error: 'Giá chào tối thiểu không được cao hơn giá dự toán' });
   const project = data.projects[idx];
   const updated = { ...project, ...req.body, id: req.params.id, updatedAt: new Date().toISOString() };
   // Transition upcoming to draft on first human interaction
@@ -1100,6 +1142,24 @@ app.get('/api/fetch-bidding-info/:ibCode', auth, async (req, res) => {
     const localEntry = scrapedData.entries && scrapedData.entries.find(e => e.bid_no === ibCode);
     if (localEntry) {
       const info = localEntry.projectInfo || {};
+      const hasPortalItems = localEntry.items && localEntry.items.some(i => i.portalKyMaHieu || i.portalNhanHieu || i.portalHangSanXuat);
+      const localBidForm = info.bidForm || localEntry.bidForm || '';
+      const isRutGon = hasPortalItems || (localBidForm && (localBidForm.endsWith('RG') || localBidForm.toLowerCase().includes('rút gọn') || localBidForm.toLowerCase().includes('rut gon')));
+      let hinhThucLCNT = info.hinhThucLCNT || '';
+      if (!hinhThucLCNT && isRutGon) {
+        if (localBidForm) {
+          const bidFormLabels = { 'CGTTRG':'Chào hàng cạnh tranh rút gọn','CHTRG':'Chào hàng cạnh tranh rút gọn','DTRR':'Đấu thầu rộng rãi','DTHC':'Đấu thầu hạn chế','DTTH':'Đấu thầu thường','CHCT':'Chào hàng cạnh tranh','CHTH':'Chào hàng cạnh tranh thường','MSTT':'Mua sắm trực tiếp','CDH':'Chỉ định thầu' };
+          let label = bidFormLabels[localBidForm];
+          if (!label && localBidForm.endsWith('RG')) {
+            for (let i = localBidForm.length - 1; i >= 2; i--) {
+              const base = localBidForm.substring(0, i);
+              if (bidFormLabels[base]) { label = bidFormLabels[base] + ' rút gọn'; break; }
+            }
+          }
+          hinhThucLCNT = label ? 'Hình thức LCNT: ' + label : '';
+        }
+        if (!hinhThucLCNT) hinhThucLCNT = 'Hình thức LCNT: Chào hàng cạnh tranh rút gọn';
+      }
       return res.json({
         tenCongTrinh: info.tenCongTrinh || localEntry.bid_name || '',
         benMoiThau: info.benMoiThau || '',
@@ -1107,6 +1167,20 @@ app.get('/api/fetch-bidding-info/:ibCode', auth, async (req, res) => {
         giaDuToan: info.giaDuToan || null,
         diaDiem: info.diaDiem || '',
         bidNo: ibCode,
+        bidForm: localBidForm,
+        hinhThucLCNT,
+        isRutGon,
+        // Extra metadata fields
+        planNo: info.planNo || '',
+        bidOpenDate: info.bidOpenDate || '',
+        publicDate: info.publicDate || '',
+        investField: info.investField || '',
+        bidMode: info.bidMode || '',
+        capitalDetail: info.capitalDetail || '',
+        processApply: info.processApply || '',
+        contractType: info.contractType || '',
+        contractPeriod: info.contractPeriod || '',
+        contractPeriodUnit: info.contractPeriodUnit || '',
         items: localEntry.items || [],
         itemsStatus: localEntry.items && localEntry.items.length > 0 ? 'fetched' : 'not-found',
         source: 'scraper',
@@ -1164,10 +1238,24 @@ app.get('/api/fetch-bidding-info/:ibCode', auth, async (req, res) => {
     }
 
     const bidForm = extractValue(responseData.bidForm);
+    const isRutGon = bidForm && (bidForm.endsWith('RG') || bidForm.toLowerCase().includes('rút gọn') || bidForm.toLowerCase().includes('rut gon'));
+
     const processApply = extractValue(responseData.processApply);
-    const isRutGon = bidForm === 'CGTTRG' || bidForm === 'CHTRG' || (bidForm && (bidForm.toLowerCase().includes('rút gọn') || bidForm.toLowerCase().includes('rut gon')));
-    const bidFormLabels = { 'CGTTRG': 'Chào hàng cạnh tranh rút gọn', 'CHTRG': 'Chào hàng cạnh tranh rút gọn', 'DTRR': 'Đấu thầu rộng rãi', 'DTHC': 'Đấu thầu hạn chế', 'DTTH': 'Đấu thầu thường', 'CHTH': 'Chào hàng cạnh tranh thường', 'MSTT': 'Mua sắm trực tiếp', 'CDH': 'Chỉ định thầu' };
-    const bidFormLabel = bidFormLabels[bidForm] || ('Hình thức: ' + bidForm);
+    // Gói rút gọn luôn qua mạng, không cần kiểm tra processApply
+    if (processApply && processApply.toUpperCase() !== 'QUA_MANG' && !isRutGon) {
+      return res.status(400).json({ error: `Gói thầu không qua mạng (processApply=${processApply})`, processApply });
+    }
+    const bidFormLabels = { 'CGTTRG': 'Chào hàng cạnh tranh rút gọn', 'CHTRG': 'Chào hàng cạnh tranh rút gọn', 'DTRR': 'Đấu thầu rộng rãi', 'DTHC': 'Đấu thầu hạn chế', 'DTTH': 'Đấu thầu thường', 'CHCT':'Chào hàng cạnh tranh','CHTH': 'Chào hàng cạnh tranh thường', 'MSTT': 'Mua sắm trực tiếp', 'CDH': 'Chỉ định thầu' };
+    let bidFormLabel = bidFormLabels[bidForm];
+    if (!bidFormLabel && bidForm) {
+      if (bidForm.endsWith('RG')) {
+        for (let i = bidForm.length - 1; i >= 2; i--) {
+          const base = bidForm.substring(0, i);
+          if (bidFormLabels[base]) { bidFormLabel = bidFormLabels[base] + ' rút gọn'; break; }
+        }
+      }
+      if (!bidFormLabel) bidFormLabel = 'Hình thức: ' + bidForm;
+    }
     const result = {
       tenCongTrinh: extractValue(responseData.bidName),
       benMoiThau: extractValue(responseData.investorName),
@@ -1181,7 +1269,17 @@ app.get('/api/fetch-bidding-info/:ibCode', auth, async (req, res) => {
       bidFormLabel,
       hinhThucLCNT: 'Hình thức LCNT: ' + bidFormLabel,
       processApply,
-      isRutGon
+      isRutGon,
+      // Extra metadata from search result
+      planNo: extractValue(responseData.planNo),
+      bidOpenDate: extractValue(responseData.bidOpenDate),
+      publicDate: extractValue(responseData.publicDate),
+      investField: extractValue(responseData.investField),
+      bidMode: extractValue(responseData.bidMode),
+      capitalDetail: extractValue(responseData.capitalDetail),
+      contractType: extractValue(responseData.cType || responseData.contractType),
+      contractPeriod: extractValue(responseData.cperiod || responseData.contractPeriod),
+      contractPeriodUnit: extractValue(responseData.cperiodUnit || responseData.contractPeriodUnit)
     };
 
     // Step 2: Fetch detail page for location and construction time
@@ -1446,6 +1544,14 @@ app.get('/api/fetch-bid-result/:ibCode', auth, async (req, res) => {
 
     if (!searchResult) {
       return res.status(404).json({ error: 'Không tìm thấy thông tin cho mã IB: ' + ibCode });
+    }
+
+    const bidResultBidForm = extractValue(searchResult.bidForm);
+    const bidResultIsRutGon = bidResultBidForm && (bidResultBidForm.endsWith('RG') || bidResultBidForm.toLowerCase().includes('rút gọn') || bidResultBidForm.toLowerCase().includes('rut gon'));
+
+    const bidResultProcessApply = extractValue(searchResult.processApply);
+    if (bidResultProcessApply && bidResultProcessApply.toUpperCase() !== 'QUA_MANG' && !bidResultIsRutGon) {
+      return res.status(400).json({ error: `Gói thầu không qua mạng (processApply=${bidResultProcessApply})`, processApply: bidResultProcessApply });
     }
 
     // Extract project info from search result
@@ -1846,6 +1952,167 @@ app.post('/api/projects/:id/fetch-bid-result', auth, adminOnly, async (req, res)
     writeData(PROJ_FILE, data);
     return res.status(500).json({ error: project.bidResultFetchError });
   }
+});
+
+// --- TBMT helpers ---
+function cleanupTbmtPath(tbmtCode) {
+  // Xóa file/directory cũ (có thể từ Docker chạy với quyền root) trước khi ghi mới
+  const zipPath = path.join(TBMT_DIR, `${tbmtCode}.zip`);
+  const extDir = path.join(TBMT_DIR, tbmtCode);
+  try { if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath); } catch (e) { console.warn(`[tbmt] cleanup: cannot delete ${zipPath} — ${e.message}`); }
+  try { if (fs.existsSync(extDir)) fs.rmSync(extDir, { recursive: true, force: true }); } catch (e) { console.warn(`[tbmt] cleanup: cannot delete ${extDir} — ${e.message}`); }
+}
+
+const AdmZip = require('adm-zip');
+
+function extractZip(zipPath, extDir) {
+  // Giải nén ZIP, giữ nguyên logic của scripts/extract-zip.py:
+  // bỏ qua directory entries, chỉ lấy tên file cuối cùng (flatten), xử lý backslash paths
+  fs.mkdirSync(extDir, { recursive: true });
+  const zip = new AdmZip(zipPath);
+  const entries = zip.getEntries();
+  for (const entry of entries) {
+    if (entry.isDirectory) continue;
+    const base = entry.entryName.replace(/\\/g, '/').split('/').pop();
+    if (!base) continue;
+    const target = path.join(extDir, base);
+    fs.writeFileSync(target, entry.getData());
+  }
+}
+
+// --- TBMT File Download (tự động scan nếu chưa cache, giải nén ZIP) ---
+app.post('/api/projects/:id/download-tbmt', auth, async (req, res) => {
+  const data = readData(PROJ_FILE);
+  const idx = data.projects.findIndex(p => p.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Không tìm thấy dự án' });
+
+  const project = data.projects[idx];
+  const tbmtCode = project.projectInfo && project.projectInfo.maDauThau;
+  if (!tbmtCode) return res.status(400).json({ error: 'Dự án chưa có mã đấu thầu (IB)' });
+
+  // Gói rút gọn không có file HSMT
+  if (isRutGonProject(project)) {
+    return res.status(400).json({ error: 'Gói thầu rút gọn không có hồ sơ mời thầu (HSMT) để tải' });
+  }
+
+  try {
+    let apiRes = await fetch(`${TBMT_API_BASE}/files/${encodeURIComponent(tbmtCode)}`, {
+      headers: { 'X-API-Key': TBMT_API_KEY }
+    });
+
+    if (apiRes.status === 404) {
+      const body = await apiRes.json().catch(() => ({}));
+      if (body.detail && body.detail.includes('Run POST /api/scan')) {
+        console.log(`[download-tbmt] No cache for ${tbmtCode}, triggering scan...`);
+        const scanRes = await fetch(`${TBMT_API_BASE}/scan/${encodeURIComponent(tbmtCode)}`, {
+          method: 'POST',
+          headers: { 'X-API-Key': TBMT_API_KEY }
+        });
+        if (!scanRes.ok) {
+          const scanBody = await scanRes.json().catch(() => ({}));
+          if (!(scanBody.detail && scanBody.detail.includes('in progress'))) {
+            return res.status(502).json({ error: scanBody.detail || `Lỗi quét TBMT (${scanRes.status})` });
+          }
+        }
+        const scanData = await scanRes.json().catch(() => ({}));
+        const cooldownSec = scanData.cooldown_sec || 30;
+        console.log(`[download-tbmt] Scan started, waiting ${cooldownSec}s...`);
+        await new Promise(resolve => setTimeout(resolve, (cooldownSec + 3) * 1000));
+        apiRes = await fetch(`${TBMT_API_BASE}/files/${encodeURIComponent(tbmtCode)}`, {
+          headers: { 'X-API-Key': TBMT_API_KEY }
+        });
+        // After scan retry still fails — different message
+        if (!apiRes.ok) {
+          return res.status(502).json({ error: 'Không tìm thấy file TBMT sau khi quét. Có thể gói thầu này chưa có hồ sơ mời thầu (HSMT) trên hệ thống.' });
+        }
+      } else {
+        return res.status(502).json({ error: body.detail || 'Không tìm thấy file TBMT cho mã này' });
+      }
+    }
+
+    if (!apiRes.ok) {
+      const body = await apiRes.json().catch(() => ({}));
+      return res.status(502).json({ error: body.detail || `Lỗi từ máy chủ TBMT (${apiRes.status})` });
+    }
+
+    // Download the file buffer
+    const buffer = Buffer.from(await apiRes.arrayBuffer());
+    const extDir = path.join(TBMT_DIR, tbmtCode);
+
+    // Check if it's a ZIP file (magic bytes PK\x03\x04)
+    const isZip = buffer.length > 4 && buffer[0] === 0x50 && buffer[1] === 0x4B && buffer[2] === 0x03 && buffer[3] === 0x04;
+
+    if (isZip) {
+      // Dọn dẹp file cũ trước khi ghi (tránh lỗi EACCES khi file thuộc quyền root từ Docker)
+      cleanupTbmtPath(tbmtCode);
+      // Save ZIP temporarily, extract via Python (handles backslash paths + unicode), then delete zip
+      const zipPath = path.join(TBMT_DIR, `${tbmtCode}.zip`);
+      fs.writeFileSync(zipPath, buffer);
+      extractZip(zipPath, extDir);
+      fs.unlinkSync(zipPath);
+
+      // Read extracted files (skip macOS metadata files)
+      const files = [];
+      if (fs.existsSync(extDir)) {
+        const entries = fs.readdirSync(extDir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (entry.isFile() && !entry.name.startsWith('._') && !entry.name.startsWith('.DS_Store')) {
+            const filePath = path.join(extDir, entry.name);
+            const stat = fs.statSync(filePath);
+            files.push({ name: entry.name, size: stat.size });
+          }
+        }
+      }
+      files.sort((a, b) => a.name.localeCompare(b.name));
+
+      project.tbmtFile = {
+        type: 'extracted',
+        files,
+        downloadedAt: new Date().toISOString()
+      };
+    } else {
+      // Single file
+      const disposition = apiRes.headers.get('content-disposition') || '';
+      const nameMatch = disposition.match(/filename\s*=\s*["']?([^"'\s;]+)/i);
+      const filename = nameMatch ? nameMatch[1] : `${tbmtCode}.pdf`;
+      const filePath = path.join(TBMT_DIR, filename);
+      // Dọn dẹp file cũ trước khi ghi
+      try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch (e) { console.warn(`[tbmt] cleanup: cannot delete ${filePath} — ${e.message}`); }
+      fs.writeFileSync(filePath, buffer);
+
+      project.tbmtFile = {
+        type: 'file',
+        filename,
+        size: buffer.length,
+        downloadedAt: new Date().toISOString()
+      };
+    }
+
+    project.updatedAt = new Date().toISOString();
+    writeData(PROJ_FILE, data);
+    res.json(project);
+  } catch (error) {
+    console.error('[download-tbmt] Error:', error.message);
+    res.status(502).json({ error: error.message });
+  }
+});
+
+// --- Serve TBMT File (hỗ trợ cả file đơn và file trong thư mục đã giải nén) ---
+app.get('/api/tbmt-files/*', auth, (req, res) => {
+  const relativePath = req.params[0];
+  if (!relativePath) return res.status(400).json({ error: 'Thiếu đường dẫn file' });
+  const resolved = path.resolve(path.join(TBMT_DIR, relativePath));
+  if (!resolved.startsWith(path.resolve(TBMT_DIR))) {
+    return res.status(403).json({ error: 'Từ chối' });
+  }
+  if (!fs.existsSync(resolved)) {
+    return res.status(404).json({ error: 'File không tồn tại' });
+  }
+  const ext = path.extname(resolved).toLowerCase();
+  const mimeMap = { '.pdf': 'application/pdf', '.doc': 'application/msword', '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', '.xls': 'application/vnd.ms-excel', '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.txt': 'text/plain; charset=utf-8' };
+  res.set('Content-Type', mimeMap[ext] || 'application/octet-stream');
+  res.set('Content-Disposition', 'inline');
+  res.sendFile(resolved);
 });
 
 function getStepCodeLabel(code) {
@@ -2379,6 +2646,452 @@ app.get('/admin/report', auth, (req, res) => {
   h += '<div class="footer">Phần Mềm Tính Giá Chào Thầu — Phân tích kết quả đấu thầu</div></body></html>';
   res.send(h);
 });
+
+// --- Admin: Batch Sync (Portal Fetch + TBMT Download) ---
+function fuzzyMatch(a, b) {
+  if (!a || !b) return 0;
+  const na = a.toLowerCase().trim();
+  const nb = b.toLowerCase().trim();
+  if (na === nb) return 1;
+  if (na.includes(nb) || nb.includes(na)) return 0.8;
+  const wa = new Set(na.split(/\s+/));
+  const wb = new Set(nb.split(/\s+/));
+  let matches = 0;
+  for (const w of wa) { if (wb.has(w)) matches++; }
+  const total = Math.max(wa.size, wb.size);
+  return total > 0 ? matches / total : 0;
+}
+
+function mergePortalItems(portalItems, existingItems) {
+  return portalItems.map((pItem, idx) => {
+    let bestMatch = null, bestScore = 0;
+    for (const eItem of existingItems) {
+      if (!eItem.tenHangHoa || !eItem.tenHangHoa.trim()) continue;
+      const score = fuzzyMatch(pItem.tenHangHoa, eItem.tenHangHoa);
+      if (score > 0.5 && score > bestScore) { bestScore = score; bestMatch = eItem; }
+    }
+    return {
+      id: bestMatch ? bestMatch.id : uuidv4(),
+      stt: idx + 1,
+      tenHangHoa: pItem.tenHangHoa,
+      donViTinh: pItem.donViTinh || 'Gói',
+      soLuong: pItem.soLuong || 1,
+      donGiaNhap: bestMatch ? (bestMatch.donGiaNhap || 0) : 0,
+      giaNhap: bestMatch ? (bestMatch.giaNhap || 0) : 0,
+      nhaCungCap: bestMatch ? (bestMatch.nhaCungCap || '') : '',
+      donGiaChao: bestMatch ? (bestMatch.donGiaChao || 0) : 0,
+      trongSo: bestMatch ? (bestMatch.trongSo || 1) : 1,
+      ghiChu: pItem.ghiChu || '',
+      portalKyMaHieu: pItem.portalKyMaHieu || '',
+      portalNhanHieu: pItem.portalNhanHieu || '',
+      portalHangSanXuat: pItem.portalHangSanXuat || '',
+      portalXuatXu: pItem.portalXuatXu || '',
+      portalNamSanXuat: pItem.portalNamSanXuat || '',
+      portalDiaDiemDuAn: pItem.portalDiaDiemDuAn || '',
+      portalNgayGiaoSomNhat: pItem.portalNgayGiaoSomNhat || '',
+      portalNgayGiaoMuonNhat: pItem.portalNgayGiaoMuonNhat || '',
+      portalYeuCauKhac: pItem.portalYeuCauKhac || ''
+    };
+  });
+}
+
+app.post('/api/admin/sync-all', auth, adminOnly, async (req, res) => {
+  const data = readData(PROJ_FILE);
+  const projects = data.projects;
+
+  const portalFetchCandidates = projects.filter(p => {
+    if (!p.projectInfo || !p.projectInfo.maDauThau) return false;
+    if (p.items && p.items.some(i => i.portalKyMaHieu)) return false;
+    // Bỏ qua gói đã xác định không rút gọn (DTRR, CHCT, ...)
+    if (p.projectInfo.isRutGon === false) return false;
+    if (p.projectInfo.hinhThucLCNT && !p.projectInfo.hinhThucLCNT.includes('rút gọn')) return false;
+    if (p.projectInfo.bidForm && !p.projectInfo.bidForm.endsWith('RG')) return false;
+    return true;
+  });
+
+  const tbmtCandidates = projects.filter(p => {
+    if (!p.projectInfo || !p.projectInfo.maDauThau) return false;
+    if (p.tbmtFile) return false;
+    if (isRutGonProject(p)) return false;
+    return true;
+  });
+
+  if (req.query.preview === 'true') {
+    return res.json({
+      preview: true,
+      portalFetch: portalFetchCandidates.map(p => ({
+        id: p.id, maDauThau: p.projectInfo.maDauThau,
+        name: p.name || p.projectInfo.tenCongTrinh || '',
+        benMoiThau: p.projectInfo.benMoiThau || '',
+        thoiGianDongThau: p.projectInfo.thoiGianDongThau || ''
+      })),
+      tbmtDownload: tbmtCandidates.map(p => ({
+        id: p.id, maDauThau: p.projectInfo.maDauThau,
+        name: p.name || p.projectInfo.tenCongTrinh || '',
+        hasPortalItems: !!(p.items && p.items.some(i => i.portalKyMaHieu))
+      }))
+    });
+  }
+
+  if (req.query.execute !== 'true') {
+    return res.status(400).json({ error: 'Thiếu tham số: preview=true hoặc execute=true' });
+  }
+
+  const mode = req.query.mode || 'all';
+
+  if (activeFetches >= MAX_FETCHES && portalFetchCandidates.length > 0 && mode !== 'tbmt') {
+    return res.status(429).json({ error: 'Hệ thống đang xử lý yêu cầu Playwright khác. Vui lòng thử lại sau.' });
+  }
+
+  const portalResults = [];
+  const tbmtResults = [];
+  const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+  const startTime = Date.now();
+
+  // Phase 1: Portal fetch (Playwright)
+  let browser;
+  try {
+    if (portalFetchCandidates.length > 0 && (mode === 'all' || mode === 'portal')) {
+      activeFetches++;
+      browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--single-process', '--no-zygote', '--disable-extensions'] });
+      const context = await browser.newContext({ userAgent: UA });
+      const page = await context.newPage();
+      page.setDefaultTimeout(30000);
+
+      for (let i = 0; i < portalFetchCandidates.length; i++) {
+        const project = portalFetchCandidates[i];
+        const ib = project.projectInfo.maDauThau;
+        const idx = i + 1;
+        try {
+          console.log(`[sync-all] [${idx}/${portalFetchCandidates.length}] Fetch portal: ${ib}`);
+          await page.goto('https://muasamcong.mpi.gov.vn/web/guest/contractor-selection?render=index', { waitUntil: 'networkidle', timeout: 30000 });
+          await page.waitForTimeout(1500);
+          await page.fill('input[name="keyword"]', ib);
+
+          let responseData = null;
+          const handler = async (r) => {
+            try {
+              if (responseData) return;
+              const ct = (r.headers()['content-type'] || '').toLowerCase();
+              if (r.status() === 200 && r.url().includes('contractor-selection') && ct.includes('application/json')) {
+                const json = await r.json();
+                const items = (json.page && json.page.content) || json.data || [];
+                const match = items.find(i => (i.notifyNo || i.bidNo) === ib);
+                if (match) responseData = match;
+              }
+            } catch {}
+          };
+          page.on('response', handler);
+          await page.keyboard.press('Enter');
+          for (let w = 0; w < 25; w++) { if (responseData) break; await page.waitForTimeout(1000); }
+          page.removeListener('response', handler);
+
+          if (!responseData) {
+            portalResults.push({ ib, name: project.name || ib, status: 'not_found', error: 'Không tìm thấy trên cổng' });
+            console.log(`[sync-all]   Not found: ${ib}`);
+            continue;
+          }
+
+          const saBidForm = extractValue(responseData.bidForm);
+          const saIsRutGon = saBidForm && (saBidForm.endsWith('RG') || saBidForm.toLowerCase().includes('rút gọn') || saBidForm.toLowerCase().includes('rut gon'));
+
+          const saProcessApply = extractValue(responseData.processApply);
+          if (saProcessApply && saProcessApply.toUpperCase() !== 'QUA_MANG' && !saIsRutGon) {
+            portalResults.push({ ib, name: project.name || ib, status: 'skipped', error: `Non-online bid (processApply=${saProcessApply})` });
+            console.log(`[sync-all]   Skipped non-online: ${ib}`);
+            continue;
+          }
+
+          const tbmtId = extractValue(responseData.id);
+          let items = [];
+          if (tbmtId) {
+            try {
+              const qs = new URLSearchParams();
+              qs.set('p_p_id', 'egpportalcontractorselectionv2_WAR_egpportalcontractorselectionv2');
+              qs.set('p_p_lifecycle', '0');
+              qs.set('p_p_state', 'normal');
+              qs.set('p_p_mode', 'view');
+              qs.set('_egpportalcontractorselectionv2_WAR_egpportalcontractorselectionv2_render', 'detail-v2');
+              qs.set('type', 'es-notify-contractor');
+              qs.set('step', 'tbmt');
+              qs.set('id', tbmtId);
+              qs.set('notifyId', tbmtId);
+              const passThroughParams = ['notifyNo','bidNo','stepCode','processApply','bidMode','planNo','bidForm','bidOpenId','inputResultId','bidPreOpenId','techReqId','bidPreNotifyResultId','pno','caseKHKQ','isInternet'];
+              for (const param of passThroughParams) {
+                const val = responseData[param];
+                if (val != null && val !== '' && String(val) !== 'undefined') qs.set(param, String(val));
+              }
+              const detailUrl = 'https://muasamcong.mpi.gov.vn/web/guest/contractor-selection?' + qs.toString();
+              await page.goto(detailUrl, { waitUntil: 'networkidle', timeout: 15000 });
+              await page.waitForTimeout(3000);
+
+              items = await page.evaluate(() => {
+                const allTables = document.querySelectorAll('table.table-expand');
+                for (const t of allTables) {
+                  const wrapper = t.closest('.card-body.item-table, .item-table');
+                  if (wrapper) {
+                    const rows = t.querySelectorAll('tbody tr');
+                    return Array.from(rows).map(row => {
+                      const cells = row.querySelectorAll('td');
+                      if (cells.length < 4) return null;
+                      const clean = c => (c?.textContent || '').trim();
+                      const rawQty = clean(cells[3]).replace(/[.,\s]/g, '');
+                      return { tenHangHoa: clean(cells[1]), donViTinh: clean(cells[2]), soLuong: parseFloat(rawQty) || 1, ghiChu: clean(cells[9]), portalKyMaHieu: clean(cells[4]), portalNhanHieu: clean(cells[5]), portalHangSanXuat: clean(cells[6]), portalXuatXu: clean(cells[7]), portalNamSanXuat: clean(cells[8]), portalDiaDiemDuAn: clean(cells[10]), portalNgayGiaoSomNhat: clean(cells[11]), portalNgayGiaoMuonNhat: clean(cells[12]), portalYeuCauKhac: clean(cells[13]) };
+                    }).filter(Boolean);
+                  }
+                }
+                for (const t of allTables) {
+                  const cells = t.querySelectorAll('thead th, thead td');
+                  const headerTexts = Array.from(cells).map(c => (c.textContent || '').trim());
+                  const hasItemHeader = headerTexts.some(h => h.includes('Danh mục hàng hóa') || h.includes('Đơn vị tính') || h.includes('Khối lượng'));
+                  if (hasItemHeader || cells.length >= 10) {
+                    const rows = t.querySelectorAll('tbody tr');
+                    return Array.from(rows).map(row => {
+                      const cells = row.querySelectorAll('td');
+                      if (cells.length < 4) return null;
+                      const clean = c => (c?.textContent || '').trim();
+                      const rawQty = clean(cells[3]).replace(/[.,\s]/g, '');
+                      return { tenHangHoa: clean(cells[1]), donViTinh: clean(cells[2]), soLuong: parseFloat(rawQty) || 1, ghiChu: clean(cells[9]), portalKyMaHieu: clean(cells[4]), portalNhanHieu: clean(cells[5]), portalHangSanXuat: clean(cells[6]), portalXuatXu: clean(cells[7]), portalNamSanXuat: clean(cells[8]), portalDiaDiemDuAn: clean(cells[10]), portalNgayGiaoSomNhat: clean(cells[11]), portalNgayGiaoMuonNhat: clean(cells[12]), portalYeuCauKhac: clean(cells[13]) };
+                    }).filter(Boolean);
+                  }
+                }
+                return [];
+              });
+            } catch (e) { items = []; }
+          }
+
+          if (items.length > 0) {
+            const matched = mergePortalItems(items, project.items || []);
+            project.items = matched;
+            const preserved = matched.filter(it => it.nhaCungCap).length;
+            portalResults.push({ ib, name: project.name || ib, status: 'ok', items: items.length, preservedPrices: preserved });
+            console.log(`[sync-all]   OK: ${items.length} items (${preserved} preserved)`);
+          } else {
+            portalResults.push({ ib, name: project.name || ib, status: 'no_items', error: 'Không tìm thấy danh mục hàng hóa' });
+            console.log(`[sync-all]   No items: ${ib}`);
+          }
+        } catch (e) {
+          portalResults.push({ ib, name: project.name || ib, status: 'error', error: e.message });
+          console.error(`[sync-all]   ERROR: ${ib} - ${e.message}`);
+        }
+        writeData(PROJ_FILE, data);
+        if (i < portalFetchCandidates.length - 1) {
+          const delay = 12000 + Math.floor(Math.random() * 4000);
+          console.log(`[sync-all]   Waiting ${Math.round(delay/1000)}s...`);
+          await new Promise(r => setTimeout(r, delay));
+        }
+      }
+      await context.close();
+    }
+  } catch (e) {
+    console.error('[sync-all] Portal fetch fatal:', e.message);
+  } finally {
+    if (portalFetchCandidates.length > 0) { activeFetches--; }
+    if (browser) await browser.close();
+  }
+
+  // Phase 2: TBMT download
+  if (mode === 'all' || mode === 'tbmt') {
+  for (let i = 0; i < tbmtCandidates.length; i++) {
+    const project = tbmtCandidates[i];
+    const ib = project.projectInfo.maDauThau;
+    const idx = i + 1;
+    try {
+      console.log(`[sync-all] [${idx}/${tbmtCandidates.length}] TBMT: ${ib}`);
+      const apiRes = await fetch(`${TBMT_API_BASE}/files/${encodeURIComponent(ib)}`, {
+        headers: { 'X-API-Key': TBMT_API_KEY }
+      });
+      if (apiRes.ok) {
+        const buffer = Buffer.from(await apiRes.arrayBuffer());
+        const isZip = buffer.length > 4 && buffer[0] === 0x50 && buffer[1] === 0x4B && buffer[2] === 0x03 && buffer[3] === 0x04;
+        const extDir = path.join(TBMT_DIR, ib);
+        if (isZip) {
+          const zipPath = path.join(TBMT_DIR, `${ib}.zip`);
+          cleanupTbmtPath(ib);
+          fs.writeFileSync(zipPath, buffer);
+          extractZip(zipPath, extDir);
+          fs.unlinkSync(zipPath);
+          const files = [];
+          if (fs.existsSync(extDir)) {
+            const entries = fs.readdirSync(extDir, { withFileTypes: true });
+            for (const entry of entries) {
+              if (entry.isFile() && !entry.name.startsWith('._') && !entry.name.startsWith('.DS_Store')) {
+                files.push({ name: entry.name, size: fs.statSync(path.join(extDir, entry.name)).size });
+              }
+            }
+            files.sort((a, b) => a.name.localeCompare(b.name));
+          }
+          project.tbmtFile = { type: 'extracted', files, downloadedAt: new Date().toISOString() };
+          tbmtResults.push({ ib, name: project.name || ib, status: 'downloaded', type: 'extracted', files: files.length });
+          console.log(`[sync-all]   Downloaded ZIP: ${ib} (${files.length} files)`);
+        } else {
+          const disposition = apiRes.headers.get('content-disposition') || '';
+          const nameMatch = disposition.match(/filename\s*=\s*["']?([^"'\s;]+)/i);
+          const filename = nameMatch ? nameMatch[1] : `${ib}.pdf`;
+          fs.writeFileSync(path.join(TBMT_DIR, filename), buffer);
+          project.tbmtFile = { type: 'file', filename, size: buffer.length, downloadedAt: new Date().toISOString() };
+          tbmtResults.push({ ib, name: project.name || ib, status: 'downloaded', type: 'file', filename });
+          console.log(`[sync-all]   Downloaded file: ${ib} → ${filename}`);
+        }
+        delete project.tbmtDownloadInfo;
+      } else if (apiRes.status === 404) {
+        const body = await apiRes.json().catch(() => ({}));
+        if (body.detail && body.detail.includes('Run POST /api/scan')) {
+          await fetch(`${TBMT_API_BASE}/scan/${encodeURIComponent(ib)}`, { method: 'POST', headers: { 'X-API-Key': TBMT_API_KEY } });
+          project.tbmtDownloadInfo = { status: 'scanning', scanTriggeredAt: new Date().toISOString(), lastCheckedAt: new Date().toISOString(), checkedCount: (project.tbmtDownloadInfo?.checkedCount || 0) + 1 };
+          tbmtResults.push({ ib, name: project.name || ib, status: 'scan_triggered' });
+          console.log(`[sync-all]   Scan triggered: ${ib}`);
+        } else {
+          project.tbmtDownloadInfo = { status: 'not_found', lastCheckedAt: new Date().toISOString(), checkedCount: (project.tbmtDownloadInfo?.checkedCount || 0) + 1 };
+          tbmtResults.push({ ib, name: project.name || ib, status: 'not_found' });
+          console.log(`[sync-all]   Not found: ${ib}`);
+        }
+      } else {
+        tbmtResults.push({ ib, name: project.name || ib, status: 'error', error: `HTTP ${apiRes.status}` });
+        console.log(`[sync-all]   Unexpected status ${apiRes.status}: ${ib}`);
+      }
+      project.updatedAt = new Date().toISOString();
+    } catch (e) {
+      tbmtResults.push({ ib, name: project.name || ib, status: 'error', error: e.message });
+      console.error(`[sync-all]   ERROR: ${ib} - ${e.message}`);
+    }
+    writeData(PROJ_FILE, data);
+    await new Promise(r => setTimeout(r, TBMT_CHECK_DELAY));
+  }
+  }
+
+  const durationSec = Math.round((Date.now() - startTime) / 1000);
+  console.log(`[sync-all] Done in ${durationSec}s — portal: ${portalResults.length}, tbmt: ${tbmtResults.length}`);
+  res.json({ done: true, durationSec, portalFetch: portalResults, tbmtDownload: tbmtResults });
+});
+
+// --- Background TBMT auto-check ---
+const TBMT_CHECK_DELAY = 2000;
+const TBMT_RETRY_SCANNING_AFTER = 24 * 60 * 60 * 1000;
+const TBMT_RETRY_NOT_FOUND_AFTER = 7 * 24 * 60 * 60 * 1000;
+
+let tbmtCheckRunning = false;
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function checkPendingTbmtFiles() {
+  if (tbmtCheckRunning) { console.log('[tbmt-check] Skipped — previous run still in progress'); return; }
+  tbmtCheckRunning = true;
+  let checked = 0, downloaded = 0, scanTriggered = 0, notFound = 0;
+  try {
+    const data = readData(PROJ_FILE);
+    const candidates = data.projects.filter(p => {
+      if (!p.projectInfo || !p.projectInfo.maDauThau) return false;
+      if (p.tbmtFile) return false;
+      if (isRutGonProject(p)) return false;
+      const info = p.tbmtDownloadInfo;
+      if (info) {
+        const elapsed = Date.now() - new Date(info.lastCheckedAt).getTime();
+        if (info.status === 'scanning' && elapsed < TBMT_RETRY_SCANNING_AFTER) return false;
+        if (info.status === 'not_found' && elapsed < TBMT_RETRY_NOT_FOUND_AFTER) return false;
+      }
+      return true;
+    });
+    console.log(`[tbmt-check] Found ${candidates.length} candidates`);
+    let changed = false;
+    for (const project of candidates) {
+      const ib = project.projectInfo.maDauThau;
+      checked++;
+      try {
+        const apiRes = await fetch(`${TBMT_API_BASE}/files/${encodeURIComponent(ib)}`, {
+          headers: { 'X-API-Key': TBMT_API_KEY }
+        });
+        if (apiRes.ok) {
+          const buffer = Buffer.from(await apiRes.arrayBuffer());
+          const isZip = buffer.length > 4 && buffer[0] === 0x50 && buffer[1] === 0x4B && buffer[2] === 0x03 && buffer[3] === 0x04;
+          const extDir = path.join(TBMT_DIR, ib);
+          if (isZip) {
+            // Dọn dẹp file cũ trước khi ghi
+            cleanupTbmtPath(ib);
+            const zipPath = path.join(TBMT_DIR, `${ib}.zip`);
+            fs.writeFileSync(zipPath, buffer);
+            extractZip(zipPath, extDir);
+            fs.unlinkSync(zipPath);
+            const files = [];
+            if (fs.existsSync(extDir)) {
+              const entries = fs.readdirSync(extDir, { withFileTypes: true });
+              for (const entry of entries) {
+                if (entry.isFile() && !entry.name.startsWith('._') && !entry.name.startsWith('.DS_Store')) {
+                  const fp = path.join(extDir, entry.name);
+                  files.push({ name: entry.name, size: fs.statSync(fp).size });
+                }
+              }
+              files.sort((a, b) => a.name.localeCompare(b.name));
+            }
+            project.tbmtFile = { type: 'extracted', files, downloadedAt: new Date().toISOString() };
+            console.log(`[tbmt-check] Downloaded ZIP + extracted: ${ib} (${files.length} files)`);
+          } else {
+            const disposition = apiRes.headers.get('content-disposition') || '';
+            const nameMatch = disposition.match(/filename\s*=\s*["']?([^"'\s;]+)/i);
+            const filename = nameMatch ? nameMatch[1] : `${ib}.pdf`;
+            const filePath = path.join(TBMT_DIR, filename);
+            try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch (e) { console.warn(`[tbmt-check] cleanup: cannot delete ${filePath} — ${e.message}`); }
+            fs.writeFileSync(filePath, buffer);
+            project.tbmtFile = { type: 'file', filename, size: buffer.length, downloadedAt: new Date().toISOString() };
+            console.log(`[tbmt-check] Downloaded file: ${ib} → ${filename}`);
+          }
+          delete project.tbmtDownloadInfo;
+          downloaded++;
+        } else if (apiRes.status === 404) {
+          const body = await apiRes.json().catch(() => ({}));
+          if (body.detail && body.detail.includes('Run POST /api/scan')) {
+            await fetch(`${TBMT_API_BASE}/scan/${encodeURIComponent(ib)}`, {
+              method: 'POST', headers: { 'X-API-Key': TBMT_API_KEY }
+            });
+            project.tbmtDownloadInfo = {
+              status: 'scanning',
+              scanTriggeredAt: new Date().toISOString(),
+              lastCheckedAt: new Date().toISOString(),
+              checkedCount: (project.tbmtDownloadInfo?.checkedCount || 0) + 1
+            };
+            scanTriggered++;
+            console.log(`[tbmt-check] Scan triggered: ${ib}`);
+          } else {
+            project.tbmtDownloadInfo = {
+              status: 'not_found',
+              lastCheckedAt: new Date().toISOString(),
+              checkedCount: (project.tbmtDownloadInfo?.checkedCount || 0) + 1
+            };
+            notFound++;
+            console.log(`[tbmt-check] Not found: ${ib}`);
+          }
+        } else {
+          console.log(`[tbmt-check] Unexpected status ${apiRes.status} for ${ib}`);
+        }
+        project.updatedAt = new Date().toISOString();
+        changed = true;
+      } catch (err) {
+        console.error(`[tbmt-check] Error for ${ib}:`, err.message);
+      }
+      await delay(TBMT_CHECK_DELAY);
+    }
+    if (changed) writeData(PROJ_FILE, data);
+    console.log(`[tbmt-check] Done — checked: ${checked}, downloaded: ${downloaded}, scan-triggered: ${scanTriggered}, not-found: ${notFound}`);
+  } catch (err) {
+    console.error('[tbmt-check] Fatal error:', err.message);
+  } finally {
+    tbmtCheckRunning = false;
+  }
+}
+
+function scheduleDailyAt6AM(fn) {
+  const now = new Date();
+  const target = new Date(now);
+  target.setUTCHours(19, 0, 0, 0);
+  if (target <= now) target.setUTCDate(target.getUTCDate() + 1);
+  const msUntilTarget = target - now;
+  setTimeout(() => {
+    fn();
+    setInterval(fn, 24 * 60 * 60 * 1000);
+  }, msUntilTarget);
+}
+
+scheduleDailyAt6AM(checkPendingTbmtFiles);
 
 app.listen(PORT, () => {
   console.log(`Phần mềm tính giá chào thầu v2 đang chạy tại: http://localhost:${PORT}`);

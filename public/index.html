@@ -89,22 +89,11 @@ table .td-num input{text-align:right}
 .toolbar .spacer{flex:1}
 .status-bar{background:#e8f0fe;padding:6px 16px;border-radius:4px;font-size:12px;color:#2a5a8c;margin-top:8px;text-align:right;display:none}
 .status-bar.show{display:block}
-.trello-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:999;padding:20px;overflow-y:auto}
-.trello-modal-overlay.show{display:flex}
-.trello-modal{background:#f4f5f7;border-radius:12px;width:100%;max-width:960px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden;animation:trelloPop .2s ease-out}
-@keyframes trelloPop{from{transform:scale(.95);opacity:0}to{transform:scale(1);opacity:1}}
-.trello-modal-header{background:#fff;padding:16px 24px;border-bottom:1px solid #dfe1e6;display:flex;align-items:center;justify-content:space-between}
-.trello-modal-title{font-size:18px;font-weight:600;color:#1a3a5c;display:flex;align-items:center;gap:10px}
-.trello-modal-close{background:transparent;border:none;font-size:20px;cursor:pointer;color:#666;padding:4px 8px;border-radius:4px}
-.trello-modal-close:hover{background:#ebecf0;color:#000}
-.trello-modal-body{padding:20px;overflow-y:auto;flex:1;display:grid;grid-template-columns:2fr 1fr;gap:20px;box-sizing:border-box}
-@media(max-width:850px){.trello-modal-body{grid-template-columns:1fr}}
-.trello-sidebar{background:#fff;border-radius:8px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.08);display:flex;flex-direction:column;gap:12px;min-width:0;overflow-wrap:break-word;word-break:break-word}
-.trello-main{background:#fff;border-radius:8px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.08);display:flex;flex-direction:column;gap:16px;min-width:0;overflow:hidden}
-.trello-sidebar .param-group{min-width:0}
-.trello-sidebar .param-row{min-width:0}
-.trello-sidebar .param-row input{min-width:0;max-width:100%}
-.trello-sidebar > div[style*="background:#e8f0fe"]{word-break:break-word;overflow-wrap:break-word}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;z-index:999}
+.modal-overlay.show{display:flex}
+.modal{background:#fff;border-radius:10px;padding:24px;min-width:360px;max-width:500px;box-shadow:0 10px 40px rgba(0,0,0,.2)}
+.modal h3{margin-bottom:16px;color:#1a3a5c}
+.modal .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
 .toast{position:fixed;bottom:30px;right:30px;background:#1a3a5c;color:#fff;padding:12px 24px;border-radius:6px;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,.2);opacity:0;transform:translateY(20px);transition:all .3s;z-index:999;pointer-events:none}
 .toast.show{opacity:1;transform:translateY(0);pointer-events:auto}
 .toast.success{background:#27ae60}
@@ -237,81 +226,6 @@ table .td-num input{text-align:right}
 
   .modal{padding:12px;width:96vw}
 }
-}
-
-/* ── Kanban Board Styles ── */
-.view-switcher .btn{flex:1}
-.kanban-board{display:flex;gap:12px;overflow-x:auto;padding:8px 4px 16px;min-height:600px;align-items:flex-start;width:100%}
-.kanban-board-inner{display:flex;gap:12px;align-items:flex-start;min-width:max-content}
-.kanban-column{flex:0 0 280px;width:280px;background:#f4f5f7;border-radius:8px;display:flex;flex-direction:column;max-height:calc(100vh - 220px);box-shadow:0 1px 3px rgba(0,0,0,.08)}
-.kanban-column-header{padding:10px 12px;background:#ebecf0;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:space-between;font-weight:600;color:#1a3a5c;font-size:13px;border-bottom:1px solid #dfe1e6}
-.kanban-column-header .col-icon{margin-right:6px}
-.kanban-column-header .col-badge{background:#2a5a8c;color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;min-width:24px;text-align:center}
-.kanban-column-body{flex:1;overflow-y:auto;padding:8px;min-height:200px}
-.kanban-column.drag-over .kanban-column-header{background:#d4e4f7;border:2px dashed #2a5a8c}
-.kanban-column.drag-over .kanban-column-body{background:#e8f0fe}
-.kanban-card{background:#fff;border-radius:6px;padding:10px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.08);cursor:pointer;transition:box-shadow .2s,transform .1s;border:1px solid #eef2f7;draggable:true}
-.kanban-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.12);transform:translateY(-2px)}
-.kanban-card.dragging{opacity:.4;box-shadow:0 8px 24px rgba(42,90,140,.3);transform:rotate(3deg)}
-.kanban-card-header{display:flex;align-items:center;gap:6px;margin-bottom:6px}
-.kanban-card-ib{background:#e8f0fe;color:#2a5a8c;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;white-space:nowrap}
-.kanban-card-status{font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;text-transform:uppercase}
-.kanban-card-title{font-weight:600;font-size:13px;color:#1a3a5c;margin-bottom:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.kanban-card-meta{font-size:11px;color:#666;display:flex;flex-direction:column;gap:2px;margin-bottom:6px}
-.kanban-card-meta span{display:flex;align-items:center;gap:4px}
-.kanban-card-meta .meta-icon{font-size:11px;color:#888;width:14px;text-align:center}
-.kanban-card-financial{display:flex;gap:8px;font-size:11px;color:#555;padding-top:6px;border-top:1px solid #eef2f7}
-.kanban-card-financial div{flex:1}
-.kanban-card-financial .fin-label{font-size:10px;color:#888;text-transform:uppercase}
-.kanban-card-financial .fin-value{font-weight:600;color:#1a3a5c}
-.kanban-card-financial .fin-value.profit{color:#27ae60}
-.kanban-card-financial .fin-value.loss{color:#e74c3c}
-.kanban-card-footer{display:flex;justify-content:space-between;font-size:10px;color:#888;margin-top:6px;padding-top:6px;border-top:1px solid #eef2f7}
-.kanban-empty{text-align:center;color:#aaa;font-size:12px;padding:20px 8px}
-
-/* Kanban column specific colors */
-.kanban-column-draft .kanban-column-header{background:#e8e8e8;color:#666}
-.kanban-column-draft .kanban-column-header .col-badge{background:#999}
-.kanban-column-pending .kanban-column-header{background:#fff3cd;color:#856404}
-.kanban-column-pending .kanban-column-header .col-badge{background:#f39c12}
-.kanban-column-approved .kanban-column-header{background:#d4edda;color:#155724}
-.kanban-column-approved .kanban-column-header .col-badge{background:#27ae60}
-.kanban-column-rejected .kanban-column-header{background:#f8d7da;color:#721c24}
-.kanban-column-rejected .kanban-column-header .col-badge{background:#e74c3c}
-.kanban-column-pendingResult .kanban-column-header{background:#d4e8f7;color:#1a5c8c}
-.kanban-column-pendingResult .kanban-column-header .col-badge{background:#2980b9}
-.kanban-column-win .kanban-column-header{background:#d4edda;color:#155724}
-.kanban-column-win .kanban-column-header .col-badge{background:#27ae60}
-.kanban-column-lose .kanban-column-header{background:#f8d7da;color:#721c24}
-.kanban-column-lose .kanban-column-header .col-badge{background:#e74c3c}
-
-.status-draft{background:#e8e8e8;color:#666}
-.status-pending{background:#fff3cd;color:#856404}
-.status-approved{background:#d4edda;color:#155724}
-.status-rejected{background:#f8d7da;color:#721c24}
-.status-pendingResult{background:#d4e8f7;color:#1a5c8c}
-.status-win{background:#d4edda;color:#155724}
-.status-lose{background:#f8d7da;color:#721c24}
-
-/* ── Topbar dropdown menu ── */
-.topbar-dropdown{position:relative;display:inline-block}
-.topbar-dropdown-menu{position:absolute;top:100%;right:0;background:#fff;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.2);padding:6px 0;min-width:200px;display:none;z-index:300}
-.topbar-dropdown-menu.show{display:block}
-.topbar-dropdown-menu .btn{display:flex;width:100%;padding:10px 16px;border:none;border-radius:0;background:transparent;color:#1a3a5c;font-size:14px;text-align:left;white-space:nowrap}
-.topbar-dropdown-menu .btn:hover{background:#e8f0fe}
-.topbar-dropdown-menu .btn:last-child{border-top:1px solid #eef2f7;color:#e74c3c}
-
-/* Mobile responsive for Kanban */
-@media(max-width:768px){
-  .kanban-board{gap:8px;padding:4px}
-  .kanban-column{flex:0 0 260px;max-height:calc(100vh - 200px)}
-  .kanban-column-body{max-height:calc(100vh - 250px)}
-  .topbar-dropdown-menu{right:0;left:auto}
-}
-@media(max-width:480px){
-  .kanban-column{flex:0 0 240px}
-  .view-switcher{flex-direction:column}
-}
 </style>
 </head>
 <body>
@@ -343,17 +257,16 @@ table .td-num input{text-align:right}
     <div class="auth-bar" id="authBar">
       <span class="user-name" id="userDisplay"></span>
       <span class="auth-role" id="roleDisplay"></span>
-      <div class="topbar-dropdown">
-        <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" onclick="toggleTopbarDropdown()">☰</button>
-        <div class="topbar-dropdown-menu" id="topbarDropdown">
-          <button class="btn" onclick="showChangePassword();toggleTopbarDropdown()">🔑 Đổi mật khẩu</button>
-          <button class="btn" id="topbarUserMgmtBtn" onclick="showUserManagement();toggleTopbarDropdown()">👥 Nhân viên</button>
-          <button class="btn" id="topbarSettingsBtn" onclick="showSettings();toggleTopbarDropdown()">⚙️ Cài đặt</button>
-          <button class="btn" id="topbarTrelloSyncBtn" onclick="syncTrello();toggleTopbarDropdown()">🔄 Đồng bộ Trello</button>
-          <button class="btn" onclick="window.open('/admin/report');toggleTopbarDropdown()">📊 Báo cáo</button>
-          <button class="btn" onclick="showSupplierList();toggleTopbarDropdown()">🏭 Nhà cung cấp</button>
-        </div>
-      </div>
+      <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" onclick="showChangePassword()">🔑 Đổi mật khẩu</button>
+      <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" id="userMgmtBtn" onclick="showUserManagement()">👥 Nhân viên</button>
+      <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" id="settingsBtn" onclick="showSettings()">⚙️</button>
+      <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" id="trelloSyncBtn" onclick="syncTrello()">🔄 Trello</button>
+      <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" id="portalFetchBtn" onclick="showSyncModal('portal')">📋 Fetch dữ liệu</button>
+      <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" id="tbmtDownloadBtn" onclick="showSyncModal('tbmt')">📥 Tải TBMT</button>
+      <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" id="reportBtn" onclick="window.open('/admin/report')">📊 Báo cáo</button>
+      <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff" onclick="showSupplierList()">🏭 Nhà cung cấp</button>
+      <button class="btn btn-outline btn-sm btn-menu-toggle" onclick="toggleMobileMenu()" style="border-color:#fff;color:#fff;display:none">☰</button>
+      <span style="width:1px;height:20px;background:rgba(255,255,255,.2);display:inline-block;margin:0 4px"></span>
       <button class="btn btn-danger btn-sm" onclick="doLogout()">Đăng xuất</button>
     </div>
   </div>
@@ -364,25 +277,14 @@ table .td-num input{text-align:right}
   <button class="btn" id="mobileUserMgmtBtn" onclick="showUserManagement();toggleMobileMenu()">👥 Nhân viên</button>
   <button class="btn" id="mobileSettingsBtn" onclick="showSettings();toggleMobileMenu()">⚙️ Cài đặt</button>
   <button class="btn" id="mobileTrelloSyncBtn" onclick="syncTrello();toggleMobileMenu()">🔄 Đồng bộ Trello</button>
+  <button class="btn" id="mobilePortalFetchBtn" onclick="showSyncModal('portal');toggleMobileMenu()">📋 Fetch dữ liệu</button>
+  <button class="btn" id="mobileTbmtDownloadBtn" onclick="showSyncModal('tbmt');toggleMobileMenu()">📥 Tải TBMT</button>
   <button class="btn" id="mobileReportBtn" onclick="window.open('/admin/report');toggleMobileMenu()">📊 Báo cáo</button>
   <button class="btn" onclick="showSupplierList();toggleMobileMenu()">🏭 Nhà cung cấp</button>
 </div>
 
 <div class="container" id="mainContent">
-  <!-- View Mode Toggle -->
-  <div class="view-switcher" style="display:flex;gap:8px;margin-bottom:16px">
-    <button class="btn btn-primary" id="btnKanbanView" onclick="switchView('kanban')">📊 Bảng Kanban</button>
-    <button class="btn btn-outline" id="btnDetailView" onclick="switchView('detail')">📝 Chi tiết dự án</button>
-  </div>
-
-  <!-- Kanban Board View -->
-  <div id="kanbanView" style="display:none">
-    <div class="kanban-board" id="kanbanBoard"></div>
-  </div>
-
-  <!-- Detail View (existing content) -->
-  <div id="detailView">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
     <div class="project-bar" style="margin-bottom:0">
       <div class="pb-section">
         <label>Dự án</label>
@@ -450,6 +352,7 @@ table .td-num input{text-align:right}
           <div style="display:flex;gap:4px">
             <input type="text" id="maDauThau" oninput="onProjectInfoChange();checkDuplicateIB()" placeholder="Nhập mã đấu thầu" style="flex:1">
             <button class="btn btn-primary btn-sm" id="btnFetchIB" onclick="fetchBiddingInfo()" style="white-space:nowrap">🔍 Tìm</button>
+            <button class="btn btn-outline btn-sm" id="btnDetailIB" onclick="showProjectDetailModal()" style="white-space:nowrap;display:none" title="Xem chi tiết thông tin cổng">📋 Chi tiết</button>
             <span id="fetchSourceBadge" style="display:none;font-size:11px;padding:3px 8px;border-radius:10px;font-weight:600;white-space:nowrap;align-self:center"></span>
           </div>
         </div>
@@ -482,6 +385,13 @@ table .td-num input{text-align:right}
         <div class="form-group">
           <label>Địa điểm thi công</label>
           <input type="text" id="diaDiem" oninput="onProjectInfoChange()" placeholder="Nhập địa điểm">
+        </div>
+        <div class="form-group" id="tbmtFileGroup" style="display:none">
+          <label>File TBMT</label>
+          <div id="tbmtFileInfo" style="font-size:13px"></div>
+          <div style="display:flex;gap:4px;margin-top:2px">
+            <button class="btn btn-primary btn-sm" id="btnDownloadTbmt" onclick="downloadTbmtFile()">📥 Tải file TBMT</button>
+          </div>
         </div>
         <div class="form-group">
           <label>Người lập đề xuất</label>
@@ -669,7 +579,6 @@ table .td-num input{text-align:right}
       </div>
     </div>
   </div>
-  </div>
 
   <div class="status-bar" id="statusBar"></div>
 </div>
@@ -822,148 +731,15 @@ table .td-num input{text-align:right}
   </div>
 </div>
 
-<!-- Project Trello-style Modal -->
-<div class="trello-modal-overlay" id="projectTrelloModal">
-  <div class="trello-modal">
-    <div class="trello-modal-header">
-      <div class="trello-modal-title">
-        <span id="modalProjectIB" class="kanban-card-ib" style="font-size:12px;padding:4px 8px">[IB]</span>
-        <span id="modalProjectNameTitle">Tên dự án</span>
-        <span id="modalProjectStatusBadge" class="status-badge" style="margin-left:8px"></span>
-      </div>
-      <button class="trello-modal-close" onclick="closeProjectModal()">✕</button>
+<div class="modal-overlay" id="syncAllModal">
+  <div class="modal" style="min-width:900px;max-width:1000px;max-height:85vh;overflow-y:auto">
+    <h3 id="syncAllTitle">⚡ Đồng bộ dữ liệu</h3>
+    <div id="syncAllContent" style="min-height:100px">
+      <div style="text-align:center;padding:40px;color:#888">Đang tải...</div>
     </div>
-    <div class="trello-modal-body">
-      <!-- Main Content (Left) -->
-      <div class="trello-main">
-        <div class="form-group">
-          <label>Mã đấu thầu (IB) <span style="color:#e74c3c">*</span></label>
-          <div style="display:flex;gap:4px">
-            <input type="text" id="modalMaDauThau" oninput="onModalProjectInfoChange();checkDuplicateIB()" placeholder="Nhập mã đấu thầu" style="flex:1">
-            <button class="btn btn-primary btn-sm" id="modalBtnFetchIB" onclick="fetchBiddingInfoModal()" style="white-space:nowrap">🔍 Tìm</button>
-            <span id="modalFetchSourceBadge" style="display:none;font-size:11px;padding:3px 8px;border-radius:10px;font-weight:600;white-space:nowrap;align-self:center"></span>
-          </div>
-        </div>
-        <div class="form-group">
-          <label>Tên công trình / Dự án</label>
-          <input type="text" id="modalTenCongTrinh" oninput="onModalProjectInfoChange()" placeholder="Nhập tên dự án">
-        </div>
-        <div class="form-group">
-          <label>Bên mời thầu</label>
-          <input type="text" id="modalBenMoiThau" oninput="onModalProjectInfoChange()" placeholder="Nhập tên bên mời thầu">
-        </div>
-        <div class="form-group" id="modalHinhThucLCNT" style="display:none">
-          <label>Hình thức LCNT</label>
-          <input type="text" id="modalHinhThucLCNTInput" readonly>
-        </div>
-        <div class="form-group">
-          <label>Nội dung trình</label>
-          <input type="text" id="modalNoiDungTrinh" oninput="onModalProjectInfoChange()" placeholder="Nhập nội dung trình">
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div class="form-group">
-            <label>Địa điểm</label>
-            <input type="text" id="modalDiaDiem" oninput="onModalProjectInfoChange()" placeholder="Nhập địa điểm">
-          </div>
-          <div class="form-group">
-            <label>Người phụ trách</label>
-            <input type="text" id="modalNguoiPhuTrach" oninput="onModalProjectInfoChange()" placeholder="Nhập người phụ trách">
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div class="form-group">
-            <label>Người lập</label>
-            <select id="modalNguoiLap" onchange="onModalProjectInfoChange()"><option value="">-- Chọn --</option></select>
-          </div>
-          <div class="form-group">
-            <label>Ngày lập</label>
-            <input type="date" id="modalNgayLap" oninput="onModalProjectInfoChange()">
-          </div>
-        </div>
-        <div class="form-group">
-          <label>Thời gian đóng thầu</label>
-          <div style="display:flex;gap:4px">
-            <input type="datetime-local" id="modalThoiGianDongThau" oninput="onModalProjectInfoChange()" style="flex:1">
-            <button class="btn btn-outline btn-sm" onclick="modalPopulateCurrentTime()" title="Lấy giờ hiện tại">⏱️ Hiện tại</button>
-            <button class="btn btn-outline btn-sm" onclick="modalPopulateTimeAfter(2)" title="Sau 2 tiếng">+2h</button>
-            <button class="btn btn-outline btn-sm" onclick="modalPopulateTimeAfter(24)" title="Sau 24 tiếng">+24h</button>
-          </div>
-        </div>
-
-        <div class="card" style="margin-bottom:0;padding:12px;background:#f8f9fa">
-          <h3 style="font-size:14px;margin-bottom:8px;color:#1a3a5c">📦 Danh mục hàng hóa & Tính giá</h3>
-          <div class="toolbar" style="margin-bottom:8px">
-            <button class="btn btn-success btn-sm" onclick="addModalItem()">+ Thêm hàng</button>
-            <button class="btn btn-outline btn-sm" onclick="clearModalItems()">🗑 Xóa hết</button>
-          </div>
-          <div class="table-wrap" style="max-height:280px;overflow-y:auto">
-            <table class="card-table" style="font-size:12px">
-              <thead><tr>
-                <th style="width:30px">#</th>
-                <th style="min-width:140px">Tên hàng hóa</th>
-                <th style="width:70px">ĐVT</th>
-                <th style="width:50px">SL</th>
-                <th style="min-width:120px">Đơn giá gân nhất</th>
-                <th style="min-width:120px">Nhà cung cấp</th>
-                <th style="min-width:110px">Đơn giá NCC</th>
-                <th style="width:30px"></th>
-              </tr></thead>
-              <tbody id="modalItemsTableBody"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- Sidebar Actions & Results (Right) -->
-      <div class="trello-sidebar">
-        <h3 style="font-size:14px;color:#1a3a5c;border-bottom:1px solid #eef2f7;padding-bottom:6px">⚙️ Thông số & Kết quả</h3>
-        <div class="param-group" style="font-size:12px">
-          <div class="param-row"><label style="font-size:12px;flex:0 0 110px">Giá dự toán</label><input type="text" id="modalGiaDuToan" oninput="formatCurrencyInput(this);onModalParamsChange()" style="font-size:12px;padding:4px 8px"><span class="suffix">₫</span></div>
-          <div class="param-row"><label style="font-size:12px;flex:0 0 110px">ĐHQ / Cọc</label><input type="text" id="modalDatCoc" oninput="formatCurrencyInput(this);onModalParamsChange()" style="font-size:12px;padding:4px 8px"><span class="suffix">₫</span></div>
-          <div class="param-row"><label style="font-size:12px;flex:0 0 110px">CP Kỹ thuật</label><input type="text" id="modalCpKyThuat" oninput="formatCurrencyInput(this);onModalParamsChange()" style="font-size:12px;padding:4px 8px"><span class="suffix">₫</span></div>
-          <div class="param-row"><label style="font-size:12px;flex:0 0 110px">CP Hồ sơ</label><input type="text" id="modalCpHs" oninput="formatCurrencyInput(this);onModalParamsChange()" style="font-size:12px;padding:4px 8px"><span class="suffix">₫</span></div>
-          <div class="param-row"><label style="font-size:12px;flex:0 0 110px">CP Khác</label><input type="text" id="modalCpKhac" oninput="formatCurrencyInput(this);onModalParamsChange()" style="font-size:12px;padding:4px 8px"><span class="suffix">₫</span></div>
-          <div class="param-row"><label style="font-size:12px;flex:0 0 110px">LNR mục tiêu</label><input type="number" id="modalTiLeLNG" step="0.1" oninput="onModalParamsChange()" style="font-size:12px;padding:4px 8px"><span class="suffix">%</span></div>
-        </div>
-
-        <div style="background:#e8f0fe;padding:10px;border-radius:6px;font-size:12px;display:flex;flex-direction:column;gap:6px">
-          <div style="display:flex;justify-content:between"><span>Tổng giá NCC:</span><strong id="modalResTongGiaNCC">0 ₫</strong></div>
-          <div style="display:flex;justify-content:between"><span>Giá chào thầu:</span><strong id="modalResGiaChaoThau" style="color:#1a3a5c">0 ₫</strong></div>
-          <div style="display:flex;justify-content:between"><span>Tỉ lệ giảm giá:</span><strong id="modalResTiLeGiamGia">0.0%</strong></div>
-          <div style="display:flex;justify-content:between"><span>Lợi nhuận ròng:</span><strong id="modalResLoiNhuanRong" style="color:#27ae60">0 ₫</strong></div>
-        </div>
-
-        <div id="modalBidResultGroup" style="background:#f4f5f7;padding:10px;border-radius:6px;font-size:12px;display:none;flex-direction:column;gap:6px">
-          <h4 style="font-size:13px;color:#1a3a5c;margin-bottom:4px">🏆 Kết quả đấu thầu</h4>
-          <div class="form-group" style="margin-bottom:4px">
-            <label style="font-size:11px">Kết quả</label>
-            <select id="modalKetQuaTrungThau" onchange="onModalBidResultChange()" style="font-size:12px;padding:4px">
-              <option value="">-- Chưa có kết quả --</option>
-              <option value="win">🟢 Trúng thầu</option>
-              <option value="lose">🔴 Trượt thầu</option>
-            </select>
-          </div>
-          <div class="form-group" style="margin-bottom:4px">
-            <label style="font-size:11px">Giá trúng thầu / Giá chào công ty</label>
-            <div style="display:flex;gap:4px">
-              <input type="text" id="modalGiaTrungThau" oninput="formatCurrencyInput(this);onModalBidResultChange()" placeholder="Nhập giá" style="font-size:12px;padding:4px 8px;flex:1">
-              <button class="btn btn-outline btn-sm" id="modalBtnFetchBidResult" onclick="fetchModalBidResult()" style="font-size:11px;padding:4px 6px">🔍 Tự động</button>
-            </div>
-            <span id="modalBidResultFetchStatus" style="font-size:11px;color:#666"></span>
-          </div>
-        </div>
-
-        <div style="display:flex;flex-direction:column;gap:6px;margin-top:auto">
-          <div style="display:flex;gap:6px">
-            <button class="btn btn-success btn-sm" style="flex:1" onclick="modalApproveProject()" id="modalBtnApprove" style="display:none">✅ Duyệt</button>
-            <button class="btn btn-danger btn-sm" style="flex:1" onclick="modalRejectProject()" id="modalBtnReject" style="display:none">✗ Từ chối</button>
-            <button class="btn btn-warning btn-sm" style="flex:1" onclick="modalUnapproveProject()" id="modalBtnUnapprove" style="display:none">↩ Huỷ duyệt</button>
-          </div>
-          <button class="btn btn-primary btn-sm" style="background:#3498db;color:#fff;display:none" onclick="modalSubmitProject()" id="modalBtnSubmit">📨 Trình duyệt</button>
-          <button class="btn btn-outline btn-sm" onclick="modalPrintProject()">🖨 In báo cáo</button>
-          <button class="btn btn-danger btn-sm" onclick="modalDeleteProject()">🗑 Xóa dự án</button>
-        </div>
-      </div>
+    <div class="modal-actions" id="syncAllActions">
+      <button class="btn btn-outline" onclick="closeSyncAllModal()">Đóng</button>
+      <button class="btn btn-primary" id="syncAllRunBtn" style="display:none" onclick="runSyncAll()">🚀 Chạy</button>
     </div>
   </div>
 </div>
@@ -989,8 +765,8 @@ let currentUser = null;
 let autoSaveTimer = null;
 let users = [];
 let editingUserId = null;
-let phiDuThauManual = false;
 let formDirty = false;
+let phiDuThauManual = false;
 
 function formatNumber(n) { return (n === 0 || !n) ? '0' : Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
 function parseNumber(s) { if (!s) return 0; return parseFloat(String(s).replace(/[.\s]/g, '').replace(/,/g, '')) || 0; }
@@ -1062,9 +838,14 @@ function hideLoginError() { document.getElementById('loginError').className = 'e
 function updateAuthUI() {
   document.getElementById('userDisplay').textContent = currentUser.fullName;
   document.getElementById('roleDisplay').textContent = currentUser.role === 'admin' ? '(Admin)' : '(Nhân viên)';
-  document.getElementById('topbarUserMgmtBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
-  document.getElementById('topbarSettingsBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
-  document.getElementById('topbarTrelloSyncBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
+  document.getElementById('userMgmtBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
+  document.getElementById('settingsBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
+  document.getElementById('trelloSyncBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
+  document.getElementById('portalFetchBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
+  document.getElementById('tbmtDownloadBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
+  document.getElementById('mobileTrelloSyncBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
+  document.getElementById('mobilePortalFetchBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
+  document.getElementById('mobileTbmtDownloadBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
   document.getElementById('reportBtn').style.display = '';
   // Sync mobile menu buttons
   document.getElementById('mobileUserMgmtBtn').style.display = currentUser.role === 'admin' ? '' : 'none';
@@ -1244,6 +1025,168 @@ async function syncTrello() {
   } catch (e) { showToast('Lỗi đồng bộ Trello: ' + e.message, 'error'); }
 }
 
+// --- Sync All (Portal Fetch + TBMT Download) ---
+let syncAllMode = null;
+let syncAllRunning = false;
+
+function closeSyncAllModal() {
+  document.getElementById('syncAllModal').className = 'modal-overlay';
+  syncAllMode = null;
+}
+
+async function showSyncModal(mode) {
+  syncAllMode = mode;
+  document.getElementById('syncAllModal').className = 'modal-overlay show';
+  document.getElementById('syncAllContent').innerHTML = '<div style="text-align:center;padding:40px;color:#888">Đang tải...</div>';
+  document.getElementById('syncAllRunBtn').style.display = 'none';
+  const title = mode === 'portal' ? '📋 Fetch dữ liệu từ cổng' : '📥 Tải file TBMT';
+  document.getElementById('syncAllTitle').textContent = title;
+  try {
+    const data = await api('POST', '/api/admin/sync-all?preview=true');
+    renderSyncPreview(data, mode);
+  } catch (e) {
+    document.getElementById('syncAllContent').innerHTML = '<div style="text-align:center;padding:40px;color:#e74c3c">Lỗi: ' + escHtml(e.message) + '</div>';
+  }
+}
+
+function renderSyncPreview(data, mode) {
+  let h = '';
+
+  if (mode === 'portal') {
+    const pf = data.portalFetch || [];
+    h += '<h4 style="margin:0 0 8px 0">📋 Cần fetch dữ liệu từ cổng: <strong>' + pf.length + '</strong> gói</h4>';
+    if (pf.length === 0) {
+      h += '<div style="padding:12px;background:#eafaf1;border-radius:6px;color:#27ae60;font-size:13px">✅ Tất cả đã có dữ liệu portal</div>';
+    } else {
+      h += '<div class="table-wrap" style="max-height:300px;overflow-y:auto;border:1px solid #e0e0e0;border-radius:6px">';
+      h += '<table style="font-size:12px"><thead><tr><th>Mã IB</th><th>Tên gói thầu</th><th>Bên mời thầu</th><th>Hạn đóng thầu</th></tr></thead><tbody>';
+      for (const p of pf) {
+        h += '<tr><td>' + escHtml(p.maDauThau) + '</td><td>' + escHtml(p.name) + '</td><td>' + escHtml(p.benMoiThau) + '</td><td>' + escHtml(p.thoiGianDongThau || '') + '</td></tr>';
+      }
+      h += '</tbody></table></div>';
+    }
+    document.getElementById('syncAllRunBtn').textContent = '🚀 Fetch dữ liệu';
+    document.getElementById('syncAllRunBtn').style.display = pf.length > 0 ? '' : 'none';
+  } else {
+    const tbmt = data.tbmtDownload || [];
+    h += '<h4 style="margin:0 0 8px 0">📥 Cần tải file TBMT: <strong>' + tbmt.length + '</strong> gói</h4>';
+    if (tbmt.length === 0) {
+      h += '<div style="padding:12px;background:#eafaf1;border-radius:6px;color:#27ae60;font-size:13px">✅ Tất cả đã có file TBMT</div>';
+    } else {
+      h += '<div class="table-wrap" style="max-height:300px;overflow-y:auto;border:1px solid #e0e0e0;border-radius:6px">';
+      h += '<table style="font-size:12px"><thead><tr><th>Mã IB</th><th>Tên gói thầu</th><th>Đã có dữ liệu portal</th></tr></thead><tbody>';
+      for (const p of tbmt) {
+        h += '<tr><td>' + escHtml(p.maDauThau) + '</td><td>' + escHtml(p.name) + '</td><td>' + (p.hasPortalItems ? '✅' : '❌') + '</td></tr>';
+      }
+      h += '</tbody></table></div>';
+    }
+    document.getElementById('syncAllRunBtn').textContent = '🚀 Tải TBMT';
+    document.getElementById('syncAllRunBtn').style.display = tbmt.length > 0 ? '' : 'none';
+  }
+
+  document.getElementById('syncAllContent').innerHTML = h;
+  syncAllRunning = false;
+}
+
+async function runSyncAll() {
+  if (syncAllRunning || !syncAllMode) return;
+  syncAllRunning = true;
+  const btn = document.getElementById('syncAllRunBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Đang xử lý...';
+  document.getElementById('syncAllContent').innerHTML += '<div id="syncAllProgress" style="padding:12px;background:#eaf2f8;border-radius:6px;margin-top:8px;font-size:13px;color:#1a3a5c">⏳ Đang xử lý... Vui lòng chờ.</div>';
+  try {
+    const result = await api('POST', '/api/admin/sync-all?execute=true&mode=' + syncAllMode);
+    renderSyncResults(result, syncAllMode);
+  } catch (e) {
+    document.getElementById('syncAllContent').innerHTML += '<div style="padding:12px;background:#fdecea;border-radius:6px;margin-top:8px;font-size:13px;color:#e74c3c">❌ Lỗi: ' + escHtml(e.message) + '</div>';
+  } finally {
+    btn.style.display = 'none';
+    syncAllRunning = false;
+    loadProjectList();
+  }
+}
+
+function renderSyncResults(result, mode) {
+  let h = '<div style="margin-top:12px">';
+  h += '<h4 style="margin:0 0 8px 0">✅ Kết quả</h4>';
+  h += '<div style="padding:8px 12px;background:#eafaf1;border-radius:6px;font-size:13px;color:#27ae60;margin-bottom:12px">⏱ Thời gian: ' + (result.durationSec || 0) + 's</div>';
+
+  if (mode === 'portal') {
+    const items = result.portalFetch || [];
+    h += '<div class="table-wrap" style="max-height:300px;overflow-y:auto;border:1px solid #e0e0e0;border-radius:6px">';
+    h += '<table style="font-size:12px"><thead><tr><th>Mã IB</th><th>Kết quả</th><th>Chi tiết</th></tr></thead><tbody>';
+    for (const p of items) {
+      let icon, detail;
+      if (p.status === 'ok') { icon = '✅'; detail = p.items + ' items' + (p.preservedPrices ? ' (' + p.preservedPrices + ' đã giữ giá)' : ''); }
+      else if (p.status === 'no_items') { icon = '⚠️'; detail = 'Không có danh mục hàng hóa'; }
+      else if (p.status === 'not_found') { icon = '❌'; detail = 'Không tìm thấy trên cổng'; }
+      else { icon = '❌'; detail = p.error || 'Lỗi'; }
+      h += '<tr><td>' + escHtml(p.ib) + '</td><td>' + icon + '</td><td>' + escHtml(detail) + '</td></tr>';
+    }
+    h += '</tbody></table></div>';
+  } else {
+    const items = result.tbmtDownload || [];
+    h += '<div class="table-wrap" style="max-height:300px;overflow-y:auto;border:1px solid #e0e0e0;border-radius:6px">';
+    h += '<table style="font-size:12px"><thead><tr><th>Mã IB</th><th>Kết quả</th><th>Chi tiết</th></tr></thead><tbody>';
+    for (const p of items) {
+      let icon, detail;
+      if (p.status === 'downloaded') { icon = '✅'; detail = 'Đã tải (' + (p.type === 'extracted' ? p.files + ' files' : p.filename) + ')'; }
+      else if (p.status === 'scan_triggered') { icon = '⏳'; detail = 'Đã yêu cầu scan'; }
+      else if (p.status === 'not_found') { icon = '❌'; detail = 'Không có HSMT'; }
+      else { icon = '❌'; detail = p.error || 'Lỗi'; }
+      h += '<tr><td>' + escHtml(p.ib) + '</td><td>' + icon + '</td><td>' + escHtml(detail) + '</td></tr>';
+    }
+    h += '</tbody></table></div>';
+  }
+
+  h += '</div>';
+  document.getElementById('syncAllContent').innerHTML = h;
+}
+
+function renderSyncAllResults(result) {
+  let h = '<div style="margin-top:12px">';
+  h += '<h4 style="margin:0 0 8px 0">✅ Kết quả đồng bộ</h4>';
+  h += '<div style="padding:8px 12px;background:#eafaf1;border-radius:6px;font-size:13px;color:#27ae60;margin-bottom:12px">⏱ Thời gian: ' + (result.durationSec || 0) + 's</div>';
+
+  // Portal results
+  const pf = result.portalFetch || [];
+  if (pf.length > 0) {
+    h += '<h5 style="margin:0 0 6px 0;font-size:13px">📋 Fetch dữ liệu portal:</h5>';
+    h += '<div class="table-wrap" style="max-height:200px;overflow-y:auto;border:1px solid #e0e0e0;border-radius:6px;margin-bottom:12px">';
+    h += '<table style="font-size:12px"><thead><tr><th>Mã IB</th><th>Kết quả</th><th>Chi tiết</th></tr></thead><tbody>';
+    for (const p of pf) {
+      let icon, detail;
+      if (p.status === 'ok') { icon = '✅'; detail = p.items + ' items' + (p.preservedPrices ? ' (' + p.preservedPrices + ' đã giữ giá)' : ''); }
+      else if (p.status === 'no_items') { icon = '⚠️'; detail = 'Không có danh mục hàng hóa'; }
+      else if (p.status === 'not_found') { icon = '❌'; detail = 'Không tìm thấy trên cổng'; }
+      else { icon = '❌'; detail = p.error || 'Lỗi'; }
+      h += '<tr><td>' + escHtml(p.ib) + '</td><td>' + icon + '</td><td>' + escHtml(detail) + '</td></tr>';
+    }
+    h += '</tbody></table></div>';
+  }
+
+  // TBMT results
+  const tbmt = result.tbmtDownload || [];
+  if (tbmt.length > 0) {
+    h += '<h5 style="margin:0 0 6px 0;font-size:13px">📥 Tải file TBMT:</h5>';
+    h += '<div class="table-wrap" style="max-height:200px;overflow-y:auto;border:1px solid #e0e0e0;border-radius:6px;margin-bottom:12px">';
+    h += '<table style="font-size:12px"><thead><tr><th>Mã IB</th><th>Kết quả</th><th>Chi tiết</th></tr></thead><tbody>';
+    for (const p of tbmt) {
+      let icon, detail;
+      if (p.status === 'downloaded') { icon = '✅'; detail = 'Đã tải (' + (p.type === 'extracted' ? p.files + ' files' : p.filename) + ')'; }
+      else if (p.status === 'scan_triggered') { icon = '⏳'; detail = 'Đã yêu cầu scan'; }
+      else if (p.status === 'not_found') { icon = '❌'; detail = 'Không có HSMT'; }
+      else { icon = '❌'; detail = p.error || 'Lỗi'; }
+      h += '<tr><td>' + escHtml(p.ib) + '</td><td>' + icon + '</td><td>' + escHtml(detail) + '</td></tr>';
+    }
+    h += '</tbody></table></div>';
+  }
+
+  h += '</div>';
+  document.getElementById('syncAllContent').innerHTML = h;
+}
+
 // --- Project flow ---
 async function submitProject() {
   if (!currentProject) return;
@@ -1349,7 +1292,7 @@ async function loadProjectList() {
       const ibStr = p.maDauThau ? escHtml(p.maDauThau) : '';
       const bm = p.benMoiThau ? ' - ' + escHtml(p.benMoiThau) : '';
       const dn = (ibStr ? '['+ibStr+'] ' : '') + escHtml(p.name) + bm;
-      const ts = p.thoiGianDongThau ? toDateStr(p.thoiGianDongThau) : toDateTimeStr(p.updatedAt||p.createdAt);
+      const ts = p.thoiGianDongThau ? toDateTimeStr(p.thoiGianDongThau) : toDateTimeStr(p.updatedAt||p.createdAt);
       const xh = p.xepHang ? '<span class="r-rank">#' + escHtml(p.xepHang) + '</span>' : '';
       li.innerHTML = '<span class="r-icon">' + icon + '</span><span class="r-name">' + dn + '</span><span class="r-time">' + ts + '</span>' + xh;
       li.addEventListener('click', () => selectProjectById(p.id));
@@ -1402,261 +1345,6 @@ async function loadProjectList() {
 
   const statusInfo = document.getElementById('projectStatus').querySelector('span');
   statusInfo.textContent = projects.length + ' dự án';
-  // Also render Kanban board if it's the current view
-  if (currentViewMode === 'kanban') renderKanbanBoard();
-}
-
-let currentViewMode = 'kanban'; // 'kanban' or 'detail'
-
-function switchView(mode) {
-  currentViewMode = mode;
-  const kanbanView = document.getElementById('kanbanView');
-  const detailView = document.getElementById('detailView');
-  const btnKanban = document.getElementById('btnKanbanView');
-  const btnDetail = document.getElementById('btnDetailView');
-  
-  if (mode === 'kanban') {
-    kanbanView.style.display = 'block';
-    detailView.style.display = 'none';
-    btnKanban.className = 'btn btn-primary';
-    btnDetail.className = 'btn btn-outline';
-    // Clear search filter when switching back to Kanban so all projects show
-    const searchInput = document.getElementById('projectSearch');
-    if (searchInput) searchInput.value = '';
-    renderKanbanBoard();
-  } else {
-    kanbanView.style.display = 'none';
-    detailView.style.display = 'block';
-    btnKanban.className = 'btn btn-outline';
-    btnDetail.className = 'btn btn-primary';
-  }
-}
-
-// Kanban status columns configuration
-const KANBAN_COLUMNS = [
-  { key: 'draft', label: 'Đang chuẩn bị hồ sơ', icon: '📝', badgeClass: 'status-draft' },
-  { key: 'pending', label: 'Chờ duyệt', icon: '⏳', badgeClass: 'status-pending' },
-  { key: 'approved', label: 'Đã duyệt', icon: '✓', badgeClass: 'status-approved' },
-  { key: 'rejected', label: 'Không duyệt', icon: '✗', badgeClass: 'status-rejected' },
-  { key: 'pendingResult', label: 'Đang xét thầu', icon: '⏳', badgeClass: 'status-pendingResult' },
-  { key: 'win', label: 'Trúng thầu', icon: '🏆', badgeClass: 'status-win', filter: 'win' },
-  { key: 'lose', label: 'Trượt thầu', icon: '❌', badgeClass: 'status-lose', filter: 'lose' }
-];
-
-// Valid status transitions for drag & drop
-const VALID_TRANSITIONS = {
-  'draft': ['pending'],
-  'rejected': ['pending'],
-  'pending': ['approved', 'rejected'],
-  'approved': ['rejected'] // unapprove
-};
-
-function renderKanbanBoard() {
-  const board = document.getElementById('kanbanBoard');
-  if (!board) return;
-  
-  const searchTerm = document.getElementById('projectSearch')?.value?.trim().toLowerCase() || '';
-  
-  // Filter projects by search term
-  let filteredProjects = projects;
-  if (searchTerm) {
-    filteredProjects = projects.filter(p => 
-      (p.name && p.name.toLowerCase().includes(searchTerm)) ||
-      (p.maDauThau && p.maDauThau.toLowerCase().includes(searchTerm))
-    );
-  }
-  
-  let html = '<div class="kanban-board-inner">';
-  
-  for (const col of KANBAN_COLUMNS) {
-    let colProjects;
-    if (col.filter === 'win') {
-      colProjects = filteredProjects.filter(p => p.ketQuaTrungThau === 'win');
-    } else if (col.filter === 'lose') {
-      colProjects = filteredProjects.filter(p => p.ketQuaTrungThau === 'lose');
-    } else {
-      colProjects = filteredProjects.filter(p => p.status === col.key);
-    }
-    const count = colProjects.length;
-    
-    html += `
-      <div class="kanban-column" data-status="${col.key}">
-        <div class="kanban-column-header">
-          <span class="kanban-column-icon">${col.icon}</span>
-          <span class="kanban-column-title">${col.label}</span>
-          <span class="kanban-column-count ${col.badgeClass}">${count}</span>
-        </div>
-        <div class="kanban-column-body" data-status="${col.key}">
-          ${colProjects.map(p => renderKanbanCard(p)).join('')}
-        </div>
-      </div>
-    `;
-  }
-  
-  html += '</div>';
-  board.innerHTML = html;
-  
-  // Attach drag & drop event listeners
-  attachKanbanDragDrop();
-}
-
-function renderKanbanCard(project) {
-  const info = project.projectInfo || {};
-  const params = project.params || {};
-  const ib = info.maDauThau ? escHtml(info.maDauThau) : '';
-  const name = escHtml(project.name);
-  const benMoiThau = info.benMoiThau ? escHtml(info.benMoiThau) : '';
-  const giaDuToan = params.giaDuToan ? toVND(params.giaDuToan) : '—';
-  const loiNhuanRong = params.tiLeLNG && params.giaDuToan ? 
-    toVND(Math.round(params.giaDuToan * (params.tiLeLNG / 100))) : '—';
-  const tiLeGiamGia = params.giaDuToan && params.tiLeLNG ? 
-    toPct(params.tiLeLNG) : '—';
-  const nguoiLap = info.nguoiLap ? escHtml(info.nguoiLap) : '';
-  const ngayDongThau = info.thoiGianDongThau ? toDateStr(info.thoiGianDongThau) : '';
-  
-  let footerInfo = '';
-  if (nguoiLap) footerInfo += `👤 ${nguoiLap}`;
-  if (ngayDongThau) footerInfo += (footerInfo ? ' | ' : '') + `📅 ${ngayDongThau}`;
-  const itemsCount = (project.items && project.items.length) || 0;
-  if (itemsCount) footerInfo += (footerInfo ? ' | ' : '') + `📦 ${itemsCount} mặt hàng`;
-  
-  const isResult = project.ketQuaTrungThau === 'win' || project.ketQuaTrungThau === 'lose';
-  
-  return `
-    <div class="kanban-card" draggable="${isResult ? 'false' : 'true'}" data-id="${project.id}" data-status="${project.status}"
-         onclick="openProjectModal('${project.id}')"
-         title="Click để xem thẻ dự án">
-      <div class="kanban-card-header">
-        ${ib ? `<span class="kanban-card-ib">[${ib}]</span>` : ''}
-        ${isResult ? `<span class="kanban-card-status status-${project.ketQuaTrungThau}">${project.ketQuaTrungThau === 'win' ? '🏆 Trúng' : '❌ Trượt'}</span>` : ''}
-      </div>
-      <div class="kanban-card-body">
-        <div class="kanban-card-name">${name}</div>
-        ${benMoiThau ? `<div class="kanban-card-benmoi">🏢 ${benMoiThau}</div>` : ''}
-      </div>
-      <div class="kanban-card-meta">
-        <div class="kanban-card-meta-row">
-          <span class="kanban-card-label">💰 Giá dự toán</span>
-          <span class="kanban-card-value">${giaDuToan}</span>
-        </div>
-        <div class="kanban-card-meta-row">
-          <span class="kanban-card-label">📈 LNR</span>
-          <span class="kanban-card-value profit">${loiNhuanRong}</span>
-        </div>
-        <div class="kanban-card-meta-row">
-          <span class="kanban-card-label">📉 Giảm giá</span>
-          <span class="kanban-card-value">${tiLeGiamGia}</span>
-        </div>
-      </div>
-      <div class="kanban-card-footer">
-        ${footerInfo}
-      </div>
-    </div>
-  `;
-}
-
-function attachKanbanDragDrop() {
-  const cards = document.querySelectorAll('.kanban-card');
-  const columns = document.querySelectorAll('.kanban-column-body');
-  
-  let draggedCard = null;
-  let sourceStatus = null;
-  
-  cards.forEach(card => {
-    card.addEventListener('dragstart', (e) => {
-      draggedCard = card;
-      sourceStatus = card.dataset.status;
-      card.classList.add('dragging');
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', card.dataset.id);
-    });
-    
-    card.addEventListener('dragend', () => {
-      card.classList.remove('dragging');
-      draggedCard = null;
-      sourceStatus = null;
-      columns.forEach(col => col.classList.remove('drag-over'));
-    });
-  });
-  
-  columns.forEach(column => {
-    column.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-      column.classList.add('drag-over');
-    });
-    
-    column.addEventListener('dragenter', (e) => {
-      e.preventDefault();
-      column.classList.add('drag-over');
-    });
-    
-    column.addEventListener('dragleave', () => {
-      column.classList.remove('drag-over');
-    });
-    
-    column.addEventListener('drop', async (e) => {
-      e.preventDefault();
-      column.classList.remove('drag-over');
-      
-      if (!draggedCard) return;
-      
-      const targetStatus = column.dataset.status;
-      if (targetStatus === 'win' || targetStatus === 'lose') {
-        showToast('Không thể thay đổi trạng thái kết quả đấu thầu', 'error');
-        return;
-      }
-      
-      const projectId = draggedCard.dataset.id;
-      
-      // Check if valid transition
-      if (!isValidTransition(sourceStatus, targetStatus)) {
-        showToast('Không thể chuyển từ ' + getStatusLabel(sourceStatus) + ' sang ' + getStatusLabel(targetStatus), 'error');
-        return;
-      }
-      
-       // Check permissions
-      if (sourceStatus === 'draft' && targetStatus === 'pending') {
-        // Select project first and submit
-        await selectProjectById(projectId);
-        await submitProject();
-      } else if (sourceStatus === 'pending' && targetStatus === 'approved') {
-        if (!currentUser || currentUser.role !== 'admin') {
-          showToast('Chỉ Admin mới có quyền duyệt dự án', 'error');
-          return;
-        }
-        await selectProjectById(projectId);
-        await approveProject();
-      } else if (sourceStatus === 'pending' && targetStatus === 'rejected') {
-        if (!currentUser || currentUser.role !== 'admin') {
-          showToast('Chỉ Admin mới có quyền từ chối dự án', 'error');
-          return;
-        }
-        await selectProjectById(projectId);
-        await rejectProject();
-      } else if (sourceStatus === 'approved' && targetStatus === 'rejected') {
-        if (!currentUser || currentUser.role !== 'admin') {
-          showToast('Chỉ Admin mới có quyền huỷ duyệt dự án', 'error');
-          return;
-        }
-        await selectProjectById(projectId);
-        await unapproveProject();
-      } else {
-        showToast('Thao tác không được hỗ trợ', 'error');
-      }
-    });
-  });
-}
-
-function isValidTransition(fromStatus, toStatus) {
-  if (fromStatus === toStatus) return false;
-  const allowed = VALID_TRANSITIONS[fromStatus];
-  return allowed && allowed.includes(toStatus);
-}
-
-function getStatusLabel(status) {
-  const col = KANBAN_COLUMNS.find(c => c.key === status);
-  return col ? col.label : status;
 }
 
 function onSearchInput(input) {
@@ -1787,6 +1475,7 @@ function clearForm() {
   document.getElementById('nguoiDuyetGroup').style.display = 'none';
   document.getElementById('ngayDuyetGroup').style.display = 'none';
   document.getElementById('fetchSourceBadge').style.display = 'none';
+  updateTbmtFileUI();
 }
 
 function loadProjectToForm(p) {
@@ -1808,6 +1497,28 @@ function loadProjectToForm(p) {
   const hlcntInput = document.getElementById('hinhThucLCNTInput');
   const hasPortalItems = !!(p.items && p.items.some(i => i.portalKyMaHieu || i.portalNhanHieu || i.portalHangSanXuat));
   let savedLabel = info.hinhThucLCNT || info.bidForm || '';
+  // Show detail button if project has extra metadata saved
+  const hasDetail = !!(info.planNo || info.bidForm || info.bidOpenDate || info.publicDate || info.investField || info.bidMode || info.capitalDetail || info.processApply || info.contractType || info.contractPeriod);
+  document.getElementById('btnDetailIB').style.display = hasDetail ? '' : 'none';
+  // Populate _fetchData from saved metadata so detail modal works without re-fetch
+  if (hasDetail && currentProject) {
+    currentProject._fetchData = {
+      bidNo: info.maDauThau || '',
+      planNo: info.planNo || '',
+      publicDate: info.publicDate || '',
+      thoiGianDongThau: info.thoiGianDongThau || '',
+      bidOpenDate: info.bidOpenDate || '',
+      hinhThucLCNT: info.hinhThucLCNT || '',
+      bidForm: info.bidForm || '',
+      investField: info.investField || '',
+      bidMode: info.bidMode || '',
+      capitalDetail: info.capitalDetail || '',
+      processApply: info.processApply || '',
+      contractType: info.contractType || '',
+      contractPeriod: info.contractPeriod || '',
+      contractPeriodUnit: info.contractPeriodUnit || ''
+    };
+  }
   if (!savedLabel && hasPortalItems) savedLabel = 'Chào hàng cạnh tranh rút gọn';
   if (savedLabel) {
     const text = savedLabel.startsWith('Hình thức') ? savedLabel : 'Hình thức LCNT: ' + savedLabel;
@@ -1824,7 +1535,8 @@ function loadProjectToForm(p) {
   // Lock bid close time if project has auto-fetched portal data
   lockProjectPortalFields(hasPortalItems);
   const params = p.params || {};
-  document.getElementById('giaDuToan').value = params.giaDuToan ? formatNumber(params.giaDuToan) : '';
+  const giaDuToan = params.giaDuToan || info.giaDuToan;
+  document.getElementById('giaDuToan').value = giaDuToan ? formatNumber(giaDuToan) : '';
   document.getElementById('tiLeLNG').value = params.tiLeLNG != null && params.tiLeLNG !== '' ? params.tiLeLNG : '';
   phiDuThauManual = params.phiDuThauManual === true;
   document.getElementById('phiDuThau').value = params.phiDuThau != null && params.phiDuThau !== '' ? formatNumber(params.phiDuThau) : '';
@@ -1836,6 +1548,7 @@ function loadProjectToForm(p) {
   renderItems(p.items || []);
   // Recalculate efficiency display after loading project data
   calculate();
+  updateTbmtFileUI();
 }
 
 function renderItems(items) {
@@ -1935,7 +1648,7 @@ function populateThoiGianDongThau(baseDate) {
   }
   selGio.innerHTML = '<option value="">HH:mm</option>';
   for (let h = 0; h < 24; h++) {
-    for (let m = 0; m < 60; m += 30) {
+    for (let m = 0; m < 60; m += 15) {
       const v = String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
       const o = document.createElement('option'); o.value = v; o.textContent = v;
       selGio.appendChild(o);
@@ -2160,7 +1873,15 @@ function calculate() {
   document.getElementById('rTongGiaNhap').textContent = '-' + toVND(tongGiaNhap);
   document.getElementById('rTongGiaNhap').className = 'rvalue cost';
   document.getElementById('rGiaDuToan').textContent = toVND(giaDuToan);
-  document.getElementById('rGiaChaoToiThieu').textContent = toVND(giaChaoToiThieu);
+  const elGiaChao = document.getElementById('rGiaChaoToiThieu');
+  elGiaChao.textContent = toVND(giaChaoToiThieu);
+  if (giaDuToan > 0 && giaChaoToiThieu > giaDuToan) {
+    elGiaChao.style.color = '#e74c3c';
+    elGiaChao.title = 'Giá chào tối thiểu cao hơn giá dự toán!';
+  } else {
+    elGiaChao.style.color = '';
+    elGiaChao.title = '';
+  }
   const tiLeGiamGiaEl = document.getElementById('rTiLeGiamGia');
   if (giaDuToan > 0) {
     tiLeGiamGiaEl.textContent = '-' + toPct(tiLeGiamGia);
@@ -2277,6 +1998,7 @@ async function manualSave() {
   if (!currentProject) { showToast('Chưa chọn dự án', 'error'); return; }
   clearErrors();
   if (!validateProjectInfo()) return;
+  if (!validatePriceConstraint()) return;
   await autoSave();
   showToast('Đã lưu thành công', 'success');
 }
@@ -2309,7 +2031,19 @@ function collectFormData() {
       nguoiDuyet: document.getElementById('nguoiDuyet').value,
       ngayDuyet: fromDateStr(document.getElementById('ngayDuyet').value),
       hinhThucLCNT: document.getElementById('hinhThucLCNTInput').dataset.label || '',
-      isRutGon: document.getElementById('hinhThucLCNTInput').dataset.rutgon === '1'
+      isRutGon: document.getElementById('hinhThucLCNTInput').dataset.rutgon === '1',
+      // Preserve extra metadata saved from fetch
+      planNo: (currentProject && currentProject.projectInfo && currentProject.projectInfo.planNo) || '',
+      bidForm: (currentProject && currentProject.projectInfo && currentProject.projectInfo.bidForm) || '',
+      bidOpenDate: (currentProject && currentProject.projectInfo && currentProject.projectInfo.bidOpenDate) || '',
+      publicDate: (currentProject && currentProject.projectInfo && currentProject.projectInfo.publicDate) || '',
+      investField: (currentProject && currentProject.projectInfo && currentProject.projectInfo.investField) || '',
+      bidMode: (currentProject && currentProject.projectInfo && currentProject.projectInfo.bidMode) || '',
+      capitalDetail: (currentProject && currentProject.projectInfo && currentProject.projectInfo.capitalDetail) || '',
+      processApply: (currentProject && currentProject.projectInfo && currentProject.projectInfo.processApply) || '',
+      contractType: (currentProject && currentProject.projectInfo && currentProject.projectInfo.contractType) || '',
+      contractPeriod: (currentProject && currentProject.projectInfo && currentProject.projectInfo.contractPeriod) || '',
+      contractPeriodUnit: (currentProject && currentProject.projectInfo && currentProject.projectInfo.contractPeriodUnit) || ''
     },
     items: items,
     params: {
@@ -2388,6 +2122,18 @@ async function fetchBiddingInfo() {
     if (data.thoiGianDongThau) setThoiGianDongThau(data.thoiGianDongThau);
     if (data.giaDuToan) document.getElementById('giaDuToan').value = formatNumber(data.giaDuToan);
     if (data.diaDiem) document.getElementById('diaDiem').value = data.diaDiem;
+    // Save extra metadata fields silently (in projectInfo, no visible form fields)
+    if (data.bidForm) currentProject.projectInfo.bidForm = data.bidForm;
+    if (data.planNo) currentProject.projectInfo.planNo = data.planNo;
+    if (data.bidOpenDate) currentProject.projectInfo.bidOpenDate = data.bidOpenDate;
+    if (data.publicDate) currentProject.projectInfo.publicDate = data.publicDate;
+    if (data.investField) currentProject.projectInfo.investField = data.investField;
+    if (data.bidMode) currentProject.projectInfo.bidMode = data.bidMode;
+    if (data.capitalDetail) currentProject.projectInfo.capitalDetail = data.capitalDetail;
+    if (data.processApply) currentProject.projectInfo.processApply = data.processApply;
+    if (data.contractType) currentProject.projectInfo.contractType = data.contractType;
+    if (data.contractPeriod) currentProject.projectInfo.contractPeriod = data.contractPeriod;
+    if (data.contractPeriodUnit) currentProject.projectInfo.contractPeriodUnit = data.contractPeriodUnit;
 
     // Show Hình thức LCNT below Bên mời thầu
     const hlcntDiv = document.getElementById('hinhThucLCNT');
@@ -2422,8 +2168,9 @@ async function fetchBiddingInfo() {
       badge.style.display = 'none';
     }
 
+    let portalItems = null;
     if (data.items && data.items.length > 0) {
-      const portalItems = data.items.map((item, idx) => ({
+      portalItems = data.items.map((item, idx) => ({
         id: crypto.randomUUID(),
         stt: idx + 1,
         ...item,
@@ -2448,18 +2195,80 @@ async function fetchBiddingInfo() {
       showToast('Đã tìm thấy thông tin dự án từ dữ liệu nội bộ', 'info');
     } else if (data.itemsStatus === 'not-rut-gon') {
       showToast('Gói ' + (data.bidFormLabel || 'này') + ' — tải file đính kèm để xem danh mục hàng hóa', 'warning');
+    } else if (data.itemsStatus === 'not-found' && data.isRutGon) {
+      showToast('Không tìm thấy danh mục hàng hóa từ cổng đấu thầu cho gói rút gọn này', 'warning');
     } else {
       showToast('Đã tìm thấy thông tin dự án', 'success');
     }
+
+    // Immediately sync fetched data into currentProject so it survives before auto-save
+    if (currentProject) {
+      if (!currentProject.params) currentProject.params = {};
+      if (!currentProject.projectInfo) currentProject.projectInfo = {};
+      currentProject.params.giaDuToan = data.giaDuToan || currentProject.params.giaDuToan;
+      currentProject.projectInfo.tenCongTrinh = data.tenCongTrinh || currentProject.projectInfo.tenCongTrinh;
+      currentProject.projectInfo.benMoiThau = data.benMoiThau || currentProject.projectInfo.benMoiThau;
+      currentProject.projectInfo.diaDiem = data.diaDiem || currentProject.projectInfo.diaDiem;
+      if (data.thoiGianDongThau) currentProject.projectInfo.thoiGianDongThau = data.thoiGianDongThau;
+      if (data.hinhThucLCNT) {
+        currentProject.projectInfo.hinhThucLCNT = data.hinhThucLCNT;
+        currentProject.projectInfo.isRutGon = !!data.isRutGon;
+      }
+      // Sync extra metadata
+      if (data.planNo) currentProject.projectInfo.planNo = data.planNo;
+      if (data.bidForm) currentProject.projectInfo.bidForm = data.bidForm;
+      if (data.bidOpenDate) currentProject.projectInfo.bidOpenDate = data.bidOpenDate;
+      if (data.publicDate) currentProject.projectInfo.publicDate = data.publicDate;
+      if (data.investField) currentProject.projectInfo.investField = data.investField;
+      if (data.bidMode) currentProject.projectInfo.bidMode = data.bidMode;
+      if (data.capitalDetail) currentProject.projectInfo.capitalDetail = data.capitalDetail;
+      if (data.processApply) currentProject.projectInfo.processApply = data.processApply;
+      if (data.contractType) currentProject.projectInfo.contractType = data.contractType;
+      if (data.contractPeriod) currentProject.projectInfo.contractPeriod = data.contractPeriod;
+      if (data.contractPeriodUnit) currentProject.projectInfo.contractPeriodUnit = data.contractPeriodUnit;
+      if (data.items && data.items.length > 0) {
+        currentProject.items = portalItems;
+      }
+    }
+
     calculate();
     setFormDirty();
     scheduleAutoSave();
+    // Show detail button if we have extra metadata
+    const hasDetail = data.planNo || data.bidForm || data.bidOpenDate || data.publicDate || data.investField || data.bidMode || data.capitalDetail || data.processApply || data.contractType || data.contractPeriod;
+    document.getElementById('btnDetailIB').style.display = hasDetail ? '' : 'none';
+    // Store raw data for detail modal
+    currentProject._fetchData = data;
+
   } catch (e) {
     showToast(e.message, 'error');
   } finally {
     btn.disabled = false;
     btn.textContent = '🔍 Tìm';
   }
+}
+
+function showProjectDetailModal() {
+  const data = currentProject && currentProject._fetchData;
+  if (!data) { showToast('Chưa có dữ liệu từ cổng', 'error'); return; }
+  const fields = {
+    pdmBidNo: data.bidNo || '',
+    pdmPlanNo: data.planNo || '',
+    pdmPublicDate: data.publicDate || '',
+    pdmCloseDate: data.thoiGianDongThau || '',
+    pdmOpenDate: data.bidOpenDate || '',
+    pdmBidForm: data.hinhThucLCNT || data.bidForm || '',
+    pdmInvestField: data.investField || '',
+    pdmBidMode: data.bidMode || '',
+    pdmProcessApply: data.processApply || '',
+    pdmCapitalDetail: data.capitalDetail || '',
+    pdmContractType: data.contractType || '',
+    pdmContractPeriod: (data.contractPeriod || '') + (data.contractPeriodUnit ? ' ' + data.contractPeriodUnit : '')
+  };
+  for (const [id, val] of Object.entries(fields)) {
+    document.getElementById(id).textContent = val || '—';
+  }
+  document.getElementById('projectDetailModal').className = 'modal-overlay show';
 }
 
 function validateProjectInfo() {
@@ -2524,6 +2333,34 @@ function validateFull() {
   }
   const ndt = document.getElementById('noiDungTrinh');
   if (!ndt || !ndt.value.trim()) { ndt.classList.add('error'); showToast('Nhập nội dung trình', 'error'); ndt.focus(); return false; }
+  const items = getItemsFromTable();
+  const tiLeLNG = parseFloat(document.getElementById('tiLeLNG').value) || 0;
+  let tongGiaNhap = 0;
+  for (const item of items) tongGiaNhap += (item.soLuong || 0) * (item.donGiaNhap || 0);
+  const giaChaoToiThieu = tiLeLNG >= 100 ? 0 : (tiLeLNG > 0 ? Math.round(tongGiaNhap / (1 - tiLeLNG / 100)) : tongGiaNhap);
+  const giaDuToan = parseNumber(document.getElementById('giaDuToan').value);
+  if (giaDuToan > 0 && giaChaoToiThieu > giaDuToan) {
+    document.getElementById('giaDuToan').classList.add('error');
+    showToast('Giá chào tối thiểu không được cao hơn giá dự toán', 'error');
+    document.getElementById('giaDuToan').focus();
+    return false;
+  }
+  return true;
+}
+
+function validatePriceConstraint() {
+  const items = getItemsFromTable();
+  const tiLeLNG = parseFloat(document.getElementById('tiLeLNG').value) || 0;
+  let tongGiaNhap = 0;
+  for (const item of items) tongGiaNhap += (item.soLuong || 0) * (item.donGiaNhap || 0);
+  const giaChaoToiThieu = tiLeLNG >= 100 ? 0 : (tiLeLNG > 0 ? Math.round(tongGiaNhap / (1 - tiLeLNG / 100)) : tongGiaNhap);
+  const giaDuToan = parseNumber(document.getElementById('giaDuToan').value);
+  if (giaDuToan > 0 && giaChaoToiThieu > giaDuToan) {
+    showToast('Giá chào tối thiểu không được cao hơn giá dự toán', 'error');
+    document.getElementById('giaDuToan').classList.add('error');
+    document.getElementById('giaDuToan').focus();
+    return false;
+  }
   return true;
 }
 
@@ -2752,386 +2589,6 @@ async function confirmMergeSuppliers() {
 // --- Supplier Suggestions ---
 let suggestTimer = null;
 
-// --- Trello Project Modal Functions ---
-let modalProject = null;
-
-async function openProjectModal(id) {
-  try {
-    modalProject = await api('GET', '/api/projects/' + id);
-    loadProjectToModal(modalProject);
-    document.getElementById('projectTrelloModal').className = 'trello-modal-overlay show';
-  } catch (e) {
-    showToast(e.message, 'error');
-  }
-}
-
-function closeProjectModal() {
-  document.getElementById('projectTrelloModal').className = 'trello-modal-overlay';
-  modalProject = null;
-  renderKanbanBoard();
-}
-
-function loadProjectToModal(p) {
-  const info = p.projectInfo || {};
-  const params = p.params || {};
-  const items = p.items || [];
-
-  document.getElementById('modalProjectIB').textContent = info.maDauThau ? '[' + info.maDauThau + ']' : '[IB]';
-  document.getElementById('modalProjectNameTitle').textContent = p.name || 'Dự án';
-  
-  const statusLabels = { draft:'Đang chuẩn bị', pending:'Chờ duyệt', approved:'Đã duyệt', rejected:'Không duyệt', pendingResult:'Đang xét thầu' };
-  const statusBadge = document.getElementById('modalProjectStatusBadge');
-  statusBadge.textContent = statusLabels[p.status] || p.status;
-  statusBadge.className = 'status-badge status-' + p.status;
-
-  document.getElementById('modalMaDauThau').value = info.maDauThau || '';
-  document.getElementById('modalTenCongTrinh').value = info.tenCongTrinh || '';
-  document.getElementById('modalBenMoiThau').value = info.benMoiThau || '';
-  document.getElementById('modalNoiDungTrinh').value = info.noiDungTrinh || '';
-  document.getElementById('modalDiaDiem').value = info.diaDiem || '';
-  document.getElementById('modalNguoiPhuTrach').value = info.nguoiPhuTrach || '';
-  document.getElementById('modalNgayLap').value = info.ngayLap || '';
-  document.getElementById('modalThoiGianDongThau').value = info.thoiGianDongThau ? info.thoiGianDongThau.substring(0,16) : '';
-
-  const hinhThucDiv = document.getElementById('modalHinhThucLCNT');
-  if (info.hinhThucLCNT) {
-    hinhThucDiv.style.display = '';
-    document.getElementById('modalHinhThucLCNTInput').value = info.hinhThucLCNT;
-  } else {
-    hinhThucDiv.style.display = 'none';
-  }
-
-  // Populate users in modal
-  const sel = document.getElementById('modalNguoiLap');
-  sel.innerHTML = '<option value="">-- Chọn --</option>';
-  for (const u of users) {
-    const opt = document.createElement('option');
-    opt.value = u.id;
-    opt.textContent = u.fullName + (u.role === 'admin' ? ' (Admin)' : '');
-    sel.appendChild(opt);
-  }
-  const userId = info.nguoiLapId || (info.nguoiLap ? (users.find(u => u.fullName === info.nguoiLap) || {}).id : '') || '';
-  sel.value = userId;
-
-  // Params
-  document.getElementById('modalGiaDuToan').value = params.giaDuToan ? formatNumber(params.giaDuToan) : '';
-  document.getElementById('modalDatCoc').value = params.datCoc ? formatNumber(params.datCoc) : '';
-  document.getElementById('modalCpKyThuat').value = params.cpKyThuat ? formatNumber(params.cpKyThuat) : '';
-  document.getElementById('modalCpHs').value = params.cpHs ? formatNumber(params.cpHs) : '';
-  document.getElementById('modalCpKhac').value = params.cpKhac ? formatNumber(params.cpKhac) : '';
-  document.getElementById('modalTiLeLNG').value = params.tiLeLNG || 10;
-
-  // Bid result
-  if (p.status === 'approved') {
-    document.getElementById('modalBidResultGroup').style.display = '';
-    document.getElementById('modalKetQuaTrungThau').value = p.ketQuaTrungThau || '';
-    document.getElementById('modalGiaTrungThau').value = p.giaTrungThau ? formatNumber(p.giaTrungThau) : '';
-  } else {
-    document.getElementById('modalBidResultGroup').style.display = 'none';
-  }
-
-  renderModalItems(items);
-  calculateModal();
-  updateModalPermissions(p);
-}
-
-function renderModalItems(items) {
-  const tbody = document.getElementById('modalItemsTableBody');
-  tbody.innerHTML = '';
-  items.forEach((item, idx) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td style="text-align:center">${idx + 1}</td>
-      <td><input type="text" class="modal-item-name" value="${escHtml(item.tenHangHoa||'')}" oninput="onModalItemChange(this)"></td>
-      <td><input type="text" class="modal-item-dvt" value="${escHtml(item.dvt||'')}" oninput="onModalItemChange(this)"></td>
-      <td><input type="number" class="modal-item-sl" value="${item.soLuong||1}" min="1" oninput="onModalItemChange(this)" style="text-align:right"></td>
-      <td><input type="text" class="modal-item-dg" value="${item.donGiaGanNhat ? formatNumber(item.donGiaGanNhat) : ''}" oninput="formatCurrencyInput(this);onModalItemChange(this)" style="text-align:right"></td>
-      <td><input type="text" class="modal-item-ncc" value="${escHtml(item.nhaCungCap||'')}" oninput="onModalItemChange(this)" list="nccDatalist"></td>
-      <td><input type="text" class="modal-item-dg-ncc" value="${item.donGiaNCC ? formatNumber(item.donGiaNCC) : ''}" oninput="formatCurrencyInput(this);onModalItemChange(this)" style="text-align:right"></td>
-      <td><button class="btn btn-danger btn-sm" onclick="removeModalItem(this)" style="padding:2px 6px">×</button></td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-function addModalItem() {
-  const tbody = document.getElementById('modalItemsTableBody');
-  const tr = document.createElement('tr');
-  tr.innerHTML = `
-    <td style="text-align:center">${tbody.rows.length + 1}</td>
-    <td><input type="text" class="modal-item-name" value="" oninput="onModalItemChange(this)"></td>
-    <td><input type="text" class="modal-item-dvt" value="" oninput="onModalItemChange(this)"></td>
-    <td><input type="number" class="modal-item-sl" value="1" min="1" oninput="onModalItemChange(this)" style="text-align:right"></td>
-    <td><input type="text" class="modal-item-dg" value="" oninput="formatCurrencyInput(this);onModalItemChange(this)" style="text-align:right"></td>
-    <td><input type="text" class="modal-item-ncc" value="" oninput="onModalItemChange(this)" list="nccDatalist"></td>
-    <td><input type="text" class="modal-item-dg-ncc" value="" oninput="formatCurrencyInput(this);onModalItemChange(this)" style="text-align:right"></td>
-    <td><button class="btn btn-danger btn-sm" onclick="removeModalItem(this)" style="padding:2px 6px">×</button></td>
-  `;
-  tbody.appendChild(tr);
-  calculateModal();
-}
-
-function removeModalItem(btn) {
-  btn.closest('tr').remove();
-  const rows = document.querySelectorAll('#modalItemsTableBody tr');
-  rows.forEach((r, idx) => { r.cells[0].textContent = idx + 1; });
-  calculateModal();
-  saveModalProject();
-}
-
-function clearModalItems() {
-  if (!confirm('Xóa toàn bộ hàng hóa?')) return;
-  document.getElementById('modalItemsTableBody').innerHTML = '';
-  calculateModal();
-  saveModalProject();
-}
-
-function calculateModal() {
-  const rows = document.querySelectorAll('#modalItemsTableBody tr');
-  let tongGiaNCC = 0;
-  rows.forEach(r => {
-    const sl = parseFloat(r.querySelector('.modal-item-sl').value) || 0;
-    const dgNCC = parseNumber(r.querySelector('.modal-item-dg-ncc').value);
-    tongGiaNCC += sl * dgNCC;
-  });
-
-  const giaDuToan = parseNumber(document.getElementById('modalGiaDuToan').value);
-  const datCoc = parseNumber(document.getElementById('modalDatCoc').value);
-  const cpKyThuat = parseNumber(document.getElementById('modalCpKyThuat').value);
-  const cpHs = parseNumber(document.getElementById('modalCpHs').value);
-  const cpKhac = parseNumber(document.getElementById('modalCpKhac').value);
-  const tiLeLNG = parseFloat(document.getElementById('modalTiLeLNG').value) || 0;
-
-  const totalCost = tongGiaNCC + datCoc + cpKyThuat + cpHs + cpKhac;
-  const targetProfit = giaDuToan * (tiLeLNG / 100);
-  const giaChaoThau = totalCost + targetProfit;
-  const tiLeGiamGia = giaDuToan > 0 ? ((giaDuToan - giaChaoThau) / giaDuToan) * 100 : 0;
-  const loiNhuanRong = giaDuToan - giaChaoThau - totalCost + tongGiaNCC;
-
-  document.getElementById('modalResTongGiaNCC').textContent = toVND(tongGiaNCC);
-  document.getElementById('modalResGiaChaoThau').textContent = toVND(giaChaoThau);
-  document.getElementById('modalResTiLeGiamGia').textContent = toPct(tiLeGiamGia);
-  const lnrEl = document.getElementById('modalResLoiNhuanRong');
-  lnrEl.textContent = toVND(loiNhuanRong);
-  lnrEl.style.color = loiNhuanRong >= 0 ? '#27ae60' : '#e74c3c';
-}
-
-function collectModalFormData() {
-  const rows = document.querySelectorAll('#modalItemsTableBody tr');
-  const items = [];
-  rows.forEach(r => {
-    items.push({
-      tenHangHoa: r.querySelector('.modal-item-name').value,
-      dvt: r.querySelector('.modal-item-dvt').value,
-      soLuong: parseFloat(r.querySelector('.modal-item-sl').value) || 1,
-      donGiaGanNhat: parseNumber(r.querySelector('.modal-item-dg').value),
-      nhaCungCap: r.querySelector('.modal-item-ncc').value,
-      donGiaNCC: parseNumber(r.querySelector('.modal-item-dg-ncc').value)
-    });
-  });
-
-  const selUser = document.getElementById('modalNguoiLap');
-  const selectedOpt = selUser.options[selUser.selectedIndex];
-  const nguoiLapName = selectedOpt ? selectedOpt.textContent.replace(' (Admin)', '') : '';
-
-  return {
-    name: document.getElementById('modalTenCongTrinh').value || document.getElementById('modalMaDauThau').value,
-    projectInfo: {
-      maDauThau: document.getElementById('modalMaDauThau').value,
-      tenCongTrinh: document.getElementById('modalTenCongTrinh').value,
-      benMoiThau: document.getElementById('modalBenMoiThau').value,
-      noiDungTrinh: document.getElementById('modalNoiDungTrinh').value,
-      diaDiem: document.getElementById('modalDiaDiem').value,
-      nguoiPhuTrach: document.getElementById('modalNguoiPhuTrach').value,
-      nguoiLap: nguoiLapName,
-      nguoiLapId: selUser.value,
-      ngayLap: document.getElementById('modalNgayLap').value,
-      thoiGianDongThau: document.getElementById('modalThoiGianDongThau').value
-    },
-    params: {
-      giaDuToan: parseNumber(document.getElementById('modalGiaDuToan').value),
-      datCoc: parseNumber(document.getElementById('modalDatCoc').value),
-      cpKyThuat: parseNumber(document.getElementById('modalCpKyThuat').value),
-      cpHs: parseNumber(document.getElementById('modalCpHs').value),
-      cpKhac: parseNumber(document.getElementById('modalCpKhac').value),
-      tiLeLNG: parseFloat(document.getElementById('modalTiLeLNG').value) || 0
-    },
-    items: items
-  };
-}
-
-let modalSaveTimer = null;
-function onModalProjectInfoChange() {
-  calculateModal();
-  scheduleModalSave();
-}
-function onModalParamsChange() {
-  calculateModal();
-  scheduleModalSave();
-}
-function onModalItemChange(el) {
-  calculateModal();
-  scheduleModalSave();
-}
-function scheduleModalSave() {
-  if (modalSaveTimer) clearTimeout(modalSaveTimer);
-  modalSaveTimer = setTimeout(() => { saveModalProject(); }, 800);
-}
-
-async function saveModalProject() {
-  if (!modalProject) return;
-  try {
-    const data = collectModalFormData();
-    await api('PUT', '/api/projects/' + modalProject.id, data);
-    Object.assign(modalProject, data);
-    await loadProjectList();
-  } catch (e) {
-    showToast(e.message, 'error');
-  }
-}
-
-function updateModalPermissions(p) {
-  const isAdmin = currentUser && currentUser.role === 'admin';
-  const canSubmit = p.status === 'draft' || p.status === 'rejected';
-
-  const btnSubmit = document.getElementById('modalBtnSubmit');
-  const btnApprove = document.getElementById('modalBtnApprove');
-  const btnReject = document.getElementById('modalBtnReject');
-  const btnUnapprove = document.getElementById('modalBtnUnapprove');
-
-  btnSubmit.style.display = canSubmit ? '' : 'none';
-  if (isAdmin) {
-    btnApprove.style.display = p.status === 'pending' ? '' : 'none';
-    btnReject.style.display = p.status === 'pending' ? '' : 'none';
-    btnUnapprove.style.display = p.status === 'approved' ? '' : 'none';
-  } else {
-    btnApprove.style.display = 'none';
-    btnReject.style.display = 'none';
-    btnUnapprove.style.display = 'none';
-  }
-}
-
-async function modalSubmitProject() {
-  if (!modalProject) return;
-  try {
-    await saveModalProject();
-    const p = await api('PATCH', '/api/projects/' + modalProject.id + '/submit');
-    modalProject = p;
-    loadProjectToModal(p);
-    await loadProjectList();
-    showToast('Đã trình duyệt', 'success');
-  } catch (e) { showToast(e.message, 'error'); }
-}
-
-async function modalApproveProject() {
-  if (!modalProject) return;
-  try {
-    const p = await api('PATCH', '/api/projects/' + modalProject.id + '/approve');
-    modalProject = p;
-    loadProjectToModal(p);
-    await loadProjectList();
-    showToast('Đã duyệt', 'success');
-  } catch (e) { showToast(e.message, 'error'); }
-}
-
-async function modalRejectProject() {
-  if (!modalProject) return;
-  try {
-    const p = await api('PATCH', '/api/projects/' + modalProject.id + '/reject');
-    modalProject = p;
-    loadProjectToModal(p);
-    await loadProjectList();
-    showToast('Đã từ chối', 'success');
-  } catch (e) { showToast(e.message, 'error'); }
-}
-
-async function modalUnapproveProject() {
-  if (!modalProject) return;
-  try {
-    const p = await api('PATCH', '/api/projects/' + modalProject.id + '/unapprove');
-    modalProject = p;
-    loadProjectToModal(p);
-    await loadProjectList();
-    showToast('Đã huỷ duyệt', 'success');
-  } catch (e) { showToast(e.message, 'error'); }
-}
-
-async function modalDeleteProject() {
-  if (!modalProject) return;
-  if (!confirm('Xóa dự án này?')) return;
-  try {
-    await api('DELETE', '/api/projects/' + modalProject.id);
-    closeProjectModal();
-    await loadProjectList();
-    showToast('Đã xóa dự án', 'success');
-  } catch (e) { showToast(e.message, 'error'); }
-}
-
-function modalPrintProject() {
-  if (!modalProject) return;
-  window.open(window.location.origin + '/share/' + modalProject.id, '_blank');
-}
-
-function modalPopulateCurrentTime() {
-  const now = new Date();
-  document.getElementById('modalThoiGianDongThau').value = now.toISOString().substring(0,16);
-  onModalProjectInfoChange();
-}
-
-function modalPopulateTimeAfter(hours) {
-  const d = new Date(Date.now() + hours * 3600000);
-  document.getElementById('modalThoiGianDongThau').value = d.toISOString().substring(0,16);
-  onModalProjectInfoChange();
-}
-
-async function fetchBiddingInfoModal() {
-  const ib = document.getElementById('modalMaDauThau').value.trim();
-  if (!ib) { showToast('Vui lòng nhập mã đấu thầu', 'error'); return; }
-  const btn = document.getElementById('modalBtnFetchIB');
-  btn.disabled = true;
-  btn.textContent = '⏳ Đang tìm...';
-  try {
-    const data = await api('POST', '/api/projects/' + modalProject.id + '/fetch', { maDauThau: ib });
-    modalProject = data;
-    loadProjectToModal(data);
-    await loadProjectList();
-    showToast('Đã lấy thông tin đấu thầu thành công', 'success');
-  } catch (e) {
-    showToast(e.message, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '🔍 Tìm';
-  }
-}
-
-async function fetchModalBidResult() {
-  if (!modalProject) return;
-  const btn = document.getElementById('modalBtnFetchBidResult');
-  const statusEl = document.getElementById('modalBidResultFetchStatus');
-  btn.disabled = true;
-  btn.textContent = '⏳';
-  try {
-    const p = await api('POST', '/api/projects/' + modalProject.id + '/fetch-bid-result');
-    modalProject = p;
-    loadProjectToModal(p);
-    showToast('Đã lấy kết quả thầu tự động', 'info');
-  } catch (e) {
-    statusEl.textContent = '⚠ ' + e.message;
-    showToast(e.message, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '🔍 Tự động';
-  }
-}
-
-function onModalBidResultChange() {
-  const kr = document.getElementById('modalKetQuaTrungThau').value;
-  const giaTT = document.getElementById('modalGiaTrungThau').value;
-  if (modalProject && modalProject.id) {
-    saveBidResult(kr, giaTT);
-  }
-}
-
 async function onNccInput(el) {
   const tr = el.closest('tr');
   if (!tr) return;
@@ -3241,6 +2698,71 @@ async function fetchBidResult() {
   }
 }
 
+// --- TBMT File Download ---
+async function downloadTbmtFile() {
+  if (!currentProject) { showToast('Chưa chọn dự án', 'error'); return; }
+  const ib = currentProject.projectInfo && currentProject.projectInfo.maDauThau;
+  if (!ib) { showToast('Dự án chưa có mã đấu thầu (IB)', 'error'); return; }
+  const btn = document.getElementById('btnDownloadTbmt');
+  const info = document.getElementById('tbmtFileInfo');
+  if (btn) { btn.disabled = true; btn.textContent = '📥 Đang tải...'; }
+  if (info) info.innerHTML = '<span style="color:#888">📥 Đang tải file TBMT...</span>';
+  try {
+    const project = await api('POST', '/api/projects/' + currentProject.id + '/download-tbmt');
+    Object.assign(currentProject, project);
+    updateTbmtFileUI();
+    showToast('✅ Đã tải file TBMT thành công', 'success');
+  } catch (e) {
+    if (btn) btn.textContent = '📥 Tải file TBMT';
+    if (info) info.innerHTML = '<span style="color:#e74c3c">⚠ Lỗi: ' + escHtml(e.message) + '</span>';
+    showToast(e.message, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function updateTbmtFileUI() {
+  const group = document.getElementById('tbmtFileGroup');
+  const info = document.getElementById('tbmtFileInfo');
+  const btn = document.getElementById('btnDownloadTbmt');
+
+  const hasIb = currentProject && currentProject.projectInfo && currentProject.projectInfo.maDauThau;
+  const pi = currentProject && currentProject.projectInfo;
+  const isRutGon = (pi && pi.isRutGon) ||
+    (pi && pi.hinhThucLCNT && (pi.hinhThucLCNT.includes('rút gọn') || pi.hinhThucLCNT.includes('rut gon'))) ||
+    (currentProject && currentProject.items && currentProject.items.some(i => i.portalKyMaHieu || i.portalNhanHieu || i.portalHangSanXuat)) ||
+    (pi && pi.bidForm && pi.bidForm.endsWith('RG'));
+  const tf = currentProject && currentProject.tbmtFile;
+
+  if (group) group.style.display = hasIb && !isRutGon ? '' : 'none';
+
+  let fileHtml = '<span style="color:#888">Chưa tải file TBMT</span>';
+
+  if (tf) {
+    if (tf.type === 'extracted' && tf.files && tf.files.length > 0) {
+      let list = '<div style="display:flex;flex-direction:column;gap:4px">';
+      for (const f of tf.files) {
+        const url = '/api/tbmt-files/' + encodeURIComponent(currentProject.projectInfo.maDauThau) + '/' + encodeURIComponent(f.name);
+        list += '<div style="display:flex;align-items:center;gap:6px">'
+          + '<a href="' + url + '" target="_blank" style="font-weight:500;color:#2a5a8c;text-decoration:none">📄 ' + escHtml(f.name) + '</a>'
+          + '<span style="font-size:11px;color:#888">(' + formatNumber(f.size) + ' bytes)</span>'
+          + '</div>';
+      }
+      list += '<span style="font-size:10px;color:#999;margin-top:2px">📦 Đã tải ' + toDateStr(tf.downloadedAt) + '</span>';
+      list += '</div>';
+      fileHtml = list;
+    } else {
+      const filename = tf.filename || currentProject.projectInfo.maDauThau + '.pdf';
+      const url = '/api/tbmt-files/' + encodeURIComponent(filename);
+      fileHtml = '<a href="' + url + '" target="_blank" style="font-weight:600;color:#2a5a8c">📄 ' + escHtml(filename) + '</a>'
+        + '<span style="font-size:11px;color:#888;margin-left:8px">(' + formatNumber(tf.size || 0) + ' bytes, ' + toDateStr(tf.downloadedAt) + ')</span>';
+    }
+  }
+
+  if (info) info.innerHTML = fileHtml;
+  if (btn) btn.style.display = tf ? 'none' : '';
+}
+
 // --- Chart helper (simple canvas chart) ---
 function renderSupplierChart(canvasId, labels, data, label, color) {
   const canvas = document.getElementById(canvasId);
@@ -3336,20 +2858,6 @@ function toggleMobileMenu() {
   const menu = document.getElementById('mobileMenu');
   menu.classList.toggle('show');
 }
-
-function toggleTopbarDropdown() {
-  const menu = document.getElementById('topbarDropdown');
-  menu.classList.toggle('show');
-}
-
-// Close topbar dropdown on click outside
-document.addEventListener('click', function(e) {
-  const menu = document.getElementById('topbarDropdown');
-  const toggle = document.querySelector('.topbar-dropdown');
-  if (menu && toggle && menu.classList.contains('show') && !menu.contains(e.target) && !toggle.contains(e.target)) {
-    menu.classList.remove('show');
-  }
-});
 // Close mobile menu on click outside
 document.addEventListener('click', function(e) {
   const menu = document.getElementById('mobileMenu');
@@ -3374,5 +2882,28 @@ window.addEventListener('resize', handleMobileResize);
 document.addEventListener('DOMContentLoaded', function() { checkAuth(); setTimeout(handleMobileResize, 100); });
 document.addEventListener('keydown', function(e) { if ((e.ctrlKey||e.metaKey)&&e.key==='s') { e.preventDefault(); manualSave(); } });
 </script>
+<div class="modal-overlay" id="projectDetailModal">
+  <div class="modal" style="min-width:640px;max-width:700px">
+    <h3>📋 Thông tin chi tiết từ cổng đấu thầu</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;font-size:13px">
+      <div><strong>Mã TBMT:</strong> <span id="pdmBidNo"></span></div>
+      <div><strong>Mã KHLCNT (Plan):</strong> <span id="pdmPlanNo"></span></div>
+      <div><strong>Ngày đăng tải:</strong> <span id="pdmPublicDate"></span></div>
+      <div><strong>Ngày đóng thầu:</strong> <span id="pdmCloseDate"></span></div>
+      <div><strong>Ngày mở thầu:</strong> <span id="pdmOpenDate"></span></div>
+      <div><strong>Hình thức LCNT:</strong> <span id="pdmBidForm"></span></div>
+      <div><strong>Lĩnh vực:</strong> <span id="pdmInvestField"></span></div>
+      <div><strong>Phương thức:</strong> <span id="pdmBidMode"></span></div>
+      <div><strong>Quy trình:</strong> <span id="pdmProcessApply"></span></div>
+      <div><strong>Nguồn vốn:</strong> <span id="pdmCapitalDetail"></span></div>
+      <div><strong>Loại hợp đồng:</strong> <span id="pdmContractType"></span></div>
+      <div><strong>Thời gian thực hiện:</strong> <span id="pdmContractPeriod"></span></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="document.getElementById('projectDetailModal').className='modal-overlay'">Đóng</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

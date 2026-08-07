@@ -98,7 +98,13 @@ async function fetchBiddingInfo(page, ibCode) {
   if (!responseData) return null;
 
   const bidForm = extractValue(responseData.bidForm);
-  const isRutGon = bidForm === 'CGTTRG' || bidForm === 'CHTRG';
+  const isRutGon = !!(bidForm && (bidForm.endsWith('RG') || bidForm.toLowerCase().includes('rút gọn') || bidForm.toLowerCase().includes('rut gon')));
+
+  const processApply = extractValue(responseData.processApply);
+  if (processApply && processApply.toUpperCase() !== 'QUA_MANG' && !isRutGon) {
+    console.log(`    Non-online bid: ${ibCode} (processApply=${processApply})`);
+    return null;
+  }
 
   const result = {
     tenCongTrinh: extractValue(responseData.bidName),
