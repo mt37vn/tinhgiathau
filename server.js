@@ -71,6 +71,36 @@ function isRutGonProject(project) {
   return false;
 }
 
+// Giới hạn pháp lý bảo lãnh theo Luật Đấu thầu 2023 (22/2023/QH15), Nghị định 24/2024/NĐ-CP, Luật Xây dựng & NĐ 06/2021/NĐ-CP
+// ⚠️ Phải khớp LEGAL_LIMITS ở public/index.html — nếu đổi ở đây phải đổi cả bên client để tránh lệch khi kiểm tra.
+const LEGAL_LIMITS = {
+  tiLeBaoLanhDuThau: {
+    normal: { min: 1, max: 3 },
+    rutGon: { min: 0, max: 0 }
+  },
+  tiLeBaoLanhThucHienHD: {
+    normal: { min: 2, max: 10, allowMax: 30 },
+    rutGon: { min: 0, max: 10 }
+  },
+  tiLeBaoHanh: {
+    normal: { min: 2, max: 5 },
+    rutGon: { min: 2, max: 5 }
+  }
+};
+// Trả { ok, msg } — msg khi vượt giới hạn chặn
+function checkLegalRate(field, value, isRutGon) {
+  const l = LEGAL_LIMITS[field] && LEGAL_LIMITS[field][isRutGon ? 'rutGon' : 'normal'];
+  if (!l) return { ok: true, msg: '' };
+  const v = Number(value);
+  if (value == null || value === '' || Number.isNaN(v) || !Number.isFinite(v))
+    return { ok: false, msg: 'Giá trị bảo lãnh phải là một số hợp lệ' };
+  const block = v < l.min || v > (l.allowMax != null ? l.allowMax : l.max);
+  if (!block) return { ok: true, msg: '' };
+  const rangeTxt = (l.allowMax != null && l.allowMax > l.max) ? l.min + ' - ' + l.allowMax : l.min + ' - ' + l.max;
+  const names = { tiLeBaoLanhDuThau: 'Bảo lãnh dự thầu', tiLeBaoLanhThucHienHD: 'Bảo lãnh thực hiện HĐ', tiLeBaoHanh: 'Bảo lãnh bảo hành' };
+  return { ok: false, msg: (names[field] || field) + ' phải trong khoảng ' + rangeTxt + '% theo Luật Đấu thầu 2023 (ngữ cảnh gói ' + (isRutGon ? 'rút gọn' : 'thường') + ')' };
+}
+
 function cleanupExpiredUpcoming() {
   try {
     const projData = readData(PROJ_FILE);
@@ -676,10 +706,22 @@ app.put('/api/settings', auth, adminOnly, (req, res) => {
   if (req.body.soNgayNhapHang !== undefined) config.soNgayNhapHang = req.body.soNgayNhapHang;
   if (req.body.tiLeTamUngNCC !== undefined) config.tiLeTamUngNCC = req.body.tiLeTamUngNCC;
   if (req.body.soNgayBaoHanh !== undefined) config.soNgayBaoHanh = req.body.soNgayBaoHanh;
-  if (req.body.tiLeBaoHanh !== undefined) config.tiLeBaoHanh = req.body.tiLeBaoHanh;
-  if (req.body.tiLeBaoLanhDuThau !== undefined) config.tiLeBaoLanhDuThau = req.body.tiLeBaoLanhDuThau;
+  if (req.body.tiLeBaoHanh !== undefined) {
+    const c = checkLegalRate('tiLeBaoHanh', req.body.tiLeBaoHanh, false);
+    if (!c.ok) return res.status(400).json({ error: c.msg });
+    config.tiLeBaoHanh = req.body.tiLeBaoHanh;
+  }
+  if (req.body.tiLeBaoLanhDuThau !== undefined) {
+    const c = checkLegalRate('tiLeBaoLanhDuThau', req.body.tiLeBaoLanhDuThau, false);
+    if (!c.ok) return res.status(400).json({ error: c.msg });
+    config.tiLeBaoLanhDuThau = req.body.tiLeBaoLanhDuThau;
+  }
   if (req.body.soNgayBaoLanhDuThau !== undefined) config.soNgayBaoLanhDuThau = req.body.soNgayBaoLanhDuThau;
-  if (req.body.tiLeBaoLanhThucHienHD !== undefined) config.tiLeBaoLanhThucHienHD = req.body.tiLeBaoLanhThucHienHD;
+  if (req.body.tiLeBaoLanhThucHienHD !== undefined) {
+    const c = checkLegalRate('tiLeBaoLanhThucHienHD', req.body.tiLeBaoLanhThucHienHD, false);
+    if (!c.ok) return res.status(400).json({ error: c.msg });
+    config.tiLeBaoLanhThucHienHD = req.body.tiLeBaoLanhThucHienHD;
+  }
   if (req.body.soNgayBaoLanhThucHienHD !== undefined) config.soNgayBaoLanhThucHienHD = req.body.soNgayBaoLanhThucHienHD;
   if (req.body.phiBaoLanhDuThau !== undefined) config.phiBaoLanhDuThau = req.body.phiBaoLanhDuThau;
   if (req.body.phiBaoLanhThucHienHD !== undefined) config.phiBaoLanhThucHienHD = req.body.phiBaoLanhThucHienHD;
@@ -1143,6 +1185,17 @@ app.put('/api/projects/:id', auth, (req, res) => {
   if (giaDuToan > 0 && giaChaoToiThieu > giaDuToan)
     return res.status(400).json({ error: 'Giá chào dự kiến không được cao hơn giá dự toán' });
   const project = data.projects[idx];
+  // Chặn khi tỷ lệ bảo lãnh ngoài phạm vi pháp lý (Luật Đấu thầu 2023), theo ngữ cảnh gói thường/rút gọn
+  {
+    const merged = { ...project, ...req.body };
+    const isRutGon = isRutGonProject(merged);
+    for (const f of ['tiLeBaoLanhDuThau', 'tiLeBaoLanhThucHienHD', 'tiLeBaoHanh']) {
+      if (params[f] !== undefined && params[f] !== null && params[f] !== '') {
+        const c = checkLegalRate(f, params[f], isRutGon);
+        if (!c.ok) return res.status(400).json({ error: c.msg });
+      }
+    }
+  }
   const updated = { ...project, ...req.body, id: req.params.id, updatedAt: new Date().toISOString() };
   // Phí dự thầu / trúng thầu, hoa hồng KD (mặc định 12.5%) chỉ admin chỉnh: user thường giữ nguyên giá trị hiện có
   if (req.currentUser.role !== 'admin' && updated.params) {

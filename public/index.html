@@ -83,6 +83,18 @@ table .td-num input{text-align:right}
 .param-row input:focus{border-color:#2a5a8c;outline:none;box-shadow:0 0 0 2px rgba(42,90,140,.15)}
 .param-row input[readonly]{background:#fff}
 .param-row .suffix{flex:0 0 30px;font-size:13px;color:#666}
+.param-row input.error,.form-group input.error{border-color:#e74c3c !important;box-shadow:0 0 0 2px rgba(231,76,60,.15)}
+.param-row input.warn,.form-group input.warn{border-color:#f39c12 !important;box-shadow:0 0 0 2px rgba(243,156,18,.2)}
+.param-help{display:none;margin:2px 0 0 14px;font-size:12px;line-height:1.45}
+.param-help.show{display:block}
+.param-help.block{color:#e74c3c;font-weight:500}
+.param-help.warn{color:#f39c12}
+.param-row label.help,.form-group label.help{cursor:pointer;text-decoration:underline dotted;color:#2a5a8c}
+#labelTooltip{position:fixed;z-index:1200;max-width:440px;background:#fff;border:1px solid #d0d5dd;border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,.18);padding:12px 14px;font-size:12px;line-height:1.55;color:#333;display:none}
+#labelTooltip.show{display:block}
+#labelTooltip h4{margin:0 0 6px;color:#1a3a5c;font-size:13px}
+#labelTooltip .tip-row{margin:2px 0}
+#labelTooltip .tip-note{color:#666;font-size:11px;margin-top:6px}
 .result-row{display:flex;align-items:center;gap:10px;padding:6px 0}
 .result-row .rlabel{flex:0 0 170px;font-size:13px;color:#333;font-weight:500}
 .result-row .rvalue{flex:1;font-size:16px;font-weight:700;color:#1a3a5c;text-align:right;padding:4px 10px;border-radius:4px}
@@ -553,15 +565,16 @@ table .td-num input{text-align:right}
       <div class="param-tab-panel active" id="tabDaysRatio">
       <div class="param-group">
         <div class="param-row">
-          <label>Số ngày bảo lãnh dự thầu</label>
+          <label class="help label-help-trigger" data-help="soNgayBaoLanhDuThau" onclick="showFieldHelp('soNgayBaoLanhDuThau', event)" title="Xem hướng dẫn">Số ngày bảo lãnh dự thầu</label>
           <input type="number" id="soNgayBaoLanhDuThau" min="1" oninput="onParamChange()">
           <span class="suffix">ngày</span>
         </div>
         <div class="param-row">
-          <label>Tỷ lệ bảo lãnh dự thầu</label>
+          <label class="help label-help-trigger" data-help="tiLeBaoLanhDuThau" onclick="showFieldHelp('tiLeBaoLanhDuThau', event)" title="Xem hướng dẫn">Tỷ lệ bảo lãnh dự thầu</label>
           <input type="number" id="tiLeBaoLanhDuThau" step="0.1" min="0" max="100" oninput="onParamChange()">
           <span class="suffix">%</span>
         </div>
+        <div id="legalHelpTiLeBaoLanhDuThau" class="param-help"></div>
         <div class="param-row">
           <label>Số ngày nhập hàng</label>
           <input type="number" id="soNgayNhapHang" min="1" oninput="onParamChange()">
@@ -573,56 +586,58 @@ table .td-num input{text-align:right}
           <span class="suffix">%</span>
         </div>
         <div class="param-row">
-          <label>Số ngày bảo lãnh thực hiện HĐ</label>
+          <label class="help label-help-trigger" data-help="soNgayBaoLanhThucHienHD" onclick="showFieldHelp('soNgayBaoLanhThucHienHD', event)" title="Xem hướng dẫn">Số ngày bảo lãnh thực hiện HĐ</label>
           <input type="number" id="soNgayBaoLanhThucHienHD" min="1" oninput="onParamChange()">
           <span class="suffix">ngày</span>
         </div>
         <div class="param-row">
-          <label>Tỷ lệ bảo lãnh thực hiện HĐ</label>
+          <label class="help label-help-trigger" data-help="tiLeBaoLanhThucHienHD" onclick="showFieldHelp('tiLeBaoLanhThucHienHD', event)" title="Xem hướng dẫn">Tỷ lệ bảo lãnh thực hiện HĐ</label>
           <input type="number" id="tiLeBaoLanhThucHienHD" step="0.1" min="0" max="100" oninput="onParamChange()">
           <span class="suffix">%</span>
         </div>
+        <div id="legalHelpTiLeBaoLanhThucHienHD" class="param-help"></div>
         <div class="param-row">
-          <label>Số ngày bảo hành</label>
+          <label class="help label-help-trigger" data-help="soNgayBaoHanh" onclick="showFieldHelp('soNgayBaoHanh', event)" title="Xem hướng dẫn">Số ngày bảo hành</label>
           <input type="number" id="soNgayBaoHanh" min="1" oninput="onParamChange()">
           <span class="suffix">ngày</span>
         </div>
         <div class="param-row">
-          <label>Tỷ lệ bảo hành</label>
+          <label class="help label-help-trigger" data-help="tiLeBaoHanh" onclick="showFieldHelp('tiLeBaoHanh', event)" title="Xem hướng dẫn">Tỷ lệ bảo hành</label>
           <input type="number" id="tiLeBaoHanh" step="0.1" min="0" max="100" oninput="onParamChange()">
           <span class="suffix">%</span>
         </div>
+        <div id="legalHelpTiLeBaoHanh" class="param-help"></div>
       </div>
       </div>
       <div class="param-tab-panel" id="tabRateFee">
       <div class="param-group">
         <div class="param-row">
-          <label>Lãi suất cơ sở</label>
+          <label class="help label-help-trigger" data-help="laiSuatCoSo" onclick="showFieldHelp('laiSuatCoSo', event)" title="Xem hướng dẫn">Lãi suất cơ sở</label>
           <input type="number" id="laiSuatCoSo" step="0.1" min="0" max="100" oninput="onParamChange()">
           <span class="suffix">%/năm</span>
         </div>
         <div class="param-row">
-          <label>Vốn lưu động chuẩn</label>
+          <label class="help label-help-trigger" data-help="vonLuuDongChuan" onclick="showFieldHelp('vonLuuDongChuan', event)" title="Xem hướng dẫn">Vốn lưu động chuẩn</label>
           <input type="text" id="vonLuuDongChuan" oninput="formatCurrencyInput(this); onParamChange()">
           <span class="suffix">VNĐ</span>
         </div>
         <div class="param-row">
-          <label>Phí bảo lãnh dự thầu</label>
+          <label class="help label-help-trigger" data-help="phiBaoLanhDuThau" onclick="showFieldHelp('phiBaoLanhDuThau', event)" title="Xem hướng dẫn">Phí bảo lãnh dự thầu</label>
           <input type="number" id="phiBaoLanhDuThau" step="0.1" min="0" max="100" oninput="onParamChange()">
           <span class="suffix">%/năm</span>
         </div>
         <div class="param-row">
-          <label>Phí bảo lãnh thực hiện HĐ</label>
+          <label class="help label-help-trigger" data-help="phiBaoLanhThucHienHD" onclick="showFieldHelp('phiBaoLanhThucHienHD', event)" title="Xem hướng dẫn">Phí bảo lãnh thực hiện HĐ</label>
           <input type="number" id="phiBaoLanhThucHienHD" step="0.1" min="0" max="100" oninput="onParamChange()">
           <span class="suffix">%/năm</span>
         </div>
         <div class="param-row">
-          <label>Phí bảo lãnh bảo hành</label>
+          <label class="help label-help-trigger" data-help="phiBaoLanhBaoHanh" onclick="showFieldHelp('phiBaoLanhBaoHanh', event)" title="Xem hướng dẫn">Phí bảo lãnh bảo hành</label>
           <input type="number" id="phiBaoLanhBaoHanh" step="0.1" min="0" max="100" oninput="onParamChange()">
           <span class="suffix">%/năm</span>
         </div>
         <div class="param-row">
-          <label>Phí bảo lãnh tối thiểu</label>
+          <label class="help label-help-trigger" data-help="phiBaoLanhToiThieu" onclick="showFieldHelp('phiBaoLanhToiThieu', event)" title="Xem hướng dẫn">Phí bảo lãnh tối thiểu</label>
           <input type="text" id="phiBaoLanhToiThieu" oninput="formatCurrencyInput(this); onParamChange()">
           <span class="suffix">VNĐ/loại</span>
         </div>
@@ -777,11 +792,11 @@ table .td-num input{text-align:right}
     </div>
     <h4 style="margin:16px 0 8px;border-top:1px solid #eef2f7;padding-top:12px">Chi phí vốn</h4>
     <div class="form-group" style="margin-bottom:10px">
-      <label>Lãi suất cơ sở (%/năm)</label>
+      <label class="help label-help-trigger" data-help="laiSuatCoSo" onclick="showFieldHelp('laiSuatCoSo', event, 'normal')" title="Xem hướng dẫn">Lãi suất cơ sở (%/năm)</label>
       <input type="number" id="settingsLaiSuatCoSo" step="0.1" min="0" max="100" placeholder="12">
     </div>
     <div class="form-group" style="margin-bottom:10px">
-      <label>Vốn lưu động chuẩn (VNĐ, bắt buộc > 0)</label>
+      <label class="help label-help-trigger" data-help="vonLuuDongChuan" onclick="showFieldHelp('vonLuuDongChuan', event, 'normal')" title="Xem hướng dẫn">Vốn lưu động chuẩn (VNĐ, bắt buộc > 0)</label>
       <input type="text" id="settingsVonLuuDongChuan" oninput="formatCurrencyInput(this)" placeholder="4.000.000.000">
     </div>
     <div style="display:flex;gap:10px;margin-bottom:10px">
@@ -796,51 +811,51 @@ table .td-num input{text-align:right}
     </div>
     <div style="display:flex;gap:10px;margin-bottom:10px">
       <div class="form-group" style="flex:1">
-        <label>Số ngày bảo hành</label>
+        <label class="help label-help-trigger" data-help="soNgayBaoHanh" onclick="showFieldHelp('soNgayBaoHanh', event, 'normal')" title="Xem hướng dẫn">Số ngày bảo hành</label>
         <input type="number" id="settingsSoNgayBaoHanh" min="1" placeholder="365">
       </div>
       <div class="form-group" style="flex:1">
-        <label>Tỷ lệ bảo hành (%)</label>
+        <label class="help label-help-trigger" data-help="tiLeBaoHanh" onclick="showFieldHelp('tiLeBaoHanh', event, 'normal')" title="Xem hướng dẫn">Tỷ lệ bảo hành (%)</label>
         <input type="number" id="settingsTiLeBaoHanh" step="0.1" min="0" max="100" placeholder="5">
       </div>
     </div>
     <h4 style="margin:16px 0 8px;border-top:1px solid #eef2f7;padding-top:12px">Bảo lãnh</h4>
     <div style="display:flex;gap:10px;margin-bottom:10px">
       <div class="form-group" style="flex:1">
-        <label>Bảo lãnh dự thầu (%)</label>
+        <label class="help label-help-trigger" data-help="tiLeBaoLanhDuThau" onclick="showFieldHelp('tiLeBaoLanhDuThau', event, 'normal')" title="Xem hướng dẫn">Bảo lãnh dự thầu (%)</label>
         <input type="number" id="settingsTiLeBaoLanhDuThau" step="0.1" min="0" max="100" placeholder="2">
       </div>
       <div class="form-group" style="flex:1">
-        <label>Số ngày bảo lãnh dự thầu</label>
+        <label class="help label-help-trigger" data-help="soNgayBaoLanhDuThau" onclick="showFieldHelp('soNgayBaoLanhDuThau', event, 'normal')" title="Xem hướng dẫn">Số ngày bảo lãnh dự thầu</label>
         <input type="number" id="settingsSoNgayBaoLanhDuThau" min="1" placeholder="90">
       </div>
     </div>
     <div style="display:flex;gap:10px;margin-bottom:10px">
       <div class="form-group" style="flex:1">
-        <label>Bảo lãnh thực hiện HĐ (%)</label>
+        <label class="help label-help-trigger" data-help="tiLeBaoLanhThucHienHD" onclick="showFieldHelp('tiLeBaoLanhThucHienHD', event, 'normal')" title="Xem hướng dẫn">Bảo lãnh thực hiện HĐ (%)</label>
         <input type="number" id="settingsTiLeBaoLanhThucHienHD" step="0.1" min="0" max="100" placeholder="5">
       </div>
       <div class="form-group" style="flex:1">
-        <label>Số ngày bảo lãnh thực hiện HĐ</label>
+        <label class="help label-help-trigger" data-help="soNgayBaoLanhThucHienHD" onclick="showFieldHelp('soNgayBaoLanhThucHienHD', event, 'normal')" title="Xem hướng dẫn">Số ngày bảo lãnh thực hiện HĐ</label>
         <input type="number" id="settingsSoNgayBaoLanhThucHienHD" min="1" placeholder="90">
       </div>
     </div>
     <div style="display:flex;gap:10px;margin-bottom:10px">
       <div class="form-group" style="flex:1">
-        <label>Phí bảo lãnh dự thầu (%/năm)</label>
+        <label class="help label-help-trigger" data-help="phiBaoLanhDuThau" onclick="showFieldHelp('phiBaoLanhDuThau', event, 'normal')" title="Xem hướng dẫn">Phí bảo lãnh dự thầu (%/năm)</label>
         <input type="number" id="settingsPhiBaoLanhDuThau" step="0.1" min="0" max="100" placeholder="0.48">
       </div>
       <div class="form-group" style="flex:1">
-        <label>Phí bảo lãnh thực hiện HĐ (%/năm)</label>
+        <label class="help label-help-trigger" data-help="phiBaoLanhThucHienHD" onclick="showFieldHelp('phiBaoLanhThucHienHD', event, 'normal')" title="Xem hướng dẫn">Phí bảo lãnh thực hiện HĐ (%/năm)</label>
         <input type="number" id="settingsPhiBaoLanhThucHienHD" step="0.1" min="0" max="100" placeholder="0.6">
       </div>
       <div class="form-group" style="flex:1">
-        <label>Phí bảo lãnh bảo hành (%/năm)</label>
+        <label class="help label-help-trigger" data-help="phiBaoLanhBaoHanh" onclick="showFieldHelp('phiBaoLanhBaoHanh', event, 'normal')" title="Xem hướng dẫn">Phí bảo lãnh bảo hành (%/năm)</label>
         <input type="number" id="settingsPhiBaoLanhBaoHanh" step="0.1" min="0" max="100" placeholder="0.6">
       </div>
     </div>
     <div class="form-group" style="margin-bottom:10px">
-      <label>Phí tối thiểu/loại (VNĐ)</label>
+      <label class="help label-help-trigger" data-help="phiBaoLanhToiThieu" onclick="showFieldHelp('phiBaoLanhToiThieu', event, 'normal')" title="Xem hướng dẫn">Phí tối thiểu/loại (VNĐ)</label>
       <input type="text" id="settingsPhiBaoLanhToiThieu" oninput="formatCurrencyInput(this)" placeholder="500.000">
     </div>
     <div class="modal-actions">
@@ -849,6 +864,9 @@ table .td-num input{text-align:right}
     </div>
   </div>
 </div>
+
+<!-- Label Help Tooltip -->
+<div id="labelTooltip"></div>
 
 <!-- Capital Cost Detail Modal -->
 <div class="modal-overlay" id="capCostModal">
@@ -959,6 +977,169 @@ let settings = {};
 let capCostDetail = null;
 let manualGiaChao = 0;
 let lastLNR = 0;
+
+// Giới hạn pháp lý bảo lãnh theo Luật Đấu thầu 2023 (22/2023/QH15), Nghị định 24/2024/NĐ-CP, Luật Xây dựng & NĐ 06/2021/NĐ-CP
+// ⚠️ Phải khớp LEGAL_LIMITS & checkLegalRate ở server.js — nếu đổi ở đây phải đổi cả bên server để tránh lệch khi kiểm tra.
+const LEGAL_LIMITS = {
+  tiLeBaoLanhDuThau: {
+    normal: { min: 1, max: 3 },
+    rutGon: { min: 0, max: 0 }
+  },
+  tiLeBaoLanhThucHienHD: {
+    normal: { min: 2, max: 10, allowMax: 30 },
+    rutGon: { min: 0, max: 10 }
+  },
+  tiLeBaoHanh: {
+    normal: { min: 2, max: 5 },
+    rutGon: { min: 2, max: 5 }
+  }
+};
+
+const LEGAL_HELP = {
+  tiLeBaoLanhDuThau: {
+    title: 'Bảo lãnh dự thầu (%)',
+    normal: 'Gói thầu thông thường: 1% - 3% giá gói thầu (quy mô nhỏ: 1% - 1,5%). Căn cứ Điều 14 Luật Đấu thầu 2023.',
+    rutGon: 'Gói rút gọn (chỉ định thầu rút gọn): MIỄN bảo lãnh dự thầu (0%). Điểm a Khoản 2 Điều 14 Luật Đấu thầu 2023.'
+  },
+  soNgayBaoLanhDuThau: {
+    title: 'Số ngày bảo lãnh dự thầu',
+    normal: 'Thời hạn hiệu lực = thời hạn hiệu lực của HSDT + 30 ngày (vd HSDT hiệu lực 90 ngày → bảo lãnh 120 ngày).',
+    rutGon: 'Không phát sinh (bảo lãnh dự thầu được miễn ở gói rút gọn).'
+  },
+  tiLeBaoLanhThucHienHD: {
+    title: 'Bảo lãnh thực hiện hợp đồng (%)',
+    normal: '2% - 10% giá hợp đồng. Trường hợp phòng ngừa rủi ro cao: tối đa 30% (phải do người có thẩm quyền quyết định). Căn cứ Điều 68 Luật Đấu thầu 2023.',
+    rutGon: 'Thường được miễn (0%). Nếu Chủ đầu tư yêu cầu: 2% - 10% giá trị hợp đồng. Điểm b Khoản 2 Điều 68 Luật Đấu thầu 2023.'
+  },
+  soNgayBaoLanhThucHienHD: {
+    title: 'Số ngày bảo lãnh thực hiện HĐ',
+    normal: 'Tính từ ngày hợp đồng có hiệu lực đến ngày hoàn thành nghĩa vụ hợp đồng (hoặc chuyển sang nghĩa vụ bảo hành).',
+    rutGon: 'Thường được miễn; nếu có yêu cầu tính từ ngày hợp đồng có hiệu lực đến khi nghiệm thu.'
+  },
+  tiLeBaoHanh: {
+    title: 'Bảo lãnh bảo hành (%)',
+    normal: '2% - 5% giá trị hợp đồng. Công trình cấp đặc biệt/cấp I: không thấp hơn 3%; công trình còn lại: không thấp hơn 5% (Luật Xây dựng & NĐ 06/2021).',
+    rutGon: 'Bắt buộc đối với gói thầu hàng hóa, xây lắp: 2% - 5% giá trị hợp đồng (≥3% / ≥5% theo Luật Xây dựng).'
+  },
+  soNgayBaoHanh: {
+    title: 'Số ngày bảo hành',
+    normal: 'Tính từ ngày nghiệm thu bàn giao đến hết thời hạn bảo hành theo hợp đồng (vd ≥24 tháng công trình cấp I; ≥12 tháng công trình còn lại hoặc theo bảo hành thiết bị).',
+    rutGon: 'Như gói thường: từ ngày nghiệm thu bàn giao đến hết thời hạn bảo hành.'
+  },
+  laiSuatCoSo: { title: 'Lãi suất cơ sở (%/năm)', normal: 'Lãi suất tham chiếu dùng để tính chi phí cơ hội của vốn bị chiếm dụng (vốn nhập hàng + các khoản bảo lãnh). Chỉ admin chỉnh.', rutGon: 'Lãi suất tham chiếu dùng để tính chi phí cơ hội của vốn bị chiếm dụng. Chỉ admin chỉnh.' },
+  vonLuuDongChuan: { title: 'Vốn lưu động chuẩn (VNĐ)', normal: 'Vốn lưu động chuẩn của doanh nghiệp để điều chỉnh lãi suất vốn theo tỉ lệ vốn bị chiếm dụng. Bắt buộc &gt; 0. Chỉ admin chỉnh.', rutGon: 'Vốn lưu động chuẩn của doanh nghiệp để điều chỉnh lãi suất vốn. Bắt buộc &gt; 0. Chỉ admin chỉnh.' },
+  phiBaoLanhDuThau: { title: 'Phí bảo lãnh dự thầu (%/năm)', normal: 'Phí ngân hàng/năm cho bảo lãnh dự thầu, dùng tính chi phí bảo lãnh. Chỉ admin chỉnh.', rutGon: 'Phí ngân hàng/năm cho bảo lãnh dự thầu. Ở gói rút gọn bảo lãnh dự thầu được miễn. Chỉ admin chỉnh.' },
+  phiBaoLanhThucHienHD: { title: 'Phí bảo lãnh thực hiện HĐ (%/năm)', normal: 'Phí ngân hàng/năm cho bảo lãnh thực hiện hợp đồng. Chỉ admin chỉnh.', rutGon: 'Phí ngân hàng/năm cho bảo lãnh thực hiện hợp đồng. Ở gói rút gọn thường được miễn. Chỉ admin chỉnh.' },
+  phiBaoLanhBaoHanh: { title: 'Phí bảo lãnh bảo hành (%/năm)', normal: 'Phí ngân hàng/năm cho bảo lãnh bảo hành (bắt buộc). Chỉ admin chỉnh.', rutGon: 'Phí ngân hàng/năm cho bảo lãnh bảo hành (bắt buộc ở gói rút gọn hàng hóa/xây lắp). Chỉ admin chỉnh.' },
+  phiBaoLanhToiThieu: { title: 'Phí tối thiểu/loại (VNĐ)', normal: 'Phí bảo lãnh tối thiểu mỗi loại khi giá trị bảo lãnh nhỏ. Chỉ admin chỉnh.', rutGon: 'Phí bảo lãnh tối thiểu mỗi loại khi giá trị bảo lãnh nhỏ. Chỉ admin chỉnh.' }
+};
+
+function getLegalContext() {
+  // Phải khớp isRutGonProject() ở server.js để tránh lệch ngữ cảnh khi kiểm tra giới hạn
+  const pi = currentProject && currentProject.projectInfo;
+  const rutgon = !!(pi && pi.isRutGon)
+    || document.getElementById('hinhThucLCNTInput').dataset.rutgon === '1'
+    || (pi && pi.hinhThucLCNT && (pi.hinhThucLCNT.includes('rút gọn') || pi.hinhThucLCNT.includes('rut gon')))
+    || (pi && pi.bidForm && pi.bidForm.endsWith('RG'))
+    || (currentProject && currentProject.items && currentProject.items.some(i => i.portalKyMaHieu || i.portalNhanHieu || i.portalHangSanXuat));
+  return rutgon ? 'rutGon' : 'normal';
+}
+function getFieldLimit(field) {
+  const limits = LEGAL_LIMITS[field];
+  if (!limits) return null;
+  return limits[getLegalContext()] || limits.normal;
+}
+// Trả { ok, block, msg }
+function validateLegalRate(field, value) {
+  const l = getFieldLimit(field);
+  if (!l) return { ok: true, block: false, msg: '' };
+  const v = parseFloat(value);
+  if (isNaN(v)) return { ok: true, block: false, msg: '' };
+  const outOfRange = v < l.min || v > l.max;
+  const block = v < l.min || v > (l.allowMax != null ? l.allowMax : l.max);
+  let msg = '';
+  if (block) {
+    const rangeTxt = (l.allowMax != null && l.allowMax > l.max) ? l.min + ' - ' + l.allowMax : l.min + ' - ' + l.max;
+    msg = (field === 'tiLeBaoLanhDuThau' ? 'Bảo lãnh dự thầu' : field === 'tiLeBaoLanhThucHienHD' ? 'Bảo lãnh thực hiện HĐ' : 'Bảo lãnh bảo hành')
+      + ' phải trong khoảng ' + rangeTxt + '% (ngữ cảnh gói ' + (getLegalContext() === 'rutGon' ? 'rút gọn' : 'thường') + '). Xem hướng dẫn ở label.';
+  } else if (outOfRange) {
+    msg = 'Ngoài khoảng thông thường, cần người có thẩm quyền quyết định.';
+  }
+  return { ok: !block, block, msg };
+}
+// Validate 3 field tỷ lệ bảo lãnh theo ngữ cảnh hiện tại (trả true nếu không có lỗi chặn)
+function validateLegalRatesAll() {
+  const fields = [['tiLeBaoLanhDuThau', 'tiLeBaoLanhDuThau'], ['tiLeBaoLanhThucHienHD', 'tiLeBaoLanhThucHienHD'], ['tiLeBaoHanh', 'tiLeBaoHanh']];
+  for (const [field, inputId] of fields) {
+    const el = document.getElementById(inputId);
+    if (!el) continue;
+    const r = validateLegalRate(field, el.value);
+    if (r.block) { el.classList.add('error'); el.focus(); showToast(r.msg, 'error'); return false; }
+  }
+  return true;
+}
+function applyLegalWarnings() {
+  const fields = [['tiLeBaoLanhDuThau', 'tiLeBaoLanhDuThau', 'legalHelpTiLeBaoLanhDuThau'], ['tiLeBaoLanhThucHienHD', 'tiLeBaoLanhThucHienHD', 'legalHelpTiLeBaoLanhThucHienHD'], ['tiLeBaoHanh', 'tiLeBaoHanh', 'legalHelpTiLeBaoHanh']];
+  for (const [field, inputId, helpId] of fields) {
+    const el = document.getElementById(inputId);
+    if (!el) continue;
+    const r = validateLegalRate(field, el.value);
+    el.classList.remove('error', 'warn');
+    if (r.block) el.classList.add('error');
+    else if (r.msg) el.classList.add('warn');
+    const help = document.getElementById(helpId);
+    if (help) {
+      help.className = 'param-help' + (r.msg ? ' show ' + (r.block ? 'block' : 'warn') : '');
+      help.textContent = r.msg;
+    }
+  }
+}
+// Validate 3 field tỷ lệ bảo lãnh trong Cài đặt theo ngữ cảnh "normal" (mặc định toàn cục)
+function validateLegalRatesSettings() {
+  const fields = [['tiLeBaoLanhDuThau', 'settingsTiLeBaoLanhDuThau'], ['tiLeBaoLanhThucHienHD', 'settingsTiLeBaoLanhThucHienHD'], ['tiLeBaoHanh', 'settingsTiLeBaoHanh']];
+  for (const [field, inputId] of fields) {
+    const el = document.getElementById(inputId);
+    if (!el) continue;
+    const limits = LEGAL_LIMITS[field] && LEGAL_LIMITS[field].normal;
+    if (!limits) continue;
+    const v = parseFloat(el.value);
+    if (isNaN(v)) continue;
+    const block = v < limits.min || v > (limits.allowMax != null ? limits.allowMax : limits.max);
+    if (block) {
+      const rangeTxt = (limits.allowMax != null && limits.allowMax > limits.max) ? limits.min + ' - ' + limits.allowMax : limits.min + ' - ' + limits.max;
+      const name = field === 'tiLeBaoLanhDuThau' ? 'Bảo lãnh dự thầu' : field === 'tiLeBaoLanhThucHienHD' ? 'Bảo lãnh thực hiện HĐ' : 'Bảo lãnh bảo hành';
+      el.classList.add('error');
+      el.focus();
+      showToast(name + ' phải trong khoảng ' + rangeTxt + '% theo Luật Đấu thầu 2023', 'error');
+      return false;
+    }
+  }
+  return true;
+}
+function closeLabelTooltip() { document.getElementById('labelTooltip').classList.remove('show'); }
+function showFieldHelp(fieldKey, event, contextOverride) {
+  const tip = document.getElementById('labelTooltip');
+  if (tip.classList.contains('show') && tip.dataset.field === fieldKey) { closeLabelTooltip(); return; }
+  const info = LEGAL_HELP[fieldKey];
+  const context = contextOverride || getLegalContext();
+  const range = LEGAL_LIMITS[fieldKey] ? LEGAL_LIMITS[fieldKey][context] : null;
+  let html = '<h4>' + (info ? info.title : fieldKey) + '</h4>';
+  if (info) html += '<div class="tip-row">' + (info[context] || info.normal) + '</div>';
+  if (range) {
+    const rangeTxt = (range.allowMax != null && range.allowMax > range.max) ? range.min + '% - ' + range.allowMax + '%' : range.min + '% - ' + range.max + '%';
+    html += '<div class="tip-note">Giới hạn áp dụng cho gói ' + (context === 'rutGon' ? 'rút gọn' : 'thường') + ': ' + rangeTxt + (range.allowMax ? ' (mức tối đa ' + range.allowMax + '% khi rủi ro cao, cần người có thẩm quyền quyết định)' : '') + '.</div>';
+  }
+  tip.innerHTML = html;
+  tip.dataset.field = fieldKey;
+  tip.classList.add('show');
+  const r = (event && event.target) ? event.target.getBoundingClientRect() : { left: 0, bottom: 0 };
+  const tw = 440;
+  let left = Math.min(r.left, window.innerWidth - tw - 12);
+  if (left < 12) left = 12;
+  tip.style.left = left + 'px';
+  tip.style.top = Math.min(r.bottom + 8, window.innerHeight - tip.offsetHeight - 12) + 'px';
+}
+document.addEventListener('click', function (e) { if (!e.target.closest('#labelTooltip') && !e.target.closest('.label-help-trigger')) closeLabelTooltip(); });
 
 function formatNumber(n) { return (n === 0 || !n) ? '0' : Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
 function parseNumber(s) { if (!s) return 0; return parseFloat(String(s).replace(/[.\s]/g, '').replace(/,/g, '')) || 0; }
@@ -1210,6 +1391,7 @@ async function showSettings() {
     document.getElementById('settingsPhiBaoLanhThucHienHD').value = cfg.phiBaoLanhThucHienHD != null ? cfg.phiBaoLanhThucHienHD : 0.6;
     document.getElementById('settingsPhiBaoLanhBaoHanh').value = cfg.phiBaoLanhBaoHanh != null ? cfg.phiBaoLanhBaoHanh : 0.6;
     document.getElementById('settingsPhiBaoLanhToiThieu').value = cfg.phiBaoLanhToiThieu != null ? formatNumber(cfg.phiBaoLanhToiThieu) : formatNumber(500000);
+    document.querySelectorAll('#settingsModal input.error').forEach(el => el.classList.remove('error'));
     document.getElementById('settingsModal').className = 'modal-overlay show';
   } catch (e) { showToast(e.message, 'error'); }
 }
@@ -1267,6 +1449,7 @@ async function saveSettings() {
   const keywords = keywordsRaw ? keywordsRaw.split('\n').map(k => k.trim()).filter(Boolean) : [];
   const vonLuuDongChuan = parseNumber(document.getElementById('settingsVonLuuDongChuan').value);
   if (!(vonLuuDongChuan > 0)) { showToast('Vốn lưu động chuẩn phải lớn hơn 0', 'error'); return; }
+  if (!validateLegalRatesSettings()) return;
   try {
     await api('PUT', '/api/settings', {
       companyName,
@@ -1974,7 +2157,9 @@ function loadProjectToForm(p) {
     const text = savedLabel.startsWith('Hình thức') ? savedLabel : 'Hình thức LCNT: ' + savedLabel;
     hlcntInput.value = text.replace('Hình thức LCNT: ', '');
     hlcntInput.dataset.label = text;
-    hlcntInput.dataset.rutgon = (info.isRutGon || hasPortalItems) ? '1' : '0';
+    const rgByText = !!(info.hinhThucLCNT && (info.hinhThucLCNT.includes('rút gọn') || info.hinhThucLCNT.includes('rut gon')));
+    const rgByBidForm = !!(info.bidForm && info.bidForm.endsWith('RG'));
+    hlcntInput.dataset.rutgon = (info.isRutGon || hasPortalItems || rgByText || rgByBidForm) ? '1' : '0';
     hlcntDiv.style.display = '';
   } else {
     hlcntInput.value = '';
@@ -2484,6 +2669,7 @@ function calculate() {
   lnrEl.className = 'rvalue profit highlight';
   if (loiNhuanRong < 0) lnrEl.className = 'rvalue loss highlight';
   const el3 = document.getElementById('itemCount'); if (el3) el3.textContent = items.length + ' mặt hàng';
+  applyLegalWarnings();
   updateBottomBarProjectInfo();
 }
 
@@ -2559,6 +2745,8 @@ async function autoSave() {
 async function manualSave() {
   if (!currentProject) { showToast('Chưa chọn dự án', 'error'); return; }
   clearErrors();
+  // Chặn lưu khi tỷ lệ bảo lãnh ngoài phạm vi pháp lý (Luật Đấu thầu 2023)
+  if (!validateLegalRatesAll()) return;
   // Nút Lưu chỉ lưu bản nháp — không yêu cầu validation đầy đủ (việc đó thuộc nút Trình duyệt)
   if (!validatePriceConstraint()) return;
   await autoSave();
