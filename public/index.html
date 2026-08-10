@@ -652,7 +652,7 @@ table .td-num input{text-align:right}
         </div>
         <div class="result-row">
           <span class="rlabel">Tỷ lệ LNG</span>
-          <span class="rvalue" id="rTiLeLNG">0%</span>
+          <span class="rvalue" id="rTiLeLNG">0</span>
           <span class="suffix" id="sTiLeLNG">%</span>
         </div>
         <div class="result-row">
@@ -692,7 +692,7 @@ table .td-num input{text-align:right}
         </div>
         <div class="result-row">
           <span class="rlabel">Tỷ lệ LNR</span>
-          <span class="rvalue" id="rTiLeLNR">0%</span>
+          <span class="rvalue" id="rTiLeLNR">0</span>
           <span class="suffix" id="sTiLeLNR">%</span>
         </div>
       </div>
@@ -2663,7 +2663,7 @@ function calculate() {
   const tiLeLNGActual = giaChaoToiThieuEff > 0 ? (loiNhuanGop / giaChaoToiThieuEff * 100) : 0;
   profitEl.textContent = (loiNhuanGop >= 0 ? '' : '-') + formatNumber(Math.abs(loiNhuanGop));
   profitEl.className = 'rvalue ' + (loiNhuanGop >= 0 ? 'profit' : 'loss');
-  document.getElementById('rTiLeLNG').textContent = (tiLeLNGActual >= 0 ? '' : '-') + toPct(Math.abs(tiLeLNGActual));
+  document.getElementById('rTiLeLNG').textContent = (tiLeLNGActual >= 0 ? '' : '-') + Math.abs(tiLeLNGActual).toFixed(1);
 
   const cpThau = phiDuThau + phiTrungThau;
   document.getElementById('rChiPhiThau').textContent = '-' + formatNumber(cpThau);
@@ -2697,7 +2697,7 @@ function calculate() {
   lnrEl.textContent = formatNumber(loiNhuanRong >= 0 ? loiNhuanRong : -loiNhuanRong);
   lnrEl.className = 'rvalue profit highlight';
   if (loiNhuanRong < 0) lnrEl.className = 'rvalue loss highlight';
-  document.getElementById('rTiLeLNR').textContent = (tiLeLNRVon >= 0 ? '' : '-') + toPct(Math.abs(tiLeLNRVon));
+  document.getElementById('rTiLeLNR').textContent = (tiLeLNRVon >= 0 ? '' : '-') + Math.abs(tiLeLNRVon).toFixed(1);
   const el3 = document.getElementById('itemCount'); if (el3) el3.textContent = items.length + ' mặt hàng';
   applyLegalWarnings();
   updateBottomBarProjectInfo();

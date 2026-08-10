@@ -1233,10 +1233,16 @@ app.put('/api/projects/:id', auth, (req, res) => {
   if (project.status === 'upcoming' && updated.status === 'upcoming') {
     updated.status = 'draft';
   }
-  // Luôn cập nhật người lập đề xuất = người sửa lần cuối
+  // Auto-assign người lập đề xuất CHỈ khi dự án chưa có chủ (hệ thống/Trello tạo)
+  // Nếu đã có người lập hoặc client gửi người lập, giữ nguyên — không ghi đè bằng người sửa cuối
   if (!updated.projectInfo) updated.projectInfo = {};
-  updated.projectInfo.nguoiLap = req.currentUser.fullName;
-  updated.projectInfo.nguoiLapId = req.currentUser.id;
+  const clientLapId = updated.projectInfo.nguoiLapId;
+  const clientLapName = updated.projectInfo.nguoiLap;
+  const hadOwner = !!(project.projectInfo && (project.projectInfo.nguoiLapId || project.projectInfo.nguoiLap));
+  if (!clientLapId && !clientLapName && !hadOwner) {
+    updated.projectInfo.nguoiLap = req.currentUser.fullName;
+    updated.projectInfo.nguoiLapId = req.currentUser.id;
+  }
   if (!updated.projectInfo.ngayLap) {
     updated.projectInfo.ngayLap = new Date().toISOString().split('T')[0];
   }
