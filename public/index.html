@@ -1034,6 +1034,19 @@ const LEGAL_HELP = {
   phiBaoLanhToiThieu: { title: 'Phí tối thiểu/loại (VNĐ)', normal: 'Phí bảo lãnh tối thiểu mỗi loại khi giá trị bảo lãnh nhỏ. Chỉ admin chỉnh.', rutGon: 'Phí bảo lãnh tối thiểu mỗi loại khi giá trị bảo lãnh nhỏ. Chỉ admin chỉnh.' }
 };
 
+// Phân loại gói thầu quy mô nhỏ theo Nghị định 24/2024/NĐ-CP (Lưu ý: không áp dụng cho dịch vụ tư vấn)
+function isXayLapField(investField) {
+  const s = String(investField || '').toLowerCase();
+  return s.includes('xl') || s.includes('xây') || s.includes('xay lap') || s.includes('xaylap') || s.includes('hỗn hợp');
+}
+function quyMoNhoLimit(investField) {
+  return isXayLapField(investField) ? 20000000000 : 10000000000; // XL ≤20 tỷ; HH/phi tư vấn ≤10 tỷ
+}
+function defaultTiLeBaoLanhDuThau(giaDuToan, investField) {
+  if (!(giaDuToan > 0)) return 3; // chưa có giá dự toán → mức thường (cận trên)
+  return giaDuToan <= quyMoNhoLimit(investField) ? 1.5 : 3;
+}
+
 function getLegalContext() {
   // Phải khớp isRutGonProject() ở server.js để tránh lệch ngữ cảnh khi kiểm tra giới hạn
   const pi = currentProject && currentProject.projectInfo;
@@ -1246,9 +1259,9 @@ function loadSettingsToForm() {
     tiLeTamUngNCC: 100,
     soNgayBaoHanh: 365,
     tiLeBaoHanh: 5,
-    tiLeBaoLanhDuThau: 2,
+    tiLeBaoLanhDuThau: 3,
     soNgayBaoLanhDuThau: 90,
-    tiLeBaoLanhThucHienHD: 5,
+    tiLeBaoLanhThucHienHD: 10,
     soNgayBaoLanhThucHienHD: 90,
     phiBaoLanhDuThau: 0.48,
     phiBaoLanhThucHienHD: 0.6,
@@ -1383,9 +1396,9 @@ async function showSettings() {
     document.getElementById('settingsTiLeTamUngNCC').value = cfg.tiLeTamUngNCC != null ? cfg.tiLeTamUngNCC : 100;
     document.getElementById('settingsSoNgayBaoHanh').value = cfg.soNgayBaoHanh != null ? cfg.soNgayBaoHanh : 365;
     document.getElementById('settingsTiLeBaoHanh').value = cfg.tiLeBaoHanh != null ? cfg.tiLeBaoHanh : 5;
-    document.getElementById('settingsTiLeBaoLanhDuThau').value = cfg.tiLeBaoLanhDuThau != null ? cfg.tiLeBaoLanhDuThau : 2;
+    document.getElementById('settingsTiLeBaoLanhDuThau').value = cfg.tiLeBaoLanhDuThau != null ? cfg.tiLeBaoLanhDuThau : 3;
     document.getElementById('settingsSoNgayBaoLanhDuThau').value = cfg.soNgayBaoLanhDuThau != null ? cfg.soNgayBaoLanhDuThau : 90;
-    document.getElementById('settingsTiLeBaoLanhThucHienHD').value = cfg.tiLeBaoLanhThucHienHD != null ? cfg.tiLeBaoLanhThucHienHD : 5;
+    document.getElementById('settingsTiLeBaoLanhThucHienHD').value = cfg.tiLeBaoLanhThucHienHD != null ? cfg.tiLeBaoLanhThucHienHD : 10;
     document.getElementById('settingsSoNgayBaoLanhThucHienHD').value = cfg.soNgayBaoLanhThucHienHD != null ? cfg.soNgayBaoLanhThucHienHD : 90;
     document.getElementById('settingsPhiBaoLanhDuThau').value = cfg.phiBaoLanhDuThau != null ? cfg.phiBaoLanhDuThau : 0.48;
     document.getElementById('settingsPhiBaoLanhThucHienHD').value = cfg.phiBaoLanhThucHienHD != null ? cfg.phiBaoLanhThucHienHD : 0.6;
@@ -2083,7 +2096,7 @@ function clearForm() {
   document.getElementById('tiLeTamUngNCC').value = settings.tiLeTamUngNCC;
   document.getElementById('soNgayBaoHanh').value = settings.soNgayBaoHanh;
   document.getElementById('tiLeBaoHanh').value = settings.tiLeBaoHanh;
-  document.getElementById('tiLeBaoLanhDuThau').value = settings.tiLeBaoLanhDuThau;
+  document.getElementById('tiLeBaoLanhDuThau').value = defaultTiLeBaoLanhDuThau(parseNumber(document.getElementById('giaDuToan').value), (currentProject && currentProject.projectInfo && currentProject.projectInfo.investField) || '');
   document.getElementById('soNgayBaoLanhDuThau').value = settings.soNgayBaoLanhDuThau;
   document.getElementById('tiLeBaoLanhThucHienHD').value = settings.tiLeBaoLanhThucHienHD;
   document.getElementById('soNgayBaoLanhThucHienHD').value = settings.soNgayBaoLanhThucHienHD;
@@ -2190,7 +2203,7 @@ function loadProjectToForm(p) {
   document.getElementById('tiLeTamUngNCC').value = params.tiLeTamUngNCC != null && params.tiLeTamUngNCC !== '' ? params.tiLeTamUngNCC : settings.tiLeTamUngNCC;
   document.getElementById('soNgayBaoHanh').value = params.soNgayBaoHanh != null && params.soNgayBaoHanh !== '' ? params.soNgayBaoHanh : settings.soNgayBaoHanh;
   document.getElementById('tiLeBaoHanh').value = params.tiLeBaoHanh != null && params.tiLeBaoHanh !== '' ? params.tiLeBaoHanh : settings.tiLeBaoHanh;
-  document.getElementById('tiLeBaoLanhDuThau').value = params.tiLeBaoLanhDuThau != null && params.tiLeBaoLanhDuThau !== '' ? params.tiLeBaoLanhDuThau : settings.tiLeBaoLanhDuThau;
+  document.getElementById('tiLeBaoLanhDuThau').value = params.tiLeBaoLanhDuThau != null && params.tiLeBaoLanhDuThau !== '' ? params.tiLeBaoLanhDuThau : defaultTiLeBaoLanhDuThau(giaDuToan, info.investField);
   document.getElementById('soNgayBaoLanhDuThau').value = params.soNgayBaoLanhDuThau != null && params.soNgayBaoLanhDuThau !== '' ? params.soNgayBaoLanhDuThau : settings.soNgayBaoLanhDuThau;
   document.getElementById('tiLeBaoLanhThucHienHD').value = params.tiLeBaoLanhThucHienHD != null && params.tiLeBaoLanhThucHienHD !== '' ? params.tiLeBaoLanhThucHienHD : settings.tiLeBaoLanhThucHienHD;
   document.getElementById('soNgayBaoLanhThucHienHD').value = params.soNgayBaoLanhThucHienHD != null && params.soNgayBaoLanhThucHienHD !== '' ? params.soNgayBaoLanhThucHienHD : settings.soNgayBaoLanhThucHienHD;

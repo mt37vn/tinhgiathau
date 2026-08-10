@@ -87,6 +87,22 @@ const LEGAL_LIMITS = {
     rutGon: { min: 2, max: 5 }
   }
 };
+
+// Phân loại gói thầu quy mô nhỏ theo Nghị định 24/2024/NĐ-CP (Lưu ý: không áp dụng cho dịch vụ tư vấn)
+function isXayLapField(investField) {
+  const s = String(investField || '').toLowerCase();
+  return s.includes('xl') || s.includes('xây') || s.includes('xay lap') || s.includes('xaylap') || s.includes('hỗn hợp');
+}
+function quyMoNhoLimit(investField) {
+  // Xây lắp, hỗn hợp ≤ 20 tỷ; hàng hóa, dịch vụ phi tư vấn ≤ 10 tỷ
+  return isXayLapField(investField) ? 20000000000 : 10000000000;
+}
+// Bảo lãnh dự thầu mặc định theo quy mô: quy mô nhỏ = 1,5%, gói thường = 3% (cận trên pháp lý)
+function defaultTiLeBaoLanhDuThau(giaDuToan, investField) {
+  if (!(giaDuToan > 0)) return 3;
+  return giaDuToan <= quyMoNhoLimit(investField) ? 1.5 : 3;
+}
+
 // Trả { ok, msg } — msg khi vượt giới hạn chặn
 function checkLegalRate(field, value, isRutGon) {
   const l = LEGAL_LIMITS[field] && LEGAL_LIMITS[field][isRutGon ? 'rutGon' : 'normal'];
@@ -683,9 +699,9 @@ app.get('/api/settings', (req, res) => {
     tiLeTamUngNCC: config.tiLeTamUngNCC != null ? config.tiLeTamUngNCC : 100,
     soNgayBaoHanh: config.soNgayBaoHanh != null ? config.soNgayBaoHanh : 365,
     tiLeBaoHanh: config.tiLeBaoHanh != null ? config.tiLeBaoHanh : 5,
-    tiLeBaoLanhDuThau: config.tiLeBaoLanhDuThau != null ? config.tiLeBaoLanhDuThau : 2,
+    tiLeBaoLanhDuThau: config.tiLeBaoLanhDuThau != null ? config.tiLeBaoLanhDuThau : 3,
     soNgayBaoLanhDuThau: config.soNgayBaoLanhDuThau != null ? config.soNgayBaoLanhDuThau : 90,
-    tiLeBaoLanhThucHienHD: config.tiLeBaoLanhThucHienHD != null ? config.tiLeBaoLanhThucHienHD : 5,
+    tiLeBaoLanhThucHienHD: config.tiLeBaoLanhThucHienHD != null ? config.tiLeBaoLanhThucHienHD : 10,
     soNgayBaoLanhThucHienHD: config.soNgayBaoLanhThucHienHD != null ? config.soNgayBaoLanhThucHienHD : 90,
     phiBaoLanhDuThau: config.phiBaoLanhDuThau != null ? config.phiBaoLanhDuThau : 0.48,
     phiBaoLanhThucHienHD: config.phiBaoLanhThucHienHD != null ? config.phiBaoLanhThucHienHD : 0.6,
@@ -1250,9 +1266,9 @@ function computeProjectLNR(project, cfg) {
   const tiLeTamUngNCC = params.tiLeTamUngNCC != null ? params.tiLeTamUngNCC : (cfg.tiLeTamUngNCC != null ? cfg.tiLeTamUngNCC : 100);
   const soNgayBaoHanh = params.soNgayBaoHanh != null ? params.soNgayBaoHanh : (cfg.soNgayBaoHanh != null ? cfg.soNgayBaoHanh : 365);
   const tiLeBaoHanh = params.tiLeBaoHanh != null ? params.tiLeBaoHanh : (cfg.tiLeBaoHanh != null ? cfg.tiLeBaoHanh : 5);
-  const tiLeBaoLanhDuThau = params.tiLeBaoLanhDuThau != null ? params.tiLeBaoLanhDuThau : (cfg.tiLeBaoLanhDuThau != null ? cfg.tiLeBaoLanhDuThau : 2);
+  const tiLeBaoLanhDuThau = params.tiLeBaoLanhDuThau != null ? params.tiLeBaoLanhDuThau : defaultTiLeBaoLanhDuThau(params.giaDuToan, info.investField);
   const soNgayBaoLanhDuThau = params.soNgayBaoLanhDuThau != null ? params.soNgayBaoLanhDuThau : (cfg.soNgayBaoLanhDuThau != null ? cfg.soNgayBaoLanhDuThau : 90);
-  const tiLeBaoLanhThucHienHD = params.tiLeBaoLanhThucHienHD != null ? params.tiLeBaoLanhThucHienHD : (cfg.tiLeBaoLanhThucHienHD != null ? cfg.tiLeBaoLanhThucHienHD : 5);
+  const tiLeBaoLanhThucHienHD = params.tiLeBaoLanhThucHienHD != null ? params.tiLeBaoLanhThucHienHD : (cfg.tiLeBaoLanhThucHienHD != null ? cfg.tiLeBaoLanhThucHienHD : 10);
   const soNgayBaoLanhThucHienHD = params.soNgayBaoLanhThucHienHD != null ? params.soNgayBaoLanhThucHienHD : (cfg.soNgayBaoLanhThucHienHD != null ? cfg.soNgayBaoLanhThucHienHD : 90);
   const phiBaoLanhDuThau = params.phiBaoLanhDuThau != null ? params.phiBaoLanhDuThau : (cfg.phiBaoLanhDuThau != null ? cfg.phiBaoLanhDuThau : 0.48);
   const phiBaoLanhThucHienHD = params.phiBaoLanhThucHienHD != null ? params.phiBaoLanhThucHienHD : (cfg.phiBaoLanhThucHienHD != null ? cfg.phiBaoLanhThucHienHD : 0.6);
@@ -2576,9 +2592,9 @@ app.get('/share/:id', (req, res) => {
   const tiLeTamUngNCC = params.tiLeTamUngNCC != null ? params.tiLeTamUngNCC : (cfg.tiLeTamUngNCC != null ? cfg.tiLeTamUngNCC : 100);
   const soNgayBaoHanh = params.soNgayBaoHanh != null ? params.soNgayBaoHanh : (cfg.soNgayBaoHanh != null ? cfg.soNgayBaoHanh : 365);
   const tiLeBaoHanh = params.tiLeBaoHanh != null ? params.tiLeBaoHanh : (cfg.tiLeBaoHanh != null ? cfg.tiLeBaoHanh : 5);
-  const tiLeBaoLanhDuThau = params.tiLeBaoLanhDuThau != null ? params.tiLeBaoLanhDuThau : (cfg.tiLeBaoLanhDuThau != null ? cfg.tiLeBaoLanhDuThau : 2);
+  const tiLeBaoLanhDuThau = params.tiLeBaoLanhDuThau != null ? params.tiLeBaoLanhDuThau : defaultTiLeBaoLanhDuThau(params.giaDuToan, info.investField);
   const soNgayBaoLanhDuThau = params.soNgayBaoLanhDuThau != null ? params.soNgayBaoLanhDuThau : (cfg.soNgayBaoLanhDuThau != null ? cfg.soNgayBaoLanhDuThau : 90);
-  const tiLeBaoLanhThucHienHD = params.tiLeBaoLanhThucHienHD != null ? params.tiLeBaoLanhThucHienHD : (cfg.tiLeBaoLanhThucHienHD != null ? cfg.tiLeBaoLanhThucHienHD : 5);
+  const tiLeBaoLanhThucHienHD = params.tiLeBaoLanhThucHienHD != null ? params.tiLeBaoLanhThucHienHD : (cfg.tiLeBaoLanhThucHienHD != null ? cfg.tiLeBaoLanhThucHienHD : 10);
   const soNgayBaoLanhThucHienHD = params.soNgayBaoLanhThucHienHD != null ? params.soNgayBaoLanhThucHienHD : (cfg.soNgayBaoLanhThucHienHD != null ? cfg.soNgayBaoLanhThucHienHD : 90);
   const phiBaoLanhDuThau = params.phiBaoLanhDuThau != null ? params.phiBaoLanhDuThau : (cfg.phiBaoLanhDuThau != null ? cfg.phiBaoLanhDuThau : 0.48);
   const phiBaoLanhThucHienHD = params.phiBaoLanhThucHienHD != null ? params.phiBaoLanhThucHienHD : (cfg.phiBaoLanhThucHienHD != null ? cfg.phiBaoLanhThucHienHD : 0.6);
@@ -2917,9 +2933,9 @@ app.get('/admin/report', auth, (req, res) => {
     const tiLeTamUngNCC = params.tiLeTamUngNCC != null ? params.tiLeTamUngNCC : (cfg.tiLeTamUngNCC != null ? cfg.tiLeTamUngNCC : 100);
     const soNgayBaoHanh = params.soNgayBaoHanh != null ? params.soNgayBaoHanh : (cfg.soNgayBaoHanh != null ? cfg.soNgayBaoHanh : 365);
     const tiLeBaoHanh = params.tiLeBaoHanh != null ? params.tiLeBaoHanh : (cfg.tiLeBaoHanh != null ? cfg.tiLeBaoHanh : 5);
-    const tiLeBaoLanhDuThau = params.tiLeBaoLanhDuThau != null ? params.tiLeBaoLanhDuThau : (cfg.tiLeBaoLanhDuThau != null ? cfg.tiLeBaoLanhDuThau : 2);
+    const tiLeBaoLanhDuThau = params.tiLeBaoLanhDuThau != null ? params.tiLeBaoLanhDuThau : defaultTiLeBaoLanhDuThau(params.giaDuToan, info.investField);
     const soNgayBaoLanhDuThau = params.soNgayBaoLanhDuThau != null ? params.soNgayBaoLanhDuThau : (cfg.soNgayBaoLanhDuThau != null ? cfg.soNgayBaoLanhDuThau : 90);
-    const tiLeBaoLanhThucHienHD = params.tiLeBaoLanhThucHienHD != null ? params.tiLeBaoLanhThucHienHD : (cfg.tiLeBaoLanhThucHienHD != null ? cfg.tiLeBaoLanhThucHienHD : 5);
+    const tiLeBaoLanhThucHienHD = params.tiLeBaoLanhThucHienHD != null ? params.tiLeBaoLanhThucHienHD : (cfg.tiLeBaoLanhThucHienHD != null ? cfg.tiLeBaoLanhThucHienHD : 10);
     const soNgayBaoLanhThucHienHD = params.soNgayBaoLanhThucHienHD != null ? params.soNgayBaoLanhThucHienHD : (cfg.soNgayBaoLanhThucHienHD != null ? cfg.soNgayBaoLanhThucHienHD : 90);
     const phiBaoLanhDuThau = params.phiBaoLanhDuThau != null ? params.phiBaoLanhDuThau : (cfg.phiBaoLanhDuThau != null ? cfg.phiBaoLanhDuThau : 0.48);
     const phiBaoLanhThucHienHD = params.phiBaoLanhThucHienHD != null ? params.phiBaoLanhThucHienHD : (cfg.phiBaoLanhThucHienHD != null ? cfg.phiBaoLanhThucHienHD : 0.6);
