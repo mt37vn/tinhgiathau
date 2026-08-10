@@ -624,6 +624,7 @@ table .td-num input{text-align:right}
 
     <div class="card">
       <h2>Hiệu quả dự án</h2>
+      <div id="effectNoImportWarning" style="display:none;background:#fff3cd;color:#856404;border:1px solid #ffeeba;border-radius:4px;padding:8px 10px;font-size:12px;margin-bottom:8px">⚠ Chưa có danh mục hàng hóa hoặc giá nhập. Các chỉ số lợi nhuận (LNG/LNR) chưa được tính — vui lòng nhập đơn giá nhập cho ít nhất 1 mặt hàng.</div>
       <div class="param-group">
         <div class="result-row">
           <span class="rlabel">Giá dự toán</span>
@@ -2699,6 +2700,10 @@ function calculate() {
   if (loiNhuanRong < 0) lnrEl.className = 'rvalue loss highlight';
   document.getElementById('rTiLeLNR').textContent = (tiLeLNRVon >= 0 ? '' : '-') + Math.abs(tiLeLNRVon).toFixed(1);
   const el3 = document.getElementById('itemCount'); if (el3) el3.textContent = items.length + ' mặt hàng';
+  // Cảnh báo khi chưa có danh mục hàng hoá / giá nhập → LNG, LNR chưa tính được
+  const hasImportPrice = items.some(i => i.tenHangHoa && i.giaNhap > 0);
+  const warn = document.getElementById('effectNoImportWarning');
+  if (warn) warn.style.display = hasImportPrice ? 'none' : '';
   applyLegalWarnings();
   updateBottomBarProjectInfo();
 }
