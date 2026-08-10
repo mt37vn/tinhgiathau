@@ -9,6 +9,7 @@ const { execSync } = require('child_process');
 const { chromium } = require('playwright');
 const webpush = require('web-push');
 const trelloSync = require('./scripts/trello-sync');
+const { runBackup } = require('./scripts/backup');
 
 const app = express();
 
@@ -3590,6 +3591,7 @@ function scheduleDailyAt6AM(fn) {
 }
 
 scheduleDailyAt6AM(checkPendingTbmtFiles);
+scheduleDailyAt6AM(runBackup);
 
 app.listen(PORT, () => {
   console.log(`Phần mềm tính giá chào thầu v2 đang chạy tại: http://localhost:${PORT}`);

@@ -19,5 +19,11 @@ services:
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
       - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:admin@hapro.com.vn}
+      - BACKUP_ENABLED=${BACKUP_ENABLED:-true}
+      - BACKUP_DIR=${BACKUP_DIR:-./backup}
+      - BACKUP_KEEP_LOCAL=${BACKUP_KEEP_LOCAL:-30}
+      - BACKUP_GIT_REPO=${BACKUP_GIT_REPO}
+      - BACKUP_GIT_TOKEN=${BACKUP_GIT_TOKEN}
     volumes:
       - ./data:/app/data
+      - ./backup:/app/backup
