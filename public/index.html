@@ -32,6 +32,11 @@ body{font-family:'Segoe UI',sans-serif;background:#eef2f7;color:#2c3e50;font-siz
 .project-bar .pb-recent-list li .r-rank{font-size:11px;font-weight:600;color:#2a5a8c;white-space:nowrap;flex-shrink:0;margin-left:2px}
 .project-bar .pb-recent-list li.active{background:#d4e4f7;font-weight:600}
 .project-bar .pb-status{font-size:12px;color:#888;text-align:right;display:flex;justify-content:space-between;align-items:center}
+.project-bar .pb-tabs{display:flex;flex-wrap:wrap;gap:4px}
+.project-bar .pb-tabs .pb-tab{padding:4px 9px;border:1px solid #d0d5dd;border-radius:16px;font-size:11px;color:#555;background:#f5f7fa;cursor:pointer;white-space:nowrap;transition:all .15s}
+.project-bar .pb-tabs .pb-tab:hover{background:#e8f0fe;border-color:#2a5a8c}
+.project-bar .pb-tabs .pb-tab.active{background:#2a5a8c;color:#fff;border-color:#2a5a8c;font-weight:600}
+.project-bar .pb-recent-list .pb-group-header{padding:6px 8px 2px;font-size:11px;font-weight:700;color:#2a5a8c;cursor:default;border-bottom:1px solid #eef2f7;margin-bottom:2px;background:#f5f7fa;border-radius:4px 4px 0 0}
 .btn{padding:6px 16px;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:500;transition:all .2s;white-space:nowrap}
 .btn:disabled{opacity:.5;cursor:not-allowed}
 .source-badge-local{background:#d4edda;color:#155724}.source-badge-portal{background:#fff3cd;color:#856404}
@@ -78,11 +83,11 @@ table .td-num input{text-align:right}
 .param-tab-panel.active{display:block}
 .param-group{display:flex;flex-direction:column;gap:10px}
 .param-row{display:flex;align-items:center;gap:10px}
-.param-row label{flex:0 0 auto;min-width:130px;font-size:13px;color:#333;font-weight:500;text-align:left;white-space:nowrap}
+.param-row label{flex:1 1 auto;min-width:130px;font-size:13px;color:#333;font-weight:500;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .param-row input{flex:0 0 150px;width:150px;margin-left:auto;padding:6px 10px;border:1px solid #d0d5dd;border-radius:4px;font-size:14px;text-align:right;background:#f5f7fa}
 .param-row input:focus{border-color:#2a5a8c;outline:none;box-shadow:0 0 0 2px rgba(42,90,140,.15)}
 .param-row input[readonly]{background:#fff}
-.param-row .suffix{flex:0 0 30px;font-size:13px;color:#666}
+.param-row .suffix{flex:0 0 56px;font-size:13px;color:#666;text-align:left}
 .param-row input.error,.form-group input.error{border-color:#e74c3c !important;box-shadow:0 0 0 2px rgba(231,76,60,.15)}
 .param-row input.warn,.form-group input.warn{border-color:#f39c12 !important;box-shadow:0 0 0 2px rgba(243,156,18,.2)}
 .param-help{display:none;margin:2px 0 0 14px;font-size:12px;line-height:1.45}
@@ -96,8 +101,9 @@ table .td-num input{text-align:right}
 #labelTooltip .tip-row{margin:2px 0}
 #labelTooltip .tip-note{color:#666;font-size:11px;margin-top:6px}
 .result-row{display:flex;align-items:center;gap:10px;padding:6px 0}
-.result-row .rlabel{flex:0 0 170px;font-size:13px;color:#333;font-weight:500}
-.result-row .rvalue{flex:1;font-size:16px;font-weight:700;color:#1a3a5c;text-align:right;padding:4px 10px;border-radius:4px}
+.result-row .rlabel{flex:1 1 auto;min-width:0;font-size:13px;color:#333;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.result-row .suffix{flex:0 0 40px;font-size:13px;color:#666;text-align:left}
+.result-row .rvalue{flex:0 0 150px;font-size:16px;font-weight:700;color:#1a3a5c;text-align:right;padding:4px 8px;border-radius:4px;margin-left:auto;white-space:nowrap}
 .result-row .rvalue.profit{color:#27ae60}
 .result-row .rvalue.loss{color:#e74c3c}
 .result-row .rvalue.cost{color:#e74c3c}
@@ -163,6 +169,7 @@ table .td-num input{text-align:right}
 
   .project-bar{padding:8px 10px}
   .project-bar .pb-divider{display:none}
+  .project-bar .pb-tabs .pb-tab{font-size:10px;padding:3px 7px}
   .project-bar .pb-recent-list{max-height:140px}
   .project-bar .pb-recent-list li{padding:6px 6px;font-size:12px}
   .project-bar .pb-recent-list li .r-time{font-size:10px}
@@ -179,8 +186,9 @@ table .td-num input{text-align:right}
   .result-row input{flex:0 0 auto !important;width:100% !important;margin-left:0;font-size:15px}
   .param-row .suffix{position:absolute;right:8px;bottom:9px;flex:none;font-size:11px}
 
-  .result-row{flex-direction:column;gap:0;padding:4px 0}
+  .result-row{flex-direction:column;gap:0;padding:4px 0;position:relative}
   .result-row .rlabel{flex:none;font-size:12px}
+  .result-row .suffix{position:absolute;right:8px;bottom:10px;flex:none;font-size:11px}
   .result-row .rvalue{font-size:14px;text-align:left;padding:2px 0}
 
   .table-wrap{overflow-x:auto}
@@ -313,50 +321,13 @@ table .td-num input{text-align:right}
         <label>Dự án</label>
         <div class="search-wrap">
           <span class="search-icon">🔍</span>
-          <input type="text" id="projectSearch" list="projectList" placeholder="Tìm kiếm..." autocomplete="off" oninput="onSearchInput(this)">
-          <datalist id="projectList"></datalist>
+          <input type="text" id="projectSearch" list="projectDatalist" placeholder="Tìm kiếm..." autocomplete="off" oninput="onSearchInput(this)">
+          <datalist id="projectDatalist"></datalist>
         </div>
       </div>
       <hr class="pb-divider">
-      <div class="pb-section" id="upcomingSection" style="display:none">
-         <span class="pb-recent-label" style="color:#2980b9" id="upcomingLabel">🔜 Sắp mở thầu</span>
-        <ul class="pb-recent-list" id="upcomingList" style="max-height:120px"></ul>
-      </div>
-      <hr class="pb-divider" id="upcomingDivider" style="display:none">
-      <div class="pb-section">
-        <span class="pb-recent-label" id="recentLabel">📝 Đang chuẩn bị hồ sơ</span>
-        <ul class="pb-recent-list" id="recentList"></ul>
-      </div>
-      <hr class="pb-divider" id="pendingDivider" style="display:none">
-      <div class="pb-section" id="pendingSection" style="display:none">
-        <span class="pb-recent-label" style="color:#721c24" id="pendingLabel">⏳ Chờ duyệt</span>
-        <ul class="pb-recent-list" id="pendingList" style="max-height:120px"></ul>
-      </div>
-      <hr class="pb-divider" id="rejectedDivider" style="display:none">
-      <div class="pb-section" id="rejectedSection" style="display:none">
-        <span class="pb-recent-label" style="color:#721c24" id="rejectedLabel">✗ Không duyệt</span>
-        <ul class="pb-recent-list" id="rejectedList" style="max-height:120px"></ul>
-      </div>
-      <hr class="pb-divider" id="approvedDivider" style="display:none">
-      <div class="pb-section" id="approvedSection" style="display:none">
-        <span class="pb-recent-label" style="color:#1a5c8c" id="approvedLabel">✓ Đã duyệt</span>
-        <ul class="pb-recent-list" id="approvedList" style="max-height:120px"></ul>
-      </div>
-      <hr class="pb-divider" id="pendingResultDivider" style="display:none">
-      <div class="pb-section" id="pendingResultSection" style="display:none">
-        <span class="pb-recent-label" style="color:#e67e22" id="pendingResultLabel">⏳ Đang xét thầu</span>
-        <ul class="pb-recent-list" id="pendingResultList" style="max-height:120px"></ul>
-      </div>
-      <hr class="pb-divider" id="winDivider" style="display:none">
-      <div class="pb-section" id="winSection" style="display:none">
-        <span class="pb-recent-label" style="color:#27ae60" id="winLabel">🏆 Trúng thầu</span>
-        <ul class="pb-recent-list" id="winList" style="max-height:120px"></ul>
-      </div>
-      <hr class="pb-divider" id="loseDivider" style="display:none">
-      <div class="pb-section" id="loseSection" style="display:none">
-        <span class="pb-recent-label" style="color:#e74c3c" id="loseLabel">❌ Trượt thầu</span>
-        <ul class="pb-recent-list" id="loseList" style="max-height:120px"></ul>
-      </div>
+      <div class="pb-tabs" id="projectTabs"></div>
+      <ul class="pb-recent-list" id="projectList" style="max-height:480px"></ul>
       <div class="pb-status" id="projectStatus">
         <span></span>
         <div style="display:flex;gap:6px">
@@ -369,8 +340,13 @@ table .td-num input{text-align:right}
 
     <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
     <div class="card" id="projectInfoCard" style="margin-bottom:0">
-      <h2>Thông tin dự án <span id="statusBadge" style="margin-left:8px"></span></h2>
+      <div class="param-tabs">
+        <button type="button" class="tab-btn active" onclick="switchProjectInfoTab('info')">Thông tin dự án</button>
+        <button type="button" class="tab-btn" onclick="switchProjectInfoTab('history')">Lịch sử dự án</button>
+      </div>
+      <div class="param-tab-panel active" id="tabInfo">
       <div style="display:flex;flex-direction:column;gap:8px">
+      <div id="statusBadge" style="margin-bottom:4px"></div>
           <div class="form-group">
           <label>Mã đấu thầu (IB) <span style="color:#e74c3c">*</span></label>
           <div style="display:flex;gap:4px">
@@ -470,22 +446,23 @@ table .td-num input{text-align:right}
           </div>
         </div>
       </div>
-    </div>
-    <div class="card" id="historyCard" style="display:none">
-      <h2 style="font-size:14px;font-weight:700;color:#1a3a5c">Lịch sử dự án <span id="historyCount" style="color:#888;font-weight:400;font-size:12px"></span></h2>
-      <div style="margin-top:8px;max-height:260px;overflow-y:auto">
-        <table style="width:100%;font-size:12px">
-          <thead>
-            <tr style="color:#888">
-              <th style="text-align:left;padding:4px 6px">Thời gian</th>
-              <th style="text-align:left;padding:4px 6px">Người</th>
-              <th style="text-align:left;padding:4px 6px">Hành động</th>
-              <th style="text-align:left;padding:4px 6px">Trạng thái</th>
-            </tr>
-          </thead>
-          <tbody id="historyBody"></tbody>
-        </table>
-        <div id="historyEmpty" style="color:#999;padding:8px">Chưa có hoạt động nào.</div>
+      </div>
+      <div class="param-tab-panel" id="tabHistory">
+        <h2 style="font-size:14px;font-weight:700;color:#1a3a5c">Lịch sử dự án <span id="historyCount" style="color:#888;font-weight:400;font-size:12px"></span></h2>
+        <div style="margin-top:8px;max-height:260px;overflow-y:auto">
+          <table style="width:100%;font-size:12px">
+            <thead>
+              <tr style="color:#888">
+                <th style="text-align:left;padding:4px 6px">Thời gian</th>
+                <th style="text-align:left;padding:4px 6px">Người</th>
+                <th style="text-align:left;padding:4px 6px">Hành động</th>
+                <th style="text-align:left;padding:4px 6px">Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody id="historyBody"></tbody>
+          </table>
+          <div id="historyEmpty" style="color:#999;padding:8px">Chưa có hoạt động nào.</div>
+        </div>
       </div>
     </div>
     </div>
@@ -515,54 +492,77 @@ table .td-num input{text-align:right}
     </div>
   </div>
 
-  <div class="card" style="display:flex;flex-direction:column">
-    <h2>Chi phí bán hàng/triển khai</h2>
-    <div class="param-group">
-      <div class="param-row" style="display:none">
-        <label>Chi phí dự thầu</label>
-        <input type="text" id="phiDuThau" oninput="onPhiDuThauInput(this)">
-        <span class="suffix">VNĐ</span>
-        <button type="button" id="phiDuThauAutoBtn" title="Tự tính lại theo NĐ 214/2025" onclick="resetPhiDuThauAuto()" style="flex:0 0 auto;padding:5px 9px;border:1px solid #d0d5dd;border-radius:4px;background:#f5f7fa;cursor:pointer;font-size:13px">↻</button>
-        <span id="phiDuThauAutoBadge" style="flex:0 0 auto;font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;white-space:nowrap">auto</span>
-      </div>
-      <div class="param-row" style="display:none">
-        <label>Phí trúng thầu</label>
-        <input type="text" id="phiTrungThau" oninput="onPhiTrungThauInput(this)">
-        <span class="suffix">VNĐ</span>
-        <button type="button" id="phiTrungThauAutoBtn" title="Tự tính lại theo NĐ 214/2025" onclick="resetPhiTrungThauAuto()" style="flex:0 0 auto;padding:5px 9px;border:1px solid #d0d5dd;border-radius:4px;background:#f5f7fa;cursor:pointer;font-size:13px">↻</button>
-        <span id="phiTrungThauAutoBadge" style="flex:0 0 auto;font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;white-space:nowrap">auto</span>
-      </div>
-      <div class="param-row" style="display:none">
-        <label>Lãi suất vốn (tự tính)</label>
-        <input type="text" id="laiSuatVon" readonly title="Tự tính từ cài đặt hệ thống (lãi suất cơ sở, vốn lưu động chuẩn, số ngày) và giá trị dự án">
-        <span class="suffix">%/năm</span>
-      </div>
-      <div class="param-row" style="display:none">
-        <label>Hoa hồng kinh doanh</label>
-        <input type="number" id="hoaHongKD" step="0.1" min="0" max="100" oninput="onParamChange()">
-        <span class="suffix">%</span>
-      </div>
-      <div class="param-row">
-        <label>Chi phí bán hàng/triển khai</label>
-        <input type="text" id="phiBanHangTrienKhai" oninput="formatCurrencyInput(this); onParamChange()">
-        <span class="suffix">VNĐ</span>
-      </div>
-    </div>
-    <div style="margin-top:12px;display:flex;flex-direction:column;flex:1;min-height:0">
-      <label style="font-size:12px;font-weight:600;color:#555">Giải trình chi tiết chi phí bán hàng/triển khai</label>
-      <textarea id="noiDungTrinh" oninput="onProjectInfoChange()" style="width:100%;flex:1;min-height:160px;padding:7px 10px;border:1px solid #d0d5dd;border-radius:4px;font-size:14px;background:#f5f7fa;resize:vertical;margin-top:3px;font-family:inherit" placeholder="Chi tiết chi phí bán hàng/triển khai..."></textarea>
-    </div>
-  </div>
-
   <div class="split-panel">
     <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
-    <div class="card">
-      <h2>Tham số chi phí vốn &amp; bảo lãnh</h2>
+    <div class="card" id="costCard">
+      <h2>Chi phí dự án</h2>
       <div class="param-tabs">
-        <button type="button" class="tab-btn active" onclick="switchParamTab('daysRatio')">Số ngày &amp; Tỷ lệ</button>
-        <button type="button" class="tab-btn" onclick="switchParamTab('rateFee')">Lãi suất &amp; Phí</button>
+        <button type="button" class="tab-btn active" onclick="switchParamTab('duAn')">Chi phí Bán hàng/Triển Khai</button>
+        <button type="button" class="tab-btn" onclick="switchParamTab('capVon')">Chi phí vốn</button>
+        <button type="button" class="tab-btn" onclick="switchParamTab('baoLanh')">Chi phí bảo lãnh</button>
       </div>
-      <div class="param-tab-panel active" id="tabDaysRatio">
+      <div class="param-tab-panel active" id="tabDuAn">
+      <div class="param-group">
+        <div class="param-row" style="display:none">
+          <label>Chi phí dự thầu</label>
+          <input type="text" id="phiDuThau" oninput="onPhiDuThauInput(this)">
+          <span class="suffix">VNĐ</span>
+          <button type="button" id="phiDuThauAutoBtn" title="Tự tính lại theo NĐ 214/2025" onclick="resetPhiDuThauAuto()" style="flex:0 0 auto;padding:5px 9px;border:1px solid #d0d5dd;border-radius:4px;background:#f5f7fa;cursor:pointer;font-size:13px">↻</button>
+          <span id="phiDuThauAutoBadge" style="flex:0 0 auto;font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;white-space:nowrap">auto</span>
+        </div>
+        <div class="param-row" style="display:none">
+          <label>Phí trúng thầu</label>
+          <input type="text" id="phiTrungThau" oninput="onPhiTrungThauInput(this)">
+          <span class="suffix">VNĐ</span>
+          <button type="button" id="phiTrungThauAutoBtn" title="Tự tính lại theo NĐ 214/2025" onclick="resetPhiTrungThauAuto()" style="flex:0 0 auto;padding:5px 9px;border:1px solid #d0d5dd;border-radius:4px;background:#f5f7fa;cursor:pointer;font-size:13px">↻</button>
+          <span id="phiTrungThauAutoBadge" style="flex:0 0 auto;font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;white-space:nowrap">auto</span>
+        </div>
+        <div class="param-row" style="display:none">
+          <label>Lãi suất vốn (tự tính)</label>
+          <input type="text" id="laiSuatVon" readonly title="Tự tính từ cài đặt hệ thống (lãi suất cơ sở, vốn lưu động chuẩn, số ngày) và giá trị dự án">
+          <span class="suffix">%/năm</span>
+        </div>
+        <div class="param-row" style="display:none">
+          <label>Hoa hồng kinh doanh</label>
+          <input type="number" id="hoaHongKD" step="0.1" min="0" max="100" oninput="onParamChange()">
+          <span class="suffix">%</span>
+        </div>
+        <div class="param-row">
+          <label>Chi phí bán hàng/triển khai</label>
+          <input type="text" id="phiBanHangTrienKhai" oninput="formatCurrencyInput(this); onParamChange()">
+          <span class="suffix">VNĐ</span>
+        </div>
+      </div>
+      <div style="margin-top:12px;display:flex;flex-direction:column;flex:1;min-height:0">
+        <label style="font-size:12px;font-weight:600;color:#555">Giải trình chi tiết chi phí bán hàng/triển khai</label>
+        <textarea id="noiDungTrinh" oninput="onProjectInfoChange()" style="width:100%;flex:1;min-height:160px;padding:7px 10px;border:1px solid #d0d5dd;border-radius:4px;font-size:14px;background:#f5f7fa;resize:vertical;margin-top:3px;font-family:inherit" placeholder="Chi tiết chi phí bán hàng/triển khai..."></textarea>
+      </div>
+      </div>
+      <div class="param-tab-panel" id="tabCapVon">
+      <div class="param-group">
+        <div class="param-row">
+          <label>Số ngày nhập hàng</label>
+          <input type="number" id="soNgayNhapHang" min="1" oninput="onParamChange()">
+          <span class="suffix">ngày</span>
+        </div>
+        <div class="param-row">
+          <label>Tỷ lệ tạm ứng nhà cung cấp</label>
+          <input type="number" id="tiLeTamUngNCC" step="0.1" min="0" max="100" oninput="onParamChange()">
+          <span class="suffix">%</span>
+        </div>
+        <div class="param-row">
+          <label class="help label-help-trigger" data-help="laiSuatCoSo" onclick="showFieldHelp('laiSuatCoSo', event)" title="Xem hướng dẫn">Lãi suất cơ sở</label>
+          <input type="number" id="laiSuatCoSo" step="0.1" min="0" max="100" oninput="onParamChange()">
+          <span class="suffix">%/năm</span>
+        </div>
+        <div class="param-row">
+          <label class="help label-help-trigger" data-help="vonLuuDongChuan" onclick="showFieldHelp('vonLuuDongChuan', event)" title="Xem hướng dẫn">Vốn lưu động chuẩn</label>
+          <input type="text" id="vonLuuDongChuan" oninput="formatCurrencyInput(this); onParamChange()">
+          <span class="suffix">VNĐ</span>
+        </div>
+      </div>
+      </div>
+      <div class="param-tab-panel" id="tabBaoLanh">
       <div class="param-group">
         <div class="param-row">
           <label class="help label-help-trigger" data-help="soNgayBaoLanhDuThau" onclick="showFieldHelp('soNgayBaoLanhDuThau', event)" title="Xem hướng dẫn">Số ngày bảo lãnh dự thầu</label>
@@ -575,16 +575,6 @@ table .td-num input{text-align:right}
           <span class="suffix">%</span>
         </div>
         <div id="legalHelpTiLeBaoLanhDuThau" class="param-help"></div>
-        <div class="param-row">
-          <label>Số ngày nhập hàng</label>
-          <input type="number" id="soNgayNhapHang" min="1" oninput="onParamChange()">
-          <span class="suffix">ngày</span>
-        </div>
-        <div class="param-row">
-          <label>Tỷ lệ tạm ứng nhà cung cấp</label>
-          <input type="number" id="tiLeTamUngNCC" step="0.1" min="0" max="100" oninput="onParamChange()">
-          <span class="suffix">%</span>
-        </div>
         <div class="param-row">
           <label class="help label-help-trigger" data-help="soNgayBaoLanhThucHienHD" onclick="showFieldHelp('soNgayBaoLanhThucHienHD', event)" title="Xem hướng dẫn">Số ngày bảo lãnh thực hiện HĐ</label>
           <input type="number" id="soNgayBaoLanhThucHienHD" min="1" oninput="onParamChange()">
@@ -607,20 +597,6 @@ table .td-num input{text-align:right}
           <span class="suffix">%</span>
         </div>
         <div id="legalHelpTiLeBaoHanh" class="param-help"></div>
-      </div>
-      </div>
-      <div class="param-tab-panel" id="tabRateFee">
-      <div class="param-group">
-        <div class="param-row">
-          <label class="help label-help-trigger" data-help="laiSuatCoSo" onclick="showFieldHelp('laiSuatCoSo', event)" title="Xem hướng dẫn">Lãi suất cơ sở</label>
-          <input type="number" id="laiSuatCoSo" step="0.1" min="0" max="100" oninput="onParamChange()">
-          <span class="suffix">%/năm</span>
-        </div>
-        <div class="param-row">
-          <label class="help label-help-trigger" data-help="vonLuuDongChuan" onclick="showFieldHelp('vonLuuDongChuan', event)" title="Xem hướng dẫn">Vốn lưu động chuẩn</label>
-          <input type="text" id="vonLuuDongChuan" oninput="formatCurrencyInput(this); onParamChange()">
-          <span class="suffix">VNĐ</span>
-        </div>
         <div class="param-row">
           <label class="help label-help-trigger" data-help="phiBaoLanhDuThau" onclick="showFieldHelp('phiBaoLanhDuThau', event)" title="Xem hướng dẫn">Phí bảo lãnh dự thầu</label>
           <input type="number" id="phiBaoLanhDuThau" step="0.1" min="0" max="100" oninput="onParamChange()">
@@ -652,11 +628,12 @@ table .td-num input{text-align:right}
         <div class="result-row">
           <span class="rlabel">Giá dự toán</span>
           <span class="rvalue" id="rGiaDuToan">0</span>
+          <span class="suffix" id="sGiaDuToan">₫</span>
         </div>
         <div class="param-row" style="margin-bottom:4px">
           <label>Tỷ lệ giảm giá</label>
           <input type="number" id="tiLeGiamGia" step="0.1" min="0" max="100" value="0" oninput="onDiscountInput()">
-          <span class="suffix">%</span>
+          <span class="suffix" style="flex:0 0 40px">%</span>
         </div>
         <div class="result-row" style="align-items:center">
           <span class="rlabel" style="font-weight:700;color:#1a3a5c">Giá chào dự kiến</span>
@@ -666,38 +643,57 @@ table .td-num input{text-align:right}
         <div class="result-row" style="border-top:1px solid #eef2f7;padding-top:8px;margin-top:4px">
           <span class="rlabel">Tổng giá nhập</span>
           <span class="rvalue" id="rTongGiaNhap">0</span>
+          <span class="suffix" id="sTongGiaNhap">₫</span>
         </div>
         <div class="result-row">
           <span class="rlabel">Lợi nhuận gộp (LNG)</span>
           <span class="rvalue profit" id="rLoiNhuanGop">0</span>
+          <span class="suffix" id="sLoiNhuanGop">₫</span>
+        </div>
+        <div class="result-row">
+          <span class="rlabel">Tỷ lệ LNG</span>
+          <span class="rvalue" id="rTiLeLNG">0%</span>
+          <span class="suffix" id="sTiLeLNG">%</span>
         </div>
         <div class="result-row">
           <span class="rlabel">Chi phí thầu</span>
           <span class="rvalue clickable" id="rChiPhiThau" style="font-size:13px;font-weight:400;color:#666" onclick="showCapCostDetail('thau')" title="Xem chi tiết cách tính chi phí thầu">0</span>
+          <span class="suffix" id="sChiPhiThau">₫</span>
         </div>
         <div class="result-row">
-          <span class="rlabel">Chi phí vốn</span>
+          <span class="rlabel">Chi phí vốn <span id="laiSuatVonNote" style="font-size:11px;color:#888;font-weight:400"></span></span>
           <span class="rvalue clickable" id="rChiPhiVon" style="font-size:13px;font-weight:400;color:#666" onclick="showCapCostDetail('von')" title="Xem chi tiết cách tính chi phí vốn">0</span>
+          <span class="suffix" id="sChiPhiVon">₫</span>
         </div>
         <div class="result-row">
-          <span class="rlabel">Chi phí bảo lãnh</span>
+          <span class="rlabel">Chi phí bảo lãnh <span id="baoLanhNote" style="font-size:11px;color:#888;font-weight:400"></span></span>
           <span class="rvalue clickable" id="rChiPhiBaoLanh" style="font-size:13px;font-weight:400;color:#666" onclick="showCapCostDetail('baolanh')" title="Xem chi tiết cách tính chi phí bảo lãnh">0</span>
+          <span class="suffix" id="sChiPhiBaoLanh">₫</span>
         </div>
         <div class="result-row">
           <span class="rlabel">Chi phí bán hàng/triển khai</span>
           <span class="rvalue" id="rPhiBanHangTrienKhai" style="font-size:13px;font-weight:400;color:#666">0</span>
+          <span class="suffix" id="sPhiBanHangTrienKhai">₫</span>
         </div>
         <div class="result-row">
           <span class="rlabel">Lợi nhuận gộp KD</span>
           <span class="rvalue profit" id="rLoiNhuanGopKD">0</span>
+          <span class="suffix" id="sLoiNhuanGopKD">₫</span>
         </div>
         <div class="result-row">
-          <span class="rlabel">Hoa hồng KD</span>
+          <span class="rlabel">Hoa hồng KD <span id="hoaHongNote" style="font-size:11px;color:#888;font-weight:400"></span></span>
           <span class="rvalue" id="rHoaHongKD" style="font-size:13px;font-weight:400;color:#666">0</span>
+          <span class="suffix" id="sHoaHongKD">₫</span>
         </div>
         <div class="result-row" style="border-top:2px solid #1a3a5c;padding-top:8px;margin-top:4px">
           <span class="rlabel" style="font-weight:700;color:#1a3a5c">Lợi nhuận ròng (LNR)</span>
           <span class="rvalue profit highlight" id="rLoiNhuanRong">0</span>
+          <span class="suffix" id="sLoiNhuanRong">₫</span>
+        </div>
+        <div class="result-row">
+          <span class="rlabel">Tỷ lệ LNR</span>
+          <span class="rvalue" id="rTiLeLNR">0%</span>
+          <span class="suffix" id="sTiLeLNR">%</span>
         </div>
       </div>
     </div>
@@ -1751,13 +1747,27 @@ function updateStatusUI() {
 async function loadProjectList() {
   if (!currentUser) return;
   projects = await api('GET', '/api/projects');
-  const datalist = document.getElementById('projectList');
+  const datalist = document.getElementById('projectDatalist');
   datalist.innerHTML = '';
   for (const p of projects) {
     const opt = document.createElement('option'); opt.value = p.name; datalist.appendChild(opt);
     const ib = p.projectInfo && p.projectInfo.maDauThau;
     if (ib) { const o = document.createElement('option'); o.value = ib; datalist.appendChild(o); }
   }
+
+  const TABS = [
+    { key:'all', label:'📄 Tất cả', icon:'📄', filter:() => true },
+    { key:'draft', label:'📝 Chuẩn bị hồ sơ', icon:'📝', filter:p => p.status === 'draft' && isOpen(p) },
+    { key:'upcoming', label:'🔜 Sắp mở thầu', icon:'🔜', filter:p => p.status === 'upcoming' },
+    { key:'pending', label:'⏳ Chờ duyệt', icon:'⏳', filter:p => p.status === 'pending' },
+    { key:'approved', label:'✓ Đã duyệt', icon:'✓', filter:p => p.status === 'approved' && p.ketQuaTrungThau == null && isOpen(p) },
+    { key:'pendingResult', label:'⏳ Đang xét thầu', icon:'⏳', filter:p => p.ketQuaTrungThau == null && p.status !== 'pending' && p.status !== 'rejected' && p.thoiGianDongThau && new Date(p.thoiGianDongThau) < now },
+    { key:'rejected', label:'✗ Không duyệt', icon:'✗', filter:p => p.status === 'rejected' },
+    { key:'win', label:'🏆 Trúng thầu', icon:'🏆', filter:p => p.ketQuaTrungThau === 'win' },
+    { key:'lose', label:'❌ Trượt thầu', icon:'❌', filter:p => p.ketQuaTrungThau === 'lose' }
+  ];
+
+  window._projectTab = window._projectTab || 'all';
 
   function sortByCloseDate(arr) {
     return arr.sort((a,b) => {
@@ -1767,67 +1777,58 @@ async function loadProjectList() {
     });
   }
 
-  function renderList(containerId, filterFn, icon) {
-    const list = document.getElementById(containerId);
-    list.innerHTML = '';
-    const filtered = sortByCloseDate(projects.filter(filterFn));
-    for (const p of filtered) {
-      const li = document.createElement('li');
-      li.dataset.id = p.id;
-      li.className = (currentProject && currentProject.id === p.id) ? 'active' : '';
-      const ibStr = p.maDauThau ? escHtml(p.maDauThau) : '';
-      const bm = p.benMoiThau ? ' - ' + escHtml(p.benMoiThau) : '';
-      const dn = (ibStr ? '['+ibStr+'] ' : '') + escHtml(p.name) + bm;
-      const ts = p.thoiGianDongThau ? toDateTimeStr(p.thoiGianDongThau) : toDateTimeStr(p.updatedAt||p.createdAt);
-      const xh = p.xepHang ? '<span class="r-rank">#' + escHtml(p.xepHang) + '</span>' : '';
-      li.innerHTML = '<span class="r-icon">' + icon + '</span><span class="r-name">' + dn + '</span><span class="r-time">' + ts + '</span>' + xh;
-      li.addEventListener('click', () => selectProjectById(p.id));
-      list.appendChild(li);
+  function renderTabs() {
+    const bar = document.getElementById('projectTabs');
+    bar.innerHTML = '';
+    for (const t of TABS) {
+      const count = projects.filter(t.filter).length;
+      const btn = document.createElement('span');
+      btn.className = 'pb-tab' + (t.key === window._projectTab ? ' active' : '');
+      btn.textContent = t.icon + ' ' + t.label + ' (' + count + ')';
+      btn.addEventListener('click', () => { window._projectTab = t.key; renderTabs(); renderProjectList(); });
+      bar.appendChild(btn);
     }
-    return filtered.length;
+  }
+
+  function appendProjectItem(list, p, icon) {
+    const li = document.createElement('li');
+    li.dataset.id = p.id;
+    li.className = (currentProject && currentProject.id === p.id) ? 'active' : '';
+    const ibStr = p.maDauThau ? escHtml(p.maDauThau) : '';
+    const bm = p.benMoiThau ? ' - ' + escHtml(p.benMoiThau) : '';
+    const dn = (ibStr ? '['+ibStr+'] ' : '') + escHtml(p.name) + bm;
+    const ts = p.thoiGianDongThau ? toDateTimeStr(p.thoiGianDongThau) : toDateTimeStr(p.updatedAt||p.createdAt);
+    const xh = p.xepHang ? '<span class="r-rank">#' + escHtml(p.xepHang) + '</span>' : '';
+    li.innerHTML = '<span class="r-icon">' + icon + '</span><span class="r-name">' + dn + '</span><span class="r-time">' + ts + '</span>' + xh;
+    li.addEventListener('click', () => selectProjectById(p.id));
+    list.appendChild(li);
+  }
+
+  function renderProjectList() {
+    const list = document.getElementById('projectList');
+    list.innerHTML = '';
+    const tab = TABS.find(t => t.key === window._projectTab) || TABS[0];
+    if (tab.key === 'all') {
+      for (const t of TABS) {
+        if (t.key === 'all') continue;
+        const items = sortByCloseDate(projects.filter(t.filter));
+        if (!items.length) continue;
+        const hdr = document.createElement('li');
+        hdr.className = 'pb-group-header';
+        hdr.textContent = t.icon + ' ' + t.label + ' (' + items.length + ')';
+        list.appendChild(hdr);
+        for (const p of items) appendProjectItem(list, p, t.icon);
+      }
+      return;
+    }
+    const filtered = sortByCloseDate(projects.filter(tab.filter));
+    for (const p of filtered) appendProjectItem(list, p, tab.icon);
   }
 
   const now = new Date();
   const isOpen = p => !p.thoiGianDongThau || new Date(p.thoiGianDongThau) >= now;
-  const draftCount = renderList('recentList', p => p.status === 'draft' && isOpen(p), '📄');
-  const upcomingCount = renderList('upcomingList', p => p.status === 'upcoming', '🔜');
-  const pendingCount = renderList('pendingList', p => p.status === 'pending', '⏳');
-  const rejectedCount = renderList('rejectedList', p => p.status === 'rejected', '✗');
-  const approvedCount = renderList('approvedList', p => p.status === 'approved' && p.ketQuaTrungThau == null && (!p.thoiGianDongThau || new Date(p.thoiGianDongThau) >= now), '✓');
-  const pendingResultCount = renderList('pendingResultList', p => p.ketQuaTrungThau == null && p.status !== 'pending' && p.status !== 'rejected' && p.thoiGianDongThau && new Date(p.thoiGianDongThau) < now, '⏳');
-  const winCount = renderList('winList', p => p.ketQuaTrungThau === 'win', '🏆');
-  const loseCount = renderList('loseList', p => p.ketQuaTrungThau === 'lose', '❌');
-  const hasUpcoming = upcomingCount;
-  const hasPending = pendingCount;
-  const hasRejected = rejectedCount;
-  const hasApproved = approvedCount;
-  const hasPendingResult = pendingResultCount;
-  const hasWin = winCount;
-  const hasLose = loseCount;
-
-  document.getElementById('upcomingLabel').textContent = '🔜 Sắp mở thầu (' + upcomingCount + ')';
-  document.getElementById('recentLabel').textContent = '📝 Đang chuẩn bị hồ sơ (' + draftCount + ')';
-  document.getElementById('pendingLabel').textContent = '⏳ Chờ duyệt (' + pendingCount + ')';
-  document.getElementById('rejectedLabel').textContent = '✗ Không duyệt (' + rejectedCount + ')';
-  document.getElementById('approvedLabel').textContent = '✓ Đã duyệt (' + approvedCount + ')';
-  document.getElementById('pendingResultLabel').textContent = '⏳ Đang xét thầu (' + pendingResultCount + ')';
-  document.getElementById('winLabel').textContent = '🏆 Trúng thầu (' + winCount + ')';
-  document.getElementById('loseLabel').textContent = '❌ Trượt thầu (' + loseCount + ')';
-
-  document.getElementById('pendingDivider').style.display = hasPending ? '' : 'none';
-  document.getElementById('pendingSection').style.display = hasPending ? '' : 'none';
-  document.getElementById('upcomingDivider').style.display = hasUpcoming ? '' : 'none';
-  document.getElementById('upcomingSection').style.display = hasUpcoming ? '' : 'none';
-  document.getElementById('rejectedDivider').style.display = hasRejected ? '' : 'none';
-  document.getElementById('rejectedSection').style.display = hasRejected ? '' : 'none';
-  document.getElementById('approvedDivider').style.display = hasApproved ? '' : 'none';
-  document.getElementById('approvedSection').style.display = hasApproved ? '' : 'none';
-  document.getElementById('pendingResultDivider').style.display = hasPendingResult ? '' : 'none';
-  document.getElementById('pendingResultSection').style.display = hasPendingResult ? '' : 'none';
-  document.getElementById('winDivider').style.display = hasWin ? '' : 'none';
-  document.getElementById('winSection').style.display = hasWin ? '' : 'none';
-  document.getElementById('loseDivider').style.display = hasLose ? '' : 'none';
-  document.getElementById('loseSection').style.display = hasLose ? '' : 'none';
+  renderTabs();
+  renderProjectList();
 
   const statusInfo = document.getElementById('projectStatus').querySelector('span');
   statusInfo.textContent = projects.length + ' dự án';
@@ -1898,18 +1899,24 @@ function formatDateTime(iso) {
   const mi = String(d.getMinutes()).padStart(2, '0');
   return dd + '/' + mm + '/' + yyyy + ' ' + hh + ':' + mi;
 }
+function switchProjectInfoTab(name) {
+  document.getElementById('tabInfo').classList.toggle('active', name === 'info');
+  document.getElementById('tabHistory').classList.toggle('active', name === 'history');
+  document.querySelectorAll('#projectInfoCard .param-tabs .tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', (i === 0) === (name === 'info'));
+  });
+  if (name === 'history') loadHistory();
+}
 async function loadHistory() {
-  const card = document.getElementById('historyCard');
-  if (!currentProject) { hideHistory(); return; }
+  if (!currentProject) { showEmptyHistory(); return; }
   let entries;
   try {
     entries = await api('GET', '/api/projects/' + currentProject.id + '/history');
   } catch (e) {
-    hideHistory();
+    showEmptyHistory();
     return;
   }
-  if (!Array.isArray(entries)) { hideHistory(); return; }
-  card.style.display = '';
+  if (!Array.isArray(entries)) { showEmptyHistory(); return; }
   document.getElementById('historyCount').textContent = '(' + entries.length + ')';
   const body = document.getElementById('historyBody');
   const empty = document.getElementById('historyEmpty');
@@ -1935,9 +1942,14 @@ async function loadHistory() {
   }
   body.innerHTML = h;
 }
+function showEmptyHistory() {
+  const body = document.getElementById('historyBody');
+  const empty = document.getElementById('historyEmpty');
+  if (body) body.innerHTML = '';
+  if (empty) empty.style.display = '';
+}
 function hideHistory() {
-  const card = document.getElementById('historyCard');
-  if (card) card.style.display = 'none';
+  showEmptyHistory();
 }
 
 // --- Thông báo đẩy (Web Push) ---
@@ -2443,13 +2455,12 @@ function onParamChange() { calculate(); setFormDirty(); scheduleAutoSave(); }
 function onDiscountInput() { manualGiaChao = 0; onParamChange(); }
 
 function switchParamTab(name) {
-  const ids = { daysRatio: ['tabDaysRatio', 'tabRateFee'], rateFee: ['tabRateFee', 'tabDaysRatio'] };
-  const [activeId, inactiveId] = ids[name] || ids.daysRatio;
-  document.getElementById(activeId).classList.add('active');
-  document.getElementById(inactiveId).classList.remove('active');
-  const btns = document.querySelectorAll('.param-tabs .tab-btn');
-  btns[0].classList.toggle('active', name === 'daysRatio');
-  btns[1].classList.toggle('active', name === 'rateFee');
+  const panels = { duAn:'tabDuAn', capVon:'tabCapVon', baoLanh:'tabBaoLanh' };
+  for (const key in panels) {
+    document.getElementById(panels[key]).classList.toggle('active', key === name);
+  }
+  const btns = document.querySelectorAll('#costCard .param-tabs .tab-btn');
+  btns.forEach((b, i) => b.classList.toggle('active', Object.keys(panels)[i] === name));
 }
 
 function onGiaChaoInput(el) {
@@ -2644,23 +2655,26 @@ function calculate() {
   // Ensure action row is right before total row
   if (actionRow.nextElementSibling !== totalRow) tbody.insertBefore(actionRow, totalRow);
 
-  document.getElementById('rTongGiaNhap').textContent = '-' + toVND(tongGiaNhap);
+  document.getElementById('rTongGiaNhap').textContent = '-' + formatNumber(tongGiaNhap);
   document.getElementById('rTongGiaNhap').className = 'rvalue cost';
-  document.getElementById('rGiaDuToan').textContent = toVND(giaDuToan);
+  document.getElementById('rGiaDuToan').textContent = formatNumber(giaDuToan);
   document.getElementById('giaChaoToiThieu').value = formatNumber(giaChaoToiThieuEff);
   const profitEl = document.getElementById('rLoiNhuanGop');
   const tiLeLNGActual = giaChaoToiThieuEff > 0 ? (loiNhuanGop / giaChaoToiThieuEff * 100) : 0;
-  profitEl.textContent = (loiNhuanGop >= 0 ? '' : '-') + toVND(Math.abs(loiNhuanGop)) + ' (' + toPct(tiLeLNGActual) + ')';
+  profitEl.textContent = (loiNhuanGop >= 0 ? '' : '-') + formatNumber(Math.abs(loiNhuanGop));
   profitEl.className = 'rvalue ' + (loiNhuanGop >= 0 ? 'profit' : 'loss');
+  document.getElementById('rTiLeLNG').textContent = (tiLeLNGActual >= 0 ? '' : '-') + toPct(Math.abs(tiLeLNGActual));
 
   const cpThau = phiDuThau + phiTrungThau;
-  document.getElementById('rChiPhiThau').textContent = '-' + toVND(cpThau);
+  document.getElementById('rChiPhiThau').textContent = '-' + formatNumber(cpThau);
   document.getElementById('rChiPhiThau').className = 'rvalue cost';
-  document.getElementById('rChiPhiVon').textContent = '-' + toVND(cpVon) + ' (lãi suất vốn ' + toPct(laiSuatVon) + ')';
+  document.getElementById('rChiPhiVon').textContent = '-' + formatNumber(cpVon);
   document.getElementById('rChiPhiVon').className = 'rvalue cost';
+  document.getElementById('laiSuatVonNote').textContent = laiSuatVon != null ? '(lãi suất vốn ' + toPct(laiSuatVon) + ')' : '';
   document.getElementById('laiSuatVon').value = laiSuatVon != null ? laiSuatVon.toFixed(1) : '';
-  document.getElementById('rChiPhiBaoLanh').textContent = '-' + toVND(cpBaoLanh) + ' (tối thiểu ' + toVND(phiBaoLanhToiThieu) + '/loại)';
+  document.getElementById('rChiPhiBaoLanh').textContent = '-' + formatNumber(cpBaoLanh);
   document.getElementById('rChiPhiBaoLanh').className = 'rvalue cost';
+  document.getElementById('baoLanhNote').textContent = '(tối thiểu ' + toVND(phiBaoLanhToiThieu) + '/loại)';
   capCostDetail = {
     cpVon, cpBaoLanh, cpThau, phiDuThau, phiTrungThau,
     laiSuatVon, tongGiaNhap, vonNhap, tiLeTamUngNCC, soNgayNhapHang,
@@ -2670,18 +2684,20 @@ function calculate() {
     phiBaoLanhDuThau, phiBaoLanhThucHienHD, phiBaoLanhBaoHanh, phiBaoLanhToiThieu,
     phiBLDuThau, phiBLThucHien, phiBLBaoHanh
   };
-  document.getElementById('rPhiBanHangTrienKhai').textContent = '-' + toVND(cpTrienKhai);
+  document.getElementById('rPhiBanHangTrienKhai').textContent = '-' + formatNumber(cpTrienKhai);
   document.getElementById('rPhiBanHangTrienKhai').className = 'rvalue cost';
   const lnkdEl = document.getElementById('rLoiNhuanGopKD');
-  lnkdEl.textContent = toVND(loiNhuanGopKD >= 0 ? loiNhuanGopKD : -loiNhuanGopKD);
+  lnkdEl.textContent = formatNumber(loiNhuanGopKD >= 0 ? loiNhuanGopKD : -loiNhuanGopKD);
   lnkdEl.className = 'rvalue ' + (loiNhuanGopKD >= 0 ? 'profit' : 'loss');
-  if (loiNhuanGopKD < 0) lnkdEl.textContent = '-' + toVND(-loiNhuanGopKD);
-  document.getElementById('rHoaHongKD').textContent = '-' + toVND(hhKD) + ' (' + toPct(hoaHongKD) + ')';
+  if (loiNhuanGopKD < 0) lnkdEl.textContent = '-' + formatNumber(-loiNhuanGopKD);
+  document.getElementById('rHoaHongKD').textContent = '-' + formatNumber(hhKD);
   document.getElementById('rHoaHongKD').className = 'rvalue cost';
+  document.getElementById('hoaHongNote').textContent = '(' + toPct(hoaHongKD) + ')';
   const lnrEl = document.getElementById('rLoiNhuanRong');
-  lnrEl.textContent = toVND(loiNhuanRong >= 0 ? loiNhuanRong : -loiNhuanRong) + ' (' + toPct(tiLeLNRVon) + ')';
+  lnrEl.textContent = formatNumber(loiNhuanRong >= 0 ? loiNhuanRong : -loiNhuanRong);
   lnrEl.className = 'rvalue profit highlight';
   if (loiNhuanRong < 0) lnrEl.className = 'rvalue loss highlight';
+  document.getElementById('rTiLeLNR').textContent = (tiLeLNRVon >= 0 ? '' : '-') + toPct(Math.abs(tiLeLNRVon));
   const el3 = document.getElementById('itemCount'); if (el3) el3.textContent = items.length + ' mặt hàng';
   applyLegalWarnings();
   updateBottomBarProjectInfo();
