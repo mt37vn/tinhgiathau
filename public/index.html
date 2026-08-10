@@ -1042,7 +1042,8 @@ function isXayLapField(investField) {
 function quyMoNhoLimit(investField) {
   return isXayLapField(investField) ? 20000000000 : 10000000000; // XL ≤20 tỷ; HH/phi tư vấn ≤10 tỷ
 }
-function defaultTiLeBaoLanhDuThau(giaDuToan, investField) {
+function defaultTiLeBaoLanhDuThau(giaDuToan, investField, isRutGon) {
+  if (isRutGon) return 0; // gói rút gọn: miễn bảo lãnh dự thầu
   if (!(giaDuToan > 0)) return 3; // chưa có giá dự toán → mức thường (cận trên)
   return giaDuToan <= quyMoNhoLimit(investField) ? 1.5 : 3;
 }
@@ -2096,7 +2097,7 @@ function clearForm() {
   document.getElementById('tiLeTamUngNCC').value = settings.tiLeTamUngNCC;
   document.getElementById('soNgayBaoHanh').value = settings.soNgayBaoHanh;
   document.getElementById('tiLeBaoHanh').value = settings.tiLeBaoHanh;
-  document.getElementById('tiLeBaoLanhDuThau').value = defaultTiLeBaoLanhDuThau(parseNumber(document.getElementById('giaDuToan').value), (currentProject && currentProject.projectInfo && currentProject.projectInfo.investField) || '');
+  document.getElementById('tiLeBaoLanhDuThau').value = defaultTiLeBaoLanhDuThau(parseNumber(document.getElementById('giaDuToan').value), (currentProject && currentProject.projectInfo && currentProject.projectInfo.investField) || '', document.getElementById('hinhThucLCNTInput').dataset.rutgon === '1');
   document.getElementById('soNgayBaoLanhDuThau').value = settings.soNgayBaoLanhDuThau;
   document.getElementById('tiLeBaoLanhThucHienHD').value = settings.tiLeBaoLanhThucHienHD;
   document.getElementById('soNgayBaoLanhThucHienHD').value = settings.soNgayBaoLanhThucHienHD;
@@ -2203,7 +2204,7 @@ function loadProjectToForm(p) {
   document.getElementById('tiLeTamUngNCC').value = params.tiLeTamUngNCC != null && params.tiLeTamUngNCC !== '' ? params.tiLeTamUngNCC : settings.tiLeTamUngNCC;
   document.getElementById('soNgayBaoHanh').value = params.soNgayBaoHanh != null && params.soNgayBaoHanh !== '' ? params.soNgayBaoHanh : settings.soNgayBaoHanh;
   document.getElementById('tiLeBaoHanh').value = params.tiLeBaoHanh != null && params.tiLeBaoHanh !== '' ? params.tiLeBaoHanh : settings.tiLeBaoHanh;
-  document.getElementById('tiLeBaoLanhDuThau').value = params.tiLeBaoLanhDuThau != null && params.tiLeBaoLanhDuThau !== '' ? params.tiLeBaoLanhDuThau : defaultTiLeBaoLanhDuThau(giaDuToan, info.investField);
+  document.getElementById('tiLeBaoLanhDuThau').value = params.tiLeBaoLanhDuThau != null && params.tiLeBaoLanhDuThau !== '' ? params.tiLeBaoLanhDuThau : defaultTiLeBaoLanhDuThau(giaDuToan, info.investField, document.getElementById('hinhThucLCNTInput').dataset.rutgon === '1');
   document.getElementById('soNgayBaoLanhDuThau').value = params.soNgayBaoLanhDuThau != null && params.soNgayBaoLanhDuThau !== '' ? params.soNgayBaoLanhDuThau : settings.soNgayBaoLanhDuThau;
   document.getElementById('tiLeBaoLanhThucHienHD').value = params.tiLeBaoLanhThucHienHD != null && params.tiLeBaoLanhThucHienHD !== '' ? params.tiLeBaoLanhThucHienHD : settings.tiLeBaoLanhThucHienHD;
   document.getElementById('soNgayBaoLanhThucHienHD').value = params.soNgayBaoLanhThucHienHD != null && params.soNgayBaoLanhThucHienHD !== '' ? params.soNgayBaoLanhThucHienHD : settings.soNgayBaoLanhThucHienHD;
@@ -2933,13 +2934,21 @@ async function fetchBiddingInfo() {
     if (data.hinhThucLCNT) {
       hlcntInput.value = data.hinhThucLCNT.replace('Hình thức LCNT: ', '');
       hlcntInput.dataset.label = data.hinhThucLCNT;
-      hlcntInput.dataset.rutgon = data.isRutGon ? '1' : '0';
+      hlcntInput.dataset.rutgon = (data.isRutGon || (data.hinhThucLCNT && (data.hinhThucLCNT.includes('rút gọn') || data.hinhThucLCNT.includes('rut gon')))) ? '1' : '0';
       hlcntDiv.style.display = '';
     } else {
       hlcntInput.value = '';
       hlcntInput.dataset.label = '';
       hlcntInput.dataset.rutgon = '0';
       hlcntDiv.style.display = 'none';
+    }
+    // Gói rút gọn: mặc định bảo lãnh dự thầu = 0% (chỉ đổi khi trường đang giữ giá trị mặc định, tránh ghi đè nhập tay)
+    const duThauEl = document.getElementById('tiLeBaoLanhDuThau');
+    const duThauCur = parseFloat(duThauEl.value);
+    if (hlcntInput.dataset.rutgon === '1') {
+      if (duThauCur === 3 || duThauCur === 1.5) duThauEl.value = 0;
+    } else if (duThauCur === 0) {
+      duThauEl.value = defaultTiLeBaoLanhDuThau(parseNumber(document.getElementById('giaDuToan').value), (currentProject.projectInfo && currentProject.projectInfo.investField) || '', false);
     }
     updateAutoFees();
 
