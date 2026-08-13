@@ -1800,7 +1800,8 @@ async function loadProjectList() {
     const ibStr = p.maDauThau ? escHtml(p.maDauThau) : '';
     const bm = p.benMoiThau ? ' - ' + escHtml(p.benMoiThau) : '';
     const dn = (ibStr ? '['+ibStr+'] ' : '') + escHtml(p.name) + bm;
-    const ts = p.thoiGianDongThau ? toDateTimeStr(p.thoiGianDongThau) : toDateTimeStr(p.updatedAt||p.createdAt);
+    const closeStr = p.projectInfo && p.projectInfo.thoiGianDongThau;
+    const ts = closeStr ? toDateTimeStr(closeStr) : toDateTimeStr(p.updatedAt||p.createdAt);
     const xh = p.xepHang ? '<span class="r-rank">#' + escHtml(p.xepHang) + '</span>' : '';
     li.innerHTML = '<span class="r-icon">' + icon + '</span><span class="r-name">' + dn + '</span><span class="r-time">' + ts + '</span>' + xh;
     li.addEventListener('click', () => selectProjectById(p.id));
