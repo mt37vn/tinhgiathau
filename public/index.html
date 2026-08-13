@@ -1759,8 +1759,8 @@ async function loadProjectList() {
 
   const TABS = [
     { key:'all', label:'📄 Tất cả', icon:'📄', filter:() => true },
-    { key:'draft', label:'📝 Chuẩn bị hồ sơ', icon:'📝', filter:p => p.status === 'draft' && isOpen(p) },
     { key:'upcoming', label:'🔜 Sắp mở thầu', icon:'🔜', filter:p => p.status === 'upcoming' },
+    { key:'draft', label:'📝 Chuẩn bị hồ sơ', icon:'📝', filter:p => p.status === 'draft' && isOpen(p) },
     { key:'noImportPrice', label:'🚫 Không có giá nhập', icon:'🚫', filter:p => p.status === 'no_import_price' },
     { key:'pending', label:'⏳ Chờ duyệt', icon:'⏳', filter:p => p.status === 'pending' },
     { key:'approved', label:'✓ Đã duyệt', icon:'✓', filter:p => p.status === 'approved' && p.ketQuaTrungThau == null && isOpen(p) },
