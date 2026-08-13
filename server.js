@@ -1303,7 +1303,7 @@ function computeProjectLNR(project, cfg) {
     + vonThucHien * laiSuatVon * soNgayBaoLanhThucHienHD / 100 / 365
     + vonBaoHanh * laiSuatVon * soNgayBaoHanh / 100 / 365
   );
-  const phiBLDuThau = Math.max(phiBaoLanhToiThieu, vonDuThau * phiBaoLanhDuThau / 100 * soNgayBaoLanhDuThau / 365);
+  const phiBLDuThau = vonDuThau > 0 ? Math.max(phiBaoLanhToiThieu, vonDuThau * phiBaoLanhDuThau / 100 * soNgayBaoLanhDuThau / 365) : 0;
   const phiBLThucHien = Math.max(phiBaoLanhToiThieu, vonThucHien * phiBaoLanhThucHienHD / 100 * soNgayBaoLanhThucHienHD / 365);
   const phiBLBaoHanh = Math.max(phiBaoLanhToiThieu, vonBaoHanh * phiBaoLanhBaoHanh / 100 * soNgayBaoHanh / 365);
   const cpBaoLanh = giaDuToan > 0 ? Math.round(phiBLDuThau + phiBLThucHien + phiBLBaoHanh) : 0;
@@ -2632,7 +2632,7 @@ app.get('/share/:id', (req, res) => {
     + vonThucHien * laiSuatVon * soNgayBaoLanhThucHienHD / 100 / 365
     + vonBaoHanh * laiSuatVon * soNgayBaoHanh / 100 / 365
   );
-  const phiBLDuThau = Math.max(phiBaoLanhToiThieu, vonDuThau * phiBaoLanhDuThau / 100 * soNgayBaoLanhDuThau / 365);
+  const phiBLDuThau = vonDuThau > 0 ? Math.max(phiBaoLanhToiThieu, vonDuThau * phiBaoLanhDuThau / 100 * soNgayBaoLanhDuThau / 365) : 0;
   const phiBLThucHien = Math.max(phiBaoLanhToiThieu, vonThucHien * phiBaoLanhThucHienHD / 100 * soNgayBaoLanhThucHienHD / 365);
   const phiBLBaoHanh = Math.max(phiBaoLanhToiThieu, vonBaoHanh * phiBaoLanhBaoHanh / 100 * soNgayBaoHanh / 365);
   const cpBaoLanh = giaDuToan > 0 ? Math.round(phiBLDuThau + phiBLThucHien + phiBLBaoHanh) : 0;
@@ -2960,7 +2960,7 @@ app.get('/admin/report', auth, (req, res) => {
       + vonThucHien * laiSuatVon * soNgayBaoLanhThucHienHD / 100 / 365
       + vonBaoHanh * laiSuatVon * soNgayBaoHanh / 100 / 365
     );
-    const phiBLDuThau = Math.max(phiBaoLanhToiThieu, vonDuThau * phiBaoLanhDuThau / 100 * soNgayBaoLanhDuThau / 365);
+    const phiBLDuThau = vonDuThau > 0 ? Math.max(phiBaoLanhToiThieu, vonDuThau * phiBaoLanhDuThau / 100 * soNgayBaoLanhDuThau / 365) : 0;
     const phiBLThucHien = Math.max(phiBaoLanhToiThieu, vonThucHien * phiBaoLanhThucHienHD / 100 * soNgayBaoLanhThucHienHD / 365);
     const phiBLBaoHanh = Math.max(phiBaoLanhToiThieu, vonBaoHanh * phiBaoLanhBaoHanh / 100 * soNgayBaoHanh / 365);
     const cpBaoLanh = giaDuToanStat > 0 ? Math.round(phiBLDuThau + phiBLThucHien + phiBLBaoHanh) : 0;
