@@ -1160,6 +1160,7 @@ app.get('/api/projects', auth, (req, res) => {
   res.json(data.projects.map(p => ({
     ...p,
     name: (p.projectInfo && p.projectInfo.tenCongTrinh) || p.name || '',
+    thoiGianDongThau: (p.projectInfo && p.projectInfo.thoiGianDongThau) || '',
     stepCodeLabel: getStepCodeLabel(p.stepCode),
     xepHang: p.xepHang || extractXepHang(p.items)
   })));
