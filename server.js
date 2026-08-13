@@ -105,9 +105,9 @@ function defaultTiLeBaoLanhDuThau(giaDuToan, investField, isRutGon) {
   return giaDuToan <= quyMoNhoLimit(investField) ? 1.5 : 3;
 }
 
-// Kiểm tra gói có giá nhập hợp lệ hay không (có ít nhất 1 mặt hàng có tên & đơn giá nhập > 0)
+// Kiểm tra gói có giá nhập hợp lệ hay không (có ít nhất 1 mặt hàng có đơn giá nhập > 0)
 function hasImportPrice(project) {
-  return !!(project.items && project.items.some(i => i.tenHangHoa && (i.donGiaNhap || 0) > 0));
+  return !!(project.items && project.items.some(i => (i.donGiaNhap || 0) > 0));
 }
 
 // Tự động đánh dấu gói đã đóng thầu nhưng không có giá nhập sang trạng thái no_import_price
