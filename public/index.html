@@ -128,6 +128,7 @@ table .td-num input{text-align:right}
 .status-pending{background:#f8d7da;color:#721c24}
 .status-approved{background:#d4e8f7;color:#1a5c8c}
 .status-rejected{background:#f8d7da;color:#721c24}
+.status-no-import-price{background:#fff3cd;color:#8a6d1d}
 .login-overlay{position:fixed;inset:0;background:linear-gradient(135deg,#1a3a5c,#2a5a8c);display:flex;align-items:center;justify-content:center;z-index:9999}
 .login-box{background:#fff;border-radius:12px;padding:36px 32px;width:380px;box-shadow:0 10px 60px rgba(0,0,0,.3)}
 .login-box h2{text-align:center;color:#1a3a5c;margin-bottom:4px;font-size:20px}
@@ -1726,8 +1727,8 @@ function updateStatusUI() {
     document.getElementById('ngayDuyetGroup').style.display = 'none';
     return;
   }
-  const labels = { draft:'Đang chuẩn bị hồ sơ', pending:'Chờ duyệt', approved:'Đã duyệt', rejected:'Không duyệt', upcoming:'Sắp mở thầu' };
-  const classes = { draft:'status-draft', pending:'status-pending', approved:'status-approved', rejected:'status-rejected', upcoming:'status-upcoming' };
+  const labels = { draft:'Đang chuẩn bị hồ sơ', pending:'Chờ duyệt', approved:'Đã duyệt', rejected:'Không duyệt', upcoming:'Sắp mở thầu', 'no_import_price':'Không có giá nhập' };
+  const classes = { draft:'status-draft', pending:'status-pending', approved:'status-approved', rejected:'status-rejected', upcoming:'status-upcoming', 'no_import_price':'status-no-import-price' };
   const st = currentProject.status || 'draft';
   document.getElementById('statusBadge').innerHTML = '<span class="status-badge ' + (classes[st]||'status-draft') + '">' + (labels[st]||'Đang chuẩn bị hồ sơ') + '</span>';
   const info = currentProject.projectInfo || {};
@@ -1760,9 +1761,10 @@ async function loadProjectList() {
     { key:'all', label:'📄 Tất cả', icon:'📄', filter:() => true },
     { key:'draft', label:'📝 Chuẩn bị hồ sơ', icon:'📝', filter:p => p.status === 'draft' && isOpen(p) },
     { key:'upcoming', label:'🔜 Sắp mở thầu', icon:'🔜', filter:p => p.status === 'upcoming' },
+    { key:'noImportPrice', label:'🚫 Không có giá nhập', icon:'🚫', filter:p => p.status === 'no_import_price' },
     { key:'pending', label:'⏳ Chờ duyệt', icon:'⏳', filter:p => p.status === 'pending' },
     { key:'approved', label:'✓ Đã duyệt', icon:'✓', filter:p => p.status === 'approved' && p.ketQuaTrungThau == null && isOpen(p) },
-    { key:'pendingResult', label:'⏳ Đang xét thầu', icon:'⏳', filter:p => p.ketQuaTrungThau == null && p.status !== 'pending' && p.status !== 'rejected' && p.thoiGianDongThau && new Date(p.thoiGianDongThau) < now },
+    { key:'pendingResult', label:'⏳ Đang xét thầu', icon:'⏳', filter:p => p.ketQuaTrungThau == null && p.status !== 'pending' && p.status !== 'rejected' && p.status !== 'no_import_price' && p.thoiGianDongThau && new Date(p.thoiGianDongThau) < now },
     { key:'rejected', label:'✗ Không duyệt', icon:'✗', filter:p => p.status === 'rejected' },
     { key:'win', label:'🏆 Trúng thầu', icon:'🏆', filter:p => p.ketQuaTrungThau === 'win' },
     { key:'lose', label:'❌ Trượt thầu', icon:'❌', filter:p => p.ketQuaTrungThau === 'lose' }
@@ -1887,7 +1889,7 @@ const HISTORY_LABELS = {
   reject: 'Không duyệt', unapprove: 'Huỷ duyệt', delete: 'Xoá', 'bid-result': 'Cập nhật kết quả thầu'
 };
 const HISTORY_STATUS_LABELS = {
-  draft: 'Dự thảo', upcoming: 'Sắp mở thầu', pending: 'Chờ duyệt', approved: 'Đã duyệt', rejected: 'Không duyệt'
+  draft: 'Dự thảo', upcoming: 'Sắp mở thầu', pending: 'Chờ duyệt', approved: 'Đã duyệt', rejected: 'Không duyệt', 'no_import_price': 'Không có giá nhập'
 };
 function formatDateTime(iso) {
   if (!iso) return '';
@@ -2710,8 +2712,8 @@ function calculate() {
 
 function updateBottomBarProjectInfo() {
   if (!currentProject) return;
-  const statusLabels = { draft:'Đang chuẩn bị hồ sơ', pending:'Chờ duyệt', approved:'Đã duyệt', rejected:'Không duyệt', upcoming:'Sắp mở thầu' };
-  const classes = { draft:'status-draft', pending:'status-pending', approved:'status-approved', rejected:'status-rejected', upcoming:'status-upcoming' };
+  const statusLabels = { draft:'Đang chuẩn bị hồ sơ', pending:'Chờ duyệt', approved:'Đã duyệt', rejected:'Không duyệt', upcoming:'Sắp mở thầu', 'no_import_price':'Không có giá nhập' };
+  const classes = { draft:'status-draft', pending:'status-pending', approved:'status-approved', rejected:'status-rejected', upcoming:'status-upcoming', 'no_import_price':'status-no-import-price' };
   const st = currentProject.status || 'draft';
   const info = currentProject.projectInfo || {};
   const params = currentProject.params || {};
@@ -2864,7 +2866,7 @@ function applyPermissions() {
 
   document.getElementById('btnNewProject').style.display = '';
   // Xoá: cho phép xoá gói thầu ở trạng thái draft/upcoming/rejected (admin luôn được)
-  const canDelete = currentProject && (isAdmin || (currentProject.status === 'draft' || currentProject.status === 'upcoming' || currentProject.status === 'rejected'));
+  const canDelete = currentProject && (isAdmin || (currentProject.status === 'draft' || currentProject.status === 'upcoming' || currentProject.status === 'rejected' || currentProject.status === 'no_import_price'));
   document.getElementById('btnDeleteProject').style.display = canDelete ? '' : 'none';
   const btnAdd = document.getElementById('btnAddRow'); if (btnAdd) btnAdd.style.display = currentProject ? '' : 'none';
   const btnRem = document.getElementById('btnRemoveRow'); if (btnRem) btnRem.style.display = currentProject ? '' : 'none';

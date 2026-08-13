@@ -105,6 +105,35 @@ function defaultTiLeBaoLanhDuThau(giaDuToan, investField, isRutGon) {
   return giaDuToan <= quyMoNhoLimit(investField) ? 1.5 : 3;
 }
 
+// Kiểm tra gói có giá nhập hợp lệ hay không (có ít nhất 1 mặt hàng có tên & đơn giá nhập > 0)
+function hasImportPrice(project) {
+  return !!(project.items && project.items.some(i => i.tenHangHoa && (i.donGiaNhap || 0) > 0));
+}
+
+// Tự động đánh dấu gói đã đóng thầu nhưng không có giá nhập sang trạng thái no_import_price
+function markNoImportPriceProjects() {
+  try {
+    const data = readData(PROJ_FILE);
+    const now = new Date();
+    let changed = false;
+    for (const p of data.projects) {
+      if (p.status === 'no_import_price') continue;
+      const info = p.projectInfo;
+      const closeStr = info && info.thoiGianDongThau;
+      if (!closeStr) continue;
+      const closeDate = new Date(closeStr);
+      if (Number.isNaN(closeDate.getTime()) || closeDate >= now) continue;
+      if (hasImportPrice(p)) continue;
+      p.status = 'no_import_price';
+      p.updatedAt = new Date().toISOString();
+      logHistory(p.id, { action: 'mark-no-import-price', fromStatus: null, toStatus: 'no_import_price', detail: 'Tự động: gói đã đóng thầu không có giá nhập' });
+      changed = true;
+    }
+    if (changed) writeData(PROJ_FILE, data);
+    if (changed) console.log('[mark-no-import] Đã đánh dấu các gói không có giá nhập đã đóng thầu');
+  } catch (e) { console.error('[mark-no-import] Error:', e.message); }
+}
+
 // Trả { ok, msg } — msg khi vượt giới hạn chặn
 function checkLegalRate(field, value, isRutGon) {
   const l = LEGAL_LIMITS[field] && LEGAL_LIMITS[field][isRutGon ? 'rutGon' : 'normal'];
@@ -1233,6 +1262,10 @@ app.put('/api/projects/:id', auth, (req, res) => {
   if (project.status === 'upcoming' && updated.status === 'upcoming') {
     updated.status = 'draft';
   }
+  // Transition no_import_price → draft khi user sửa và có giá nhập hợp lệ
+  if (project.status === 'no_import_price' && hasImportPrice(updated)) {
+    updated.status = 'draft';
+  }
   // Auto-assign người lập đề xuất CHỈ khi dự án chưa có chủ (hệ thống/Trello tạo)
   // Nếu đã có người lập hoặc client gửi người lập, giữ nguyên — không ghi đè bằng người sửa cuối
   if (!updated.projectInfo) updated.projectInfo = {};
@@ -1254,6 +1287,8 @@ app.put('/api/projects/:id', auth, (req, res) => {
     logHistory(project.id, { actorId: req.currentUser.id, actorName: req.currentUser.fullName, action: 'edit', fromStatus: project.status, toStatus: updated.status, detail: 'Sửa nội dung dự án' });
   } else if (project.status === 'upcoming' && updated.status === 'draft') {
     logHistory(project.id, { actorId: req.currentUser.id, actorName: req.currentUser.fullName, action: 'edit', fromStatus: 'upcoming', toStatus: 'draft', detail: 'Kích hoạt dự án tự tạo' });
+  } else if (project.status === 'no_import_price' && updated.status === 'draft') {
+    logHistory(project.id, { actorId: req.currentUser.id, actorName: req.currentUser.fullName, action: 'edit', fromStatus: 'no_import_price', toStatus: 'draft', detail: 'Đã có giá nhập, kích hoạt lại' });
   }
   res.json(data.projects[idx]);
   trelloSync.syncProjectToTrello(data.projects[idx]).catch(() => {});
@@ -3598,6 +3633,8 @@ function scheduleDailyAt6AM(fn) {
 
 scheduleDailyAt6AM(checkPendingTbmtFiles);
 scheduleDailyAt6AM(runBackup);
+scheduleDailyAt6AM(markNoImportPriceProjects);
+markNoImportPriceProjects();
 
 app.listen(PORT, () => {
   console.log(`Phần mềm tính giá chào thầu v2 đang chạy tại: http://localhost:${PORT}`);
