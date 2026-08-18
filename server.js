@@ -2852,11 +2852,10 @@ app.post('/api/projects/auto-process-imported', auth, adminOnly, (req, res) => {
     project.params.tiLeGiamGia = tiLeGiamGia;
 
     // Recalculate donGiaChao for each item to match the new bid price
-    const firstGiaNhap = items[0].soLuong * items[0].donGiaNhap;
-    const _firstGiaNhap = firstGiaNhap;
+    const _firstDonGiaNhap = items[0].donGiaNhap;
     for (const item of items) {
       item.giaNhap = item.soLuong * item.donGiaNhap;
-      item.trongSo = _firstGiaNhap > 0 ? item.giaNhap / _firstGiaNhap : 0;
+      item.trongSo = _firstDonGiaNhap > 0 ? Math.round(item.donGiaNhap / _firstDonGiaNhap * 10000) / 10000 : 0;
     }
     const _tongTrongSo = items.reduce((s, i) => s + (i.trongSo || 0), 0);
     // Floor instead of round: guarantee giaChaoToiThieu <= targetBidPrice
