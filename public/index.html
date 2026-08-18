@@ -2220,7 +2220,8 @@ function loadProjectToForm(p) {
   document.getElementById('tiLeTamUngNCC').value = params.tiLeTamUngNCC != null && params.tiLeTamUngNCC !== '' ? params.tiLeTamUngNCC : settings.tiLeTamUngNCC;
   document.getElementById('soNgayBaoHanh').value = params.soNgayBaoHanh != null && params.soNgayBaoHanh !== '' ? params.soNgayBaoHanh : settings.soNgayBaoHanh;
   document.getElementById('tiLeBaoHanh').value = params.tiLeBaoHanh != null && params.tiLeBaoHanh !== '' ? params.tiLeBaoHanh : settings.tiLeBaoHanh;
-  document.getElementById('tiLeBaoLanhDuThau').value = params.tiLeBaoLanhDuThau != null && params.tiLeBaoLanhDuThau !== '' ? params.tiLeBaoLanhDuThau : defaultTiLeBaoLanhDuThau(giaDuToan, info.investField, document.getElementById('hinhThucLCNTInput').dataset.rutgon === '1');
+  const hlcntRutgon = document.getElementById('hinhThucLCNTInput').dataset.rutgon === '1';
+  document.getElementById('tiLeBaoLanhDuThau').value = hlcntRutgon ? 0 : (params.tiLeBaoLanhDuThau != null && params.tiLeBaoLanhDuThau !== '' ? params.tiLeBaoLanhDuThau : defaultTiLeBaoLanhDuThau(giaDuToan, info.investField, false));
   document.getElementById('soNgayBaoLanhDuThau').value = params.soNgayBaoLanhDuThau != null && params.soNgayBaoLanhDuThau !== '' ? params.soNgayBaoLanhDuThau : settings.soNgayBaoLanhDuThau;
   document.getElementById('tiLeBaoLanhThucHienHD').value = params.tiLeBaoLanhThucHienHD != null && params.tiLeBaoLanhThucHienHD !== '' ? params.tiLeBaoLanhThucHienHD : settings.tiLeBaoLanhThucHienHD;
   document.getElementById('soNgayBaoLanhThucHienHD').value = params.soNgayBaoLanhThucHienHD != null && params.soNgayBaoLanhThucHienHD !== '' ? params.soNgayBaoLanhThucHienHD : settings.soNgayBaoLanhThucHienHD;
@@ -3005,7 +3006,8 @@ async function fetchBiddingInfo() {
     const duThauEl = document.getElementById('tiLeBaoLanhDuThau');
     const duThauCur = parseFloat(duThauEl.value);
     if (hlcntInput.dataset.rutgon === '1') {
-      if (duThauCur === 3 || duThauCur === 1.5) duThauEl.value = 0;
+      // Gói rút gọn: miễn bảo lãnh dự thầu → luôn 0%
+      if (duThauCur !== 0) duThauEl.value = 0;
     } else if (duThauCur === 0) {
       duThauEl.value = defaultTiLeBaoLanhDuThau(parseNumber(document.getElementById('giaDuToan').value), (currentProject.projectInfo && currentProject.projectInfo.investField) || '', false);
     }
