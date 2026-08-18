@@ -1700,7 +1700,7 @@ app.get('/api/fetch-bidding-info/:ibCode', auth, async (req, res) => {
       bidForm,
       bidFormLabel,
       hinhThucLCNT: 'Hình thức LCNT: ' + bidFormLabel,
-      processApply,
+      processApply: extractValue(responseData.processApply),
       isRutGon,
       // Extra metadata from search result
       planNo: extractValue(responseData.planNo),
