@@ -2924,6 +2924,41 @@ function checkDuplicateIB() {
   else el.classList.remove('error');
 }
 
+function fuzzyMatch(a, b) {
+  if (!a || !b) return 0;
+  const na = a.toLowerCase().trim();
+  const nb = b.toLowerCase().trim();
+  if (na === nb) return 1;
+  if (na.includes(nb) || nb.includes(na)) return 0.8;
+  const wa = new Set(na.split(/\s+/));
+  const wb = new Set(nb.split(/\s+/));
+  let matches = 0;
+  for (const w of wa) { if (wb.has(w)) matches++; }
+  const total = Math.max(wa.size, wb.size);
+  return total > 0 ? matches / total : 0;
+}
+
+function mergePortalItems(portalItems, existingItems) {
+  return portalItems.map((pItem, idx) => {
+    let bestMatch = null, bestScore = 0;
+    for (const eItem of existingItems) {
+      if (!eItem.tenHangHoa || !eItem.tenHangHoa.trim()) continue;
+      const score = fuzzyMatch(pItem.tenHangHoa, eItem.tenHangHoa);
+      if (score > 0.5 && score > bestScore) { bestScore = score; bestMatch = eItem; }
+    }
+    return {
+      id: bestMatch ? bestMatch.id : crypto.randomUUID(),
+      stt: idx + 1,
+      ...pItem,
+      donGiaNhap: bestMatch ? (bestMatch.donGiaNhap || 0) : 0,
+      giaNhap: bestMatch ? (bestMatch.giaNhap || 0) : 0,
+      nhaCungCap: bestMatch ? (bestMatch.nhaCungCap || '') : '',
+      donGiaChao: bestMatch ? (bestMatch.donGiaChao || 0) : 0,
+      trongSo: bestMatch ? (bestMatch.trongSo || 1) : 1
+    };
+  });
+}
+
 async function fetchBiddingInfo() {
   const ib = document.getElementById('maDauThau').value.trim();
   if (!ib) { showToast('Nhập mã đấu thầu (IB)', 'error'); return; }
@@ -2995,16 +3030,9 @@ async function fetchBiddingInfo() {
 
     let portalItems = null;
     if (data.items && data.items.length > 0) {
-      portalItems = data.items.map((item, idx) => ({
-        id: crypto.randomUUID(),
-        stt: idx + 1,
-        ...item,
-        donGiaNhap: 0,
-        giaNhap: 0,
-        nhaCungCap: '',
-        donGiaChao: 0,
-        trongSo: 1
-      }));
+      // Ghép dữ liệu cổng với dữ liệu đã nhập tay: giữ nguyên giá nhập, nhà cung cấp, giá chào, trọng số của mặt hàng khớp
+      const existingItems = getItemsFromTable();
+      portalItems = mergePortalItems(data.items, existingItems);
       renderItems(portalItems);
       showToast('Đã tìm thấy ' + portalItems.length + ' mặt hàng', 'success');
 
