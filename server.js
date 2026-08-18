@@ -3242,10 +3242,8 @@ app.post('/api/admin/sync-all', auth, adminOnly, async (req, res) => {
   const portalFetchCandidates = projects.filter(p => {
     if (!p.projectInfo || !p.projectInfo.maDauThau) return false;
     if (p.items && p.items.some(i => i.portalKyMaHieu)) return false;
-    // Bỏ qua gói đã xác định không rút gọn (DTRR, CHCT, ...)
-    if (p.projectInfo.isRutGon === false) return false;
-    if (p.projectInfo.hinhThucLCNT && !p.projectInfo.hinhThucLCNT.includes('rút gọn')) return false;
-    if (p.projectInfo.bidForm && !p.projectInfo.bidForm.endsWith('RG')) return false;
+    // Chỉ fetch danh mục hàng hóa cho gói rút gọn (có bảng hàng hóa) chưa có items portal
+    if (!isRutGonProject(p)) return false;
     return true;
   });
 
