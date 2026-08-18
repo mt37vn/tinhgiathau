@@ -739,7 +739,7 @@ def run_bot():
             print("   🎯 Only rút gọn packages (mã kết thúc bằng RG)")
         only_online = config.get('onlyOnline', True)
         if only_online:
-            print("   🌐 Only online bids (QUA_MANG)")
+            print("   🌐 Only online bids (isInternet == 1)")
     else:
         print("   ℹ️ Using default keywords and filters")
         only_rut_gon = True
@@ -854,11 +854,12 @@ def run_bot():
                         print(f"      ⚠️ Skip: '{bid_no}' already processed.")
                         continue
 
-                    # Online bid filter
+                    # Online bid filter (chỉ số online: isInternet == 1)
                     if only_online:
-                        process_apply = safe_get_text(item.get('processApply')).upper()
-                        if process_apply != 'QUA_MANG':
-                            print(f"      ⚠️ Skip: Non-online bid (processApply={process_apply})")
+                        is_internet = safe_get_text(item.get('isInternet')).strip().lower()
+                        is_online = is_internet in ('1', 'true')
+                        if not is_online:
+                            print(f"      ⚠️ Skip: Non-online bid (isInternet={is_internet})")
                             save_discarded_id(bid_no, "non-online bid", discarded_ids)
                             continue
 

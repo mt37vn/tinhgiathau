@@ -1672,10 +1672,10 @@ app.get('/api/fetch-bidding-info/:ibCode', auth, async (req, res) => {
     const bidForm = extractValue(responseData.bidForm);
     const isRutGon = bidForm && (bidForm.endsWith('RG') || bidForm.toLowerCase().includes('rút gọn') || bidForm.toLowerCase().includes('rut gon'));
 
-    const processApply = extractValue(responseData.processApply);
-    // Gói rút gọn luôn qua mạng, không cần kiểm tra processApply
-    if (processApply && processApply.toUpperCase() !== 'QUA_MANG' && !isRutGon) {
-      return res.status(400).json({ error: `Gói thầu không qua mạng (processApply=${processApply})`, processApply });
+    // Chỉ số online từ cổng: isInternet == 1. Gói rút gọn luôn qua mạng.
+    const isOnline = extractValue(responseData.isInternet) === '1';
+    if (!isOnline && !isRutGon) {
+      return res.status(400).json({ error: `Gói thầu không qua mạng (isInternet=${extractValue(responseData.isInternet)})`, isInternet: extractValue(responseData.isInternet) });
     }
     const bidFormLabels = { 'CGTTRG': 'Chào hàng cạnh tranh rút gọn', 'CHTRG': 'Chào hàng cạnh tranh rút gọn', 'DTRR': 'Đấu thầu rộng rãi', 'DTHC': 'Đấu thầu hạn chế', 'DTTH': 'Đấu thầu thường', 'CHCT':'Chào hàng cạnh tranh','CHTH': 'Chào hàng cạnh tranh thường', 'MSTT': 'Mua sắm trực tiếp', 'CDH': 'Chỉ định thầu' };
     let bidFormLabel = bidFormLabels[bidForm];
@@ -2010,9 +2010,9 @@ app.get('/api/fetch-bid-result/:ibCode', auth, async (req, res) => {
     const bidResultBidForm = extractValue(searchResult.bidForm);
     const bidResultIsRutGon = bidResultBidForm && (bidResultBidForm.endsWith('RG') || bidResultBidForm.toLowerCase().includes('rút gọn') || bidResultBidForm.toLowerCase().includes('rut gon'));
 
-    const bidResultProcessApply = extractValue(searchResult.processApply);
-    if (bidResultProcessApply && bidResultProcessApply.toUpperCase() !== 'QUA_MANG' && !bidResultIsRutGon) {
-      return res.status(400).json({ error: `Gói thầu không qua mạng (processApply=${bidResultProcessApply})`, processApply: bidResultProcessApply });
+    const bidResultIsOnline = extractValue(searchResult.isInternet) === '1';
+    if (!bidResultIsOnline && !bidResultIsRutGon) {
+      return res.status(400).json({ error: `Gói thầu không qua mạng (isInternet=${extractValue(searchResult.isInternet)})`, isInternet: extractValue(searchResult.isInternet) });
     }
 
     // Extract project info from search result
@@ -3335,9 +3335,9 @@ app.post('/api/admin/sync-all', auth, adminOnly, async (req, res) => {
           const saBidForm = extractValue(responseData.bidForm);
           const saIsRutGon = saBidForm && (saBidForm.endsWith('RG') || saBidForm.toLowerCase().includes('rút gọn') || saBidForm.toLowerCase().includes('rut gon'));
 
-          const saProcessApply = extractValue(responseData.processApply);
-          if (saProcessApply && saProcessApply.toUpperCase() !== 'QUA_MANG' && !saIsRutGon) {
-            portalResults.push({ ib, name: project.name || ib, status: 'skipped', error: `Non-online bid (processApply=${saProcessApply})` });
+          const saIsOnline = extractValue(responseData.isInternet) === '1';
+          if (!saIsOnline && !saIsRutGon) {
+            portalResults.push({ ib, name: project.name || ib, status: 'skipped', error: `Non-online bid (isInternet=${extractValue(responseData.isInternet)})` });
             console.log(`[sync-all]   Skipped non-online: ${ib}`);
             continue;
           }

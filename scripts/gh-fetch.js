@@ -100,9 +100,10 @@ async function fetchBiddingInfo(page, ibCode) {
   const bidForm = extractValue(responseData.bidForm);
   const isRutGon = !!(bidForm && (bidForm.endsWith('RG') || bidForm.toLowerCase().includes('rút gọn') || bidForm.toLowerCase().includes('rut gon')));
 
-  const processApply = extractValue(responseData.processApply);
-  if (processApply && processApply.toUpperCase() !== 'QUA_MANG' && !isRutGon) {
-    console.log(`    Non-online bid: ${ibCode} (processApply=${processApply})`);
+  // Chỉ số online từ cổng: isInternet == 1. Gói rút gọn luôn qua mạng.
+  const isOnline = extractValue(responseData.isInternet) === '1';
+  if (!isOnline && !isRutGon) {
+    console.log(`    Non-online bid: ${ibCode} (isInternet=${extractValue(responseData.isInternet)})`);
     return null;
   }
 
