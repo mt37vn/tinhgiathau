@@ -1787,7 +1787,7 @@ async function loadProjectList() {
       const count = projects.filter(t.filter).length;
       const btn = document.createElement('span');
       btn.className = 'pb-tab' + (t.key === window._projectTab ? ' active' : '');
-      btn.textContent = t.icon + ' ' + t.label + ' (' + count + ')';
+      btn.textContent = t.label + ' (' + count + ')';
       btn.addEventListener('click', () => { window._projectTab = t.key; renderTabs(); renderProjectList(); });
       bar.appendChild(btn);
     }
@@ -1819,7 +1819,7 @@ async function loadProjectList() {
         if (!items.length) continue;
         const hdr = document.createElement('li');
         hdr.className = 'pb-group-header';
-        hdr.textContent = t.icon + ' ' + t.label + ' (' + items.length + ')';
+        hdr.textContent = t.label + ' (' + items.length + ')';
         list.appendChild(hdr);
         for (const p of items) appendProjectItem(list, p, t.icon);
       }
