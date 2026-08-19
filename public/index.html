@@ -533,6 +533,7 @@ table .td-num input{text-align:right}
           <input type="text" id="phiBanHangTrienKhai" oninput="formatCurrencyInput(this); onParamChange()">
           <span class="suffix">VNĐ</span>
         </div>
+        <div id="phiBanHangLimitNote" class="param-help"></div>
       </div>
       <div style="margin-top:12px;display:flex;flex-direction:column;flex:1;min-height:0">
         <label style="font-size:12px;font-weight:600;color:#555">Giải trình chi tiết chi phí bán hàng/triển khai</label>
@@ -856,6 +857,11 @@ table .td-num input{text-align:right}
       <label class="help label-help-trigger" data-help="phiBaoLanhToiThieu" onclick="showFieldHelp('phiBaoLanhToiThieu', event, 'normal')" title="Xem hướng dẫn">Phí tối thiểu/loại (VNĐ)</label>
       <input type="text" id="settingsPhiBaoLanhToiThieu" oninput="formatCurrencyInput(this)" placeholder="500.000">
     </div>
+    <h4 style="margin:16px 0 8px;border-top:1px solid #eef2f7;padding-top:12px">Chi phí bán hàng/triển khai</h4>
+    <div class="form-group" style="margin-bottom:10px">
+      <label>Tỷ lệ tối đa so với Lợi nhuận gộp (%)</label>
+      <input type="number" id="settingsTiLePhiBanHangToiDa" step="0.1" min="0" max="100" placeholder="30">
+    </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeSettings()">Hủy</button>
       <button class="btn btn-primary" onclick="saveSettings()">Lưu</button>
@@ -975,6 +981,8 @@ let settings = {};
 let capCostDetail = null;
 let manualGiaChao = 0;
 let lastLNR = 0;
+let lastMaxPhiBanHang = 0;
+let lastOverPhiBanHangLimit = false;
 
 // Giới hạn pháp lý bảo lãnh theo Luật Đấu thầu 2023 (22/2023/QH15), Nghị định 24/2024/NĐ-CP, Luật Xây dựng & NĐ 06/2021/NĐ-CP
 // ⚠️ Phải khớp LEGAL_LIMITS & checkLegalRate ở server.js — nếu đổi ở đây phải đổi cả bên server để tránh lệch khi kiểm tra.
@@ -1265,7 +1273,8 @@ function loadSettingsToForm() {
     phiBaoLanhDuThau: 0.48,
     phiBaoLanhThucHienHD: 0.6,
     phiBaoLanhBaoHanh: 0.6,
-    phiBaoLanhToiThieu: 500000
+    phiBaoLanhToiThieu: 500000,
+    tiLePhiBanHangToiDa: 30
   };
   for (const k of Object.keys(defaults)) if (settings[k] == null) settings[k] = defaults[k];
 }
@@ -1403,6 +1412,7 @@ async function showSettings() {
     document.getElementById('settingsPhiBaoLanhThucHienHD').value = cfg.phiBaoLanhThucHienHD != null ? cfg.phiBaoLanhThucHienHD : 0.6;
     document.getElementById('settingsPhiBaoLanhBaoHanh').value = cfg.phiBaoLanhBaoHanh != null ? cfg.phiBaoLanhBaoHanh : 0.6;
     document.getElementById('settingsPhiBaoLanhToiThieu').value = cfg.phiBaoLanhToiThieu != null ? formatNumber(cfg.phiBaoLanhToiThieu) : formatNumber(500000);
+    document.getElementById('settingsTiLePhiBanHangToiDa').value = cfg.tiLePhiBanHangToiDa != null ? cfg.tiLePhiBanHangToiDa : 30;
     document.querySelectorAll('#settingsModal input.error').forEach(el => el.classList.remove('error'));
     document.getElementById('settingsModal').className = 'modal-overlay show';
   } catch (e) { showToast(e.message, 'error'); }
@@ -1462,6 +1472,14 @@ async function saveSettings() {
   const vonLuuDongChuan = parseNumber(document.getElementById('settingsVonLuuDongChuan').value);
   if (!(vonLuuDongChuan > 0)) { showToast('Vốn lưu động chuẩn phải lớn hơn 0', 'error'); return; }
   if (!validateLegalRatesSettings()) return;
+  const tiLePhiBHToiDaRaw = document.getElementById('settingsTiLePhiBanHangToiDa').value.trim();
+  const tiLePhiBHToiDa = parseFloat(tiLePhiBHToiDaRaw);
+  if (tiLePhiBHToiDaRaw === '' || isNaN(tiLePhiBHToiDa) || tiLePhiBHToiDa < 0 || tiLePhiBHToiDa > 100) {
+    const el = document.getElementById('settingsTiLePhiBanHangToiDa');
+    el.classList.add('error');
+    showToast('Tỷ lệ tối đa chi phí bán hàng/triển khai phải từ 0 đến 100 (%)', 'error');
+    return;
+  }
   try {
     await api('PUT', '/api/settings', {
       companyName,
@@ -1482,7 +1500,8 @@ async function saveSettings() {
       phiBaoLanhDuThau: parseFloat(document.getElementById('settingsPhiBaoLanhDuThau').value) || 0,
       phiBaoLanhThucHienHD: parseFloat(document.getElementById('settingsPhiBaoLanhThucHienHD').value) || 0,
       phiBaoLanhBaoHanh: parseFloat(document.getElementById('settingsPhiBaoLanhBaoHanh').value) || 0,
-      phiBaoLanhToiThieu: parseNumber(document.getElementById('settingsPhiBaoLanhToiThieu').value)
+      phiBaoLanhToiThieu: parseNumber(document.getElementById('settingsPhiBaoLanhToiThieu').value),
+      tiLePhiBanHangToiDa: tiLePhiBHToiDa
     });
     try { settings = await api('GET', '/api/settings'); } catch (e) {}
     closeSettings();
@@ -2610,6 +2629,8 @@ function calculate() {
   for (const item of items) item.donGiaChao = tongTrongSo > 0 && item.trongSo > 0 ? Math.round(giaChaoToiThieuEff * item.trongSo / tongTrongSo) : 0;
 
   const loiNhuanGop = giaChaoToiThieuEff - tongGiaNhap;
+  const tiLePhiBHToiDa = settings.tiLePhiBanHangToiDa != null ? settings.tiLePhiBanHangToiDa : 30;
+  const maxPhiBanHang = loiNhuanGop > 0 ? Math.round(loiNhuanGop * tiLePhiBHToiDa / 100) : 0;
   const cpDuThau = phiDuThau + phiTrungThau;
   const vonNhap = tongGiaNhap * tiLeTamUngNCC / 100;
   const vonDuThau = giaDuToan * tiLeBaoLanhDuThau / 100;
@@ -2708,6 +2729,17 @@ function calculate() {
   const hasImportPrice = items.some(i => i.tenHangHoa && i.giaNhap > 0);
   const warn = document.getElementById('effectNoImportWarning');
   if (warn) warn.style.display = hasImportPrice ? 'none' : '';
+  // Cảnh báo chi phí bán hàng/triển khai vượt tỷ lệ tối đa so với Lợi nhuận gộp
+  const phiBHInput = document.getElementById('phiBanHangTrienKhai');
+  const phiBHNote = document.getElementById('phiBanHangLimitNote');
+  const overPhiBH = loiNhuanGop > 0 && phiBanHangTrienKhai > maxPhiBanHang;
+  if (phiBHInput) phiBHInput.classList.toggle('error', overPhiBH);
+  lastMaxPhiBanHang = maxPhiBanHang;
+  lastOverPhiBanHangLimit = overPhiBH;
+  if (phiBHNote) {
+    phiBHNote.className = 'param-help show' + (overPhiBH ? ' block' : '');
+    phiBHNote.textContent = 'Tối đa ' + tiLePhiBHToiDa + '% Lợi nhuận gộp: ' + formatNumber(maxPhiBanHang) + ' ₫' + (overPhiBH ? ' — đang vượt giới hạn' : '');
+  }
   applyLegalWarnings();
   updateBottomBarProjectInfo();
 }
@@ -3205,6 +3237,14 @@ function validateFull() {
     const lnrEl = document.getElementById('rLoiNhuanRong');
     if (lnrEl) lnrEl.classList.add('error');
     showToast('Không trình duyệt được: Lợi nhuận ròng (LNR) đang âm (' + toVND(-lastLNR) + ')', 'error');
+    return false;
+  }
+  // Không cho phép trình duyệt gói có chi phí bán hàng/triển khai vượt tỷ lệ tối đa so với Lợi nhuận gộp
+  if (lastOverPhiBanHangLimit) {
+    const phiEl = document.getElementById('phiBanHangTrienKhai');
+    if (phiEl) phiEl.classList.add('error');
+    const tiLe = settings.tiLePhiBanHangToiDa != null ? settings.tiLePhiBanHangToiDa : 30;
+    showToast('Không trình duyệt được: chi phí bán hàng/triển khai vượt tối đa ' + tiLe + '% Lợi nhuận gộp (' + formatNumber(lastMaxPhiBanHang) + ' ₫)', 'error');
     return false;
   }
   return true;

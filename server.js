@@ -737,7 +737,8 @@ app.get('/api/settings', (req, res) => {
     phiBaoLanhDuThau: config.phiBaoLanhDuThau != null ? config.phiBaoLanhDuThau : 0.48,
     phiBaoLanhThucHienHD: config.phiBaoLanhThucHienHD != null ? config.phiBaoLanhThucHienHD : 0.6,
     phiBaoLanhBaoHanh: config.phiBaoLanhBaoHanh != null ? config.phiBaoLanhBaoHanh : 0.6,
-    phiBaoLanhToiThieu: config.phiBaoLanhToiThieu != null ? config.phiBaoLanhToiThieu : 500000
+    phiBaoLanhToiThieu: config.phiBaoLanhToiThieu != null ? config.phiBaoLanhToiThieu : 500000,
+    tiLePhiBanHangToiDa: config.tiLePhiBanHangToiDa != null ? config.tiLePhiBanHangToiDa : 30
   });
 });
 app.put('/api/settings', auth, adminOnly, (req, res) => {
@@ -774,6 +775,13 @@ app.put('/api/settings', auth, adminOnly, (req, res) => {
   if (req.body.phiBaoLanhThucHienHD !== undefined) config.phiBaoLanhThucHienHD = req.body.phiBaoLanhThucHienHD;
   if (req.body.phiBaoLanhBaoHanh !== undefined) config.phiBaoLanhBaoHanh = req.body.phiBaoLanhBaoHanh;
   if (req.body.phiBaoLanhToiThieu !== undefined) config.phiBaoLanhToiThieu = req.body.phiBaoLanhToiThieu;
+  if (req.body.tiLePhiBanHangToiDa !== undefined) {
+    const raw = String(req.body.tiLePhiBanHangToiDa).trim();
+    if (raw === '') return res.status(400).json({ error: 'Nhập tỷ lệ tối đa chi phí bán hàng/triển khai' });
+    const v = Number(raw);
+    if (isNaN(v) || v < 0 || v > 100) return res.status(400).json({ error: 'Tỷ lệ tối đa chi phí bán hàng/triển khai phải từ 0 đến 100 (%)' });
+    config.tiLePhiBanHangToiDa = v;
+  }
   if (req.body.vonLuuDongChuan !== undefined) {
     if (!(req.body.vonLuuDongChuan > 0)) return res.status(400).json({ error: 'Vốn lưu động chuẩn phải lớn hơn 0' });
     config.vonLuuDongChuan = req.body.vonLuuDongChuan;
@@ -1356,9 +1364,29 @@ app.patch('/api/projects/:id/submit', auth, (req, res) => {
   if (project.status !== 'draft' && project.status !== 'rejected')
     return res.status(400).json({ error: 'Chỉ trình duyệt dự án ở trạng thái dự thảo hoặc không duyệt' });
   // Không cho phép trình duyệt gói có Lợi nhuận ròng (LNR) âm
-  const lnr = computeProjectLNR(project, readData(CONFIG_FILE));
+  const cfg = readData(CONFIG_FILE);
+  const lnr = computeProjectLNR(project, cfg);
   if (lnr < 0) {
     return res.status(400).json({ error: 'Không trình duyệt được: Lợi nhuận ròng (LNR) đang âm (' + lnr.toLocaleString('vi-VN') + ' ₫)' });
+  }
+  // Không cho phép trình duyệt gói có chi phí bán hàng/triển khai vượt tỷ lệ tối đa so với Lợi nhuận gộp
+  {
+    const pParams = project.params || {};
+    const pItems = project.items || [];
+    const tiLePhiToiDa = cfg.tiLePhiBanHangToiDa != null ? cfg.tiLePhiBanHangToiDa : 30;
+    let tGG = pParams.tiLeGiamGia != null ? pParams.tiLeGiamGia : 0;
+    const gDT = pParams.giaDuToan || 0;
+    let tGN = 0;
+    for (const item of pItems) tGN += (item.soLuong || 0) * (item.donGiaNhap || 0);
+    const maxGG = gDT > 0 ? 100 * (1 - tGN / gDT) : 0;
+    if (tGG > maxGG) tGG = Math.max(0, maxGG);
+    const gChao = gDT > 0 ? Math.round(gDT * (1 - tGG / 100)) : 0;
+    const lNG = gChao - tGN;
+    const maxPhiBH = lNG > 0 ? Math.round(lNG * tiLePhiToiDa / 100) : 0;
+    const phiBH = pParams.phiBanHangTrienKhai || 0;
+    if (lNG > 0 && phiBH > maxPhiBH) {
+      return res.status(400).json({ error: 'Không trình duyệt được: chi phí bán hàng/triển khai (' + phiBH.toLocaleString('vi-VN') + ' ₫) vượt tối đa ' + tiLePhiToiDa + '% Lợi nhuận gộp (' + maxPhiBH.toLocaleString('vi-VN') + ' ₫)' });
+    }
   }
   const fromStatus = project.status;
   project.status = 'pending';
@@ -2645,6 +2673,7 @@ app.get('/share/:id', (req, res) => {
   const phiBaoLanhBaoHanh = params.phiBaoLanhBaoHanh != null ? params.phiBaoLanhBaoHanh : (cfg.phiBaoLanhBaoHanh != null ? cfg.phiBaoLanhBaoHanh : 0.6);
   const phiBaoLanhToiThieu = params.phiBaoLanhToiThieu != null ? params.phiBaoLanhToiThieu : (cfg.phiBaoLanhToiThieu != null ? cfg.phiBaoLanhToiThieu : 500000);
   const phiBanHangTrienKhai = params.phiBanHangTrienKhai || 0;
+  const tiLePhiBanHangToiDa = cfg.tiLePhiBanHangToiDa != null ? cfg.tiLePhiBanHangToiDa : 30;
   const hoaHongKD = params.hoaHongKD || 0;
   const giaDuToan = params.giaDuToan || 0;
   let tongGiaNhap = 0;
@@ -2656,6 +2685,7 @@ app.get('/share/:id', (req, res) => {
   const firstGiaNhap = items.length > 0 ? (items[0].soLuong || 0) * (items[0].donGiaNhap || 0) : 0;
   const tongTrongSo = items.reduce((s, item) => { const gn = (item.soLuong || 0) * (item.donGiaNhap || 0); return s + (firstGiaNhap > 0 ? gn / firstGiaNhap : 0); }, 0);
   const loiNhuanGop = giaChaoToiThieu - tongGiaNhap;
+  const maxPhiBanHang = loiNhuanGop > 0 ? Math.round(loiNhuanGop * tiLePhiBanHangToiDa / 100) : 0;
   const cpDuThau = phiDuThau + phiTrungThau;
   const vonNhap = tongGiaNhap * tiLeTamUngNCC / 100;
   const vonDuThau = giaDuToan * tiLeBaoLanhDuThau / 100;
@@ -2763,6 +2793,8 @@ app.get('/share/:id', (req, res) => {
   h += '<tr><td ' + sub + '>• Thực hiện HĐ</td><td class="n" style="font-size:11px;color:#888">-' + fmt(Math.round(phiBLThucHien)) + ' ₫</td></tr>';
   h += '<tr><td ' + sub + '>• Bảo hành</td><td class="n" style="font-size:11px;color:#888">-' + fmt(Math.round(phiBLBaoHanh)) + ' ₫</td></tr>';
   h += '<tr><td>Chi phí bán hàng/triển khai</td><td class="n" style="color:#e74c3c">-' + fmt(cpTrienKhai) + ' ₫</td></tr>';
+  h += '<tr><td ' + sub + '>• Tối đa (' + tiLePhiBanHangToiDa + '% LNG)</td><td class="n" style="font-size:11px;color:#888">' + fmt(maxPhiBanHang) + ' ₫</td></tr>';
+  if (loiNhuanGop > 0 && phiBanHangTrienKhai > maxPhiBanHang) h += '<tr><td colspan="2" style="color:#e74c3c;font-size:12px;font-weight:600">⚠ Vượt giới hạn: chi phí bán hàng/triển khai > ' + tiLePhiBanHangToiDa + '% Lợi nhuận gộp</td></tr>';
   h += '<tr><td>Lợi nhuận gộp KD</td><td class="n pr">' + (loiNhuanGopKD >= 0 ? '' : '-') + fmt(Math.abs(loiNhuanGopKD)) + ' ₫</td></tr>';
   h += '<tr><td>Hoa hồng KD</td><td class="n" style="color:#e74c3c">-' + fmt(hhKD) + ' (' + hoaHongKD + '%)</td></tr>';
   h += '<tr style="border-top:2px solid #1a3a5c"><td style="font-weight:700">Lợi nhuận ròng</td><td class="n pr hl">' + (loiNhuanRong >= 0 ? '' : '-') + fmt(Math.abs(loiNhuanRong)) + ' ₫</td></tr>';
