@@ -72,6 +72,14 @@ function isRutGonProject(project) {
   return false;
 }
 
+// Gói mua sắm công (mặc định) — mọi dự án cũ thiếu loaiGoiThau được coi là mua sắm công.
+// Gói 'khac' (không mua sắm công) không có mã IB/cổng/TBMT, miễn giới hạn bảo lãnh, mặc định phí = 0.
+// ⚠️ Phải khớp logic isKhacProject()/getLegalContext() ở public/index.html.
+function isMuaSamCong(project) {
+  const info = project && project.projectInfo;
+  return !(info && info.loaiGoiThau === 'khac');
+}
+
 // Giới hạn pháp lý bảo lãnh theo Luật Đấu thầu 2023 (22/2023/QH15), Nghị định 24/2024/NĐ-CP, Luật Xây dựng & NĐ 06/2021/NĐ-CP
 // ⚠️ Phải khớp LEGAL_LIMITS ở public/index.html — nếu đổi ở đây phải đổi cả bên client để tránh lệch khi kiểm tra.
 const LEGAL_LIMITS = {
@@ -825,7 +833,7 @@ app.get('/api/project-ids', (req, res) => {
   if (fs.existsSync(p)) {
     const data = readData(p);
     const ids = data.projects
-      .filter(proj => !isRutGonProject(proj))
+      .filter(proj => !isRutGonProject(proj) && isMuaSamCong(proj))
       .map(proj => ({
         id: proj.id,
         maDauThau: (proj.projectInfo && proj.projectInfo.maDauThau) || null,
@@ -1195,22 +1203,27 @@ app.post('/api/projects', auth, (req, res) => {
   const maDauThau = req.body.projectInfo && req.body.projectInfo.maDauThau ? req.body.projectInfo.maDauThau.trim() : '';
   if (maDauThau && data.projects.some(p => p.projectInfo && p.projectInfo.maDauThau === maDauThau))
     return res.status(400).json({ error: 'Mã đấu thầu đã tồn tại' });
+  const loaiGoiThau = (req.body.projectInfo && req.body.projectInfo.loaiGoiThau === 'khac') ? 'khac' : 'mua_sam_cong';
+  const isKhac = loaiGoiThau === 'khac';
+  const tenCongTrinh = (req.body.projectInfo && req.body.projectInfo.tenCongTrinh) || '';
   const now = new Date().toISOString();
   const project = {
     id: uuidv4(),
-    name: req.body.name || 'Dự án mới',
+    name: isKhac ? (tenCongTrinh || 'Gói không mua sắm công') : (req.body.name || 'Dự án mới'),
     createdAt: now, updatedAt: now,
     status: 'draft',
-    projectInfo: req.body.projectInfo || {
+    projectInfo: Object.assign({}, req.body.projectInfo || {
       tenCongTrinh: req.body.name || '', maDauThau: '', benMoiThau: '', noiDungTrinh: '',
       diaDiem: '', nguoiPhuTrach: '',
       nguoiLap: req.currentUser.fullName,
       nguoiLapId: req.currentUser.id,
       ngayLap: new Date().toISOString().split('T')[0],
       thoiGianDongThau: ''
-    },
+    }, { loaiGoiThau }),
     items: [{ id: uuidv4(), stt: 1, tenHangHoa: '', donViTinh: 'Gói', soLuong: 1, donGiaNhap: 0, trongSo: 1, ghiChu: '', nhaCungCap: '' }],
-    params: { tiLeGiamGia: 0, phiDuThau: 330000, phiTrungThau: 0, phiBanHangTrienKhai: 0, hoaHongKD: getDefaultHoaHongKD(req.body.projectInfo && req.body.projectInfo.thoiGianDongThau), giaDuToan: 0 }
+    params: isKhac
+      ? { tiLeGiamGia: 0, phiDuThau: 0, phiTrungThau: 0, phiBanHangTrienKhai: 0, hoaHongKD: getDefaultHoaHongKD(req.body.projectInfo && req.body.projectInfo.thoiGianDongThau), giaDuToan: 0, tiLeBaoLanhDuThau: 0, tiLeBaoLanhThucHienHD: 0, tiLeBaoHanh: 0 }
+      : { tiLeGiamGia: 0, phiDuThau: 330000, phiTrungThau: 0, phiBanHangTrienKhai: 0, hoaHongKD: getDefaultHoaHongKD(req.body.projectInfo && req.body.projectInfo.thoiGianDongThau), giaDuToan: 0 }
   };
   data.projects.push(project);
   writeData(PROJ_FILE, data);
@@ -1241,10 +1254,21 @@ app.put('/api/projects/:id', auth, (req, res) => {
   if (giaDuToan > 0 && giaChaoToiThieu > giaDuToan)
     return res.status(400).json({ error: 'Giá chào dự kiến không được cao hơn giá dự toán' });
   const project = data.projects[idx];
-  // Chặn khi tỷ lệ bảo lãnh ngoài phạm vi pháp lý (Luật Đấu thầu 2023), theo ngữ cảnh gói thường/rút gọn
-  {
-    const merged = { ...project, ...req.body };
-    const isRutGon = isRutGonProject(merged);
+  // Loại gói thầu: mặc định giữ nguyên; client gửi 'khac' hoặc 'mua_sam_cong' để đổi
+  const prevLoaiGoiThau = (project.projectInfo && project.projectInfo.loaiGoiThau === 'khac') ? 'khac' : 'mua_sam_cong';
+  const reqInfo = req.body.projectInfo || {};
+  const loaiGoiThau = reqInfo.loaiGoiThau === 'khac' ? 'khac'
+    : (reqInfo.loaiGoiThau === 'mua_sam_cong' ? 'mua_sam_cong' : prevLoaiGoiThau);
+  // Chỉ cho đổi loại gói thầu khi dự án ở dự thảo hoặc không duyệt (khớp ràng buộc UI)
+  if (loaiGoiThau !== prevLoaiGoiThau && project.status !== 'draft' && project.status !== 'rejected')
+    return res.status(400).json({ error: 'Chỉ đổi loại gói thầu khi dự án ở trạng thái dự thảo hoặc không duyệt' });
+  // Đổi từ gói không mua sắm công về mua sắm công: bắt buộc có mã IB
+  if (loaiGoiThau === 'mua_sam_cong' && prevLoaiGoiThau === 'khac' && !maDauThau)
+    return res.status(400).json({ error: 'Đổi về gói mua sắm công cần có mã đấu thầu (IB)' });
+  // Chặn khi tỷ lệ bảo lãnh ngoài phạm vi pháp lý (Luật Đấu thầu 2023), theo ngữ cảnh gói thường/rút gọn.
+  // Gói không mua sắm công ('khac') không áp dụng giới hạn luật.
+  if (loaiGoiThau === 'mua_sam_cong') {
+    const isRutGon = isRutGonProject({ ...project, ...req.body });
     for (const f of ['tiLeBaoLanhDuThau', 'tiLeBaoLanhThucHienHD', 'tiLeBaoHanh']) {
       if (params[f] !== undefined && params[f] !== null && params[f] !== '') {
         const c = checkLegalRate(f, params[f], isRutGon);
@@ -1253,6 +1277,8 @@ app.put('/api/projects/:id', auth, (req, res) => {
     }
   }
   const updated = { ...project, ...req.body, id: req.params.id, updatedAt: new Date().toISOString() };
+  if (!updated.projectInfo) updated.projectInfo = {};
+  updated.projectInfo.loaiGoiThau = loaiGoiThau;
   // Phí dự thầu / trúng thầu, hoa hồng KD (mặc định 12.5%) chỉ admin chỉnh: user thường giữ nguyên giá trị hiện có
   if (req.currentUser.role !== 'admin' && updated.params) {
     const oldP = project.params || {};
@@ -1310,15 +1336,15 @@ function computeProjectLNR(project, cfg) {
   const items = project.items || [];
   const info = project.projectInfo || {};
   let tiLeGiamGia = params.tiLeGiamGia != null ? params.tiLeGiamGia : 0;
-  const phiDuThau = params.phiDuThau != null ? params.phiDuThau : computeSubmissionFee(info.hinhThucLCNT);
-  const phiTrungThau = params.phiTrungThau != null ? params.phiTrungThau : computeWinFee(project.ketQuaTrungThau, project.giaTrungThau, params.giaDuToan);
+  const phiDuThau = params.phiDuThau != null ? params.phiDuThau : computeSubmissionFee(info.hinhThucLCNT, project);
+  const phiTrungThau = params.phiTrungThau != null ? params.phiTrungThau : computeWinFee(project.ketQuaTrungThau, project.giaTrungThau, params.giaDuToan, project);
   const laiSuatCoSo = params.laiSuatCoSo != null ? params.laiSuatCoSo : (cfg.laiSuatCoSo != null ? cfg.laiSuatCoSo : 12);
   const vonLuuDongChuan = params.vonLuuDongChuan != null ? params.vonLuuDongChuan : (cfg.vonLuuDongChuan != null ? cfg.vonLuuDongChuan : 4000000000);
   const soNgayNhapHang = params.soNgayNhapHang != null ? params.soNgayNhapHang : (cfg.soNgayNhapHang != null ? cfg.soNgayNhapHang : 90);
   const tiLeTamUngNCC = params.tiLeTamUngNCC != null ? params.tiLeTamUngNCC : (cfg.tiLeTamUngNCC != null ? cfg.tiLeTamUngNCC : 100);
   const soNgayBaoHanh = params.soNgayBaoHanh != null ? params.soNgayBaoHanh : (cfg.soNgayBaoHanh != null ? cfg.soNgayBaoHanh : 365);
   const tiLeBaoHanh = params.tiLeBaoHanh != null ? params.tiLeBaoHanh : (cfg.tiLeBaoHanh != null ? cfg.tiLeBaoHanh : 5);
-  const tiLeBaoLanhDuThau = isRutGonProject(project) ? 0 : (params.tiLeBaoLanhDuThau != null ? params.tiLeBaoLanhDuThau : defaultTiLeBaoLanhDuThau(params.giaDuToan, info.investField, false));
+  const tiLeBaoLanhDuThau = isRutGonProject(project) ? 0 : (params.tiLeBaoLanhDuThau != null ? params.tiLeBaoLanhDuThau : (isMuaSamCong(project) ? defaultTiLeBaoLanhDuThau(params.giaDuToan, info.investField, false) : 0));
   const soNgayBaoLanhDuThau = params.soNgayBaoLanhDuThau != null ? params.soNgayBaoLanhDuThau : (cfg.soNgayBaoLanhDuThau != null ? cfg.soNgayBaoLanhDuThau : 90);
   const tiLeBaoLanhThucHienHD = params.tiLeBaoLanhThucHienHD != null ? params.tiLeBaoLanhThucHienHD : (cfg.tiLeBaoLanhThucHienHD != null ? cfg.tiLeBaoLanhThucHienHD : 10);
   const soNgayBaoLanhThucHienHD = params.soNgayBaoLanhThucHienHD != null ? params.soNgayBaoLanhThucHienHD : (cfg.soNgayBaoLanhThucHienHD != null ? cfg.soNgayBaoLanhThucHienHD : 90);
@@ -1496,8 +1522,8 @@ app.patch('/api/projects/:id/bid-result', auth, adminOnly, (req, res) => {
   if (nhaThauTrung !== undefined) project.nhaThauTrung = nhaThauTrung || null;
   const pParams = project.params || {};
   const hinhThuc = (project.projectInfo && project.projectInfo.hinhThucLCNT) || '';
-  if (pParams.phiDuThauManual !== true) pParams.phiDuThau = computeSubmissionFee(hinhThuc);
-  if (pParams.phiTrungThauManual !== true) pParams.phiTrungThau = computeWinFee(project.ketQuaTrungThau, project.giaTrungThau, pParams.giaDuToan);
+  if (pParams.phiDuThauManual !== true) pParams.phiDuThau = computeSubmissionFee(hinhThuc, project);
+  if (pParams.phiTrungThauManual !== true) pParams.phiTrungThau = computeWinFee(project.ketQuaTrungThau, project.giaTrungThau, pParams.giaDuToan, project);
   project.params = pParams;
   project.updatedAt = new Date().toISOString();
   writeData(PROJ_FILE, data);
@@ -2372,6 +2398,7 @@ app.post('/api/projects/:id/fetch-bid-result', auth, adminOnly, async (req, res)
   const idx = data.projects.findIndex(p => p.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Không tìm thấy dự án' });
   const project = data.projects[idx];
+  if (!isMuaSamCong(project)) return res.status(400).json({ error: 'Gói không phải mua sắm công không có dữ liệu trên cổng đấu thầu' });
   const ibCode = project.projectInfo?.maDauThau;
   if (!ibCode) return res.status(400).json({ error: 'Dự án chưa có mã đấu thầu (IB)' });
 
@@ -2476,6 +2503,9 @@ app.post('/api/projects/:id/download-tbmt', auth, async (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'Không tìm thấy dự án' });
 
   const project = data.projects[idx];
+  if (!isMuaSamCong(project)) {
+    return res.status(400).json({ error: 'Gói không phải mua sắm công không có hồ sơ mời thầu (HSMT) để tải' });
+  }
   const tbmtCode = project.projectInfo && project.projectInfo.maDauThau;
   if (!tbmtCode) return res.status(400).json({ error: 'Dự án chưa có mã đấu thầu (IB)' });
 
@@ -2627,13 +2657,16 @@ function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt
 function fmt(n) { if (n === 0 || !n) return '0'; return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
 
 // Auto chi phí dự thầu theo Nghị định 214/2025/NĐ-CP
-function computeSubmissionFee(hinhThucLCNT) {
+// Gói không mua sắm công ('khac') không phát sinh phí dự thầu tự động → 0
+function computeSubmissionFee(hinhThucLCNT, project) {
+  if (project && !isMuaSamCong(project)) return 0;
   const s = String(hinhThucLCNT || '').toLowerCase();
   if (s.includes('chào hàng cạnh tranh')) return 220000;                        // CHTH, CGTTRG, CHTRG
   if (s.includes('mua sắm trực tiếp') || s.includes('chỉ định thầu')) return 0; // MSTT, CDH
   return 330000; // default (thiếu hình thức, DTRR, DTHC, DTTH)
 }
-function computeWinFee(ketQuaTrungThau, giaTrungThau, giaDuToan) {
+function computeWinFee(ketQuaTrungThau, giaTrungThau, giaDuToan, project) {
+  if (project && !isMuaSamCong(project)) return 0;
   let winBase = 0;
   if (ketQuaTrungThau === 'win' && giaTrungThau > 0) winBase = giaTrungThau; // actual
   else if (ketQuaTrungThau == null) winBase = giaDuToan;                      // dự trù; lose → 0
@@ -2654,17 +2687,17 @@ app.get('/share/:id', (req, res) => {
   let tiLeGiamGia = params.tiLeGiamGia != null ? params.tiLeGiamGia : 0;
   const phiDuThau = params.phiDuThauManual === true
     ? (params.phiDuThau || 0)
-    : computeSubmissionFee(info.hinhThucLCNT);
+    : computeSubmissionFee(info.hinhThucLCNT, p);
   const phiTrungThau = params.phiTrungThauManual === true
     ? (params.phiTrungThau || 0)
-    : computeWinFee(p.ketQuaTrungThau, p.giaTrungThau, params.giaDuToan);
+    : computeWinFee(p.ketQuaTrungThau, p.giaTrungThau, params.giaDuToan, p);
   const laiSuatCoSo = params.laiSuatCoSo != null ? params.laiSuatCoSo : (cfg.laiSuatCoSo != null ? cfg.laiSuatCoSo : 12);
   const vonLuuDongChuan = params.vonLuuDongChuan != null ? params.vonLuuDongChuan : (cfg.vonLuuDongChuan != null ? cfg.vonLuuDongChuan : 4000000000);
   const soNgayNhapHang = params.soNgayNhapHang != null ? params.soNgayNhapHang : (cfg.soNgayNhapHang != null ? cfg.soNgayNhapHang : 90);
   const tiLeTamUngNCC = params.tiLeTamUngNCC != null ? params.tiLeTamUngNCC : (cfg.tiLeTamUngNCC != null ? cfg.tiLeTamUngNCC : 100);
   const soNgayBaoHanh = params.soNgayBaoHanh != null ? params.soNgayBaoHanh : (cfg.soNgayBaoHanh != null ? cfg.soNgayBaoHanh : 365);
   const tiLeBaoHanh = params.tiLeBaoHanh != null ? params.tiLeBaoHanh : (cfg.tiLeBaoHanh != null ? cfg.tiLeBaoHanh : 5);
-  const tiLeBaoLanhDuThau = isRutGonProject(p) ? 0 : (params.tiLeBaoLanhDuThau != null ? params.tiLeBaoLanhDuThau : defaultTiLeBaoLanhDuThau(params.giaDuToan, info.investField, false));
+  const tiLeBaoLanhDuThau = isRutGonProject(p) ? 0 : (params.tiLeBaoLanhDuThau != null ? params.tiLeBaoLanhDuThau : (isMuaSamCong(p) ? defaultTiLeBaoLanhDuThau(params.giaDuToan, info.investField, false) : 0));
   const soNgayBaoLanhDuThau = params.soNgayBaoLanhDuThau != null ? params.soNgayBaoLanhDuThau : (cfg.soNgayBaoLanhDuThau != null ? cfg.soNgayBaoLanhDuThau : 90);
   const tiLeBaoLanhThucHienHD = params.tiLeBaoLanhThucHienHD != null ? params.tiLeBaoLanhThucHienHD : (cfg.tiLeBaoLanhThucHienHD != null ? cfg.tiLeBaoLanhThucHienHD : 10);
   const soNgayBaoLanhThucHienHD = params.soNgayBaoLanhThucHienHD != null ? params.soNgayBaoLanhThucHienHD : (cfg.soNgayBaoLanhThucHienHD != null ? cfg.soNgayBaoLanhThucHienHD : 90);
@@ -3008,7 +3041,7 @@ app.get('/admin/report', auth, (req, res) => {
     const tiLeTamUngNCC = params.tiLeTamUngNCC != null ? params.tiLeTamUngNCC : (cfg.tiLeTamUngNCC != null ? cfg.tiLeTamUngNCC : 100);
     const soNgayBaoHanh = params.soNgayBaoHanh != null ? params.soNgayBaoHanh : (cfg.soNgayBaoHanh != null ? cfg.soNgayBaoHanh : 365);
     const tiLeBaoHanh = params.tiLeBaoHanh != null ? params.tiLeBaoHanh : (cfg.tiLeBaoHanh != null ? cfg.tiLeBaoHanh : 5);
-    const tiLeBaoLanhDuThau = isRutGonProject(p) ? 0 : (params.tiLeBaoLanhDuThau != null ? params.tiLeBaoLanhDuThau : defaultTiLeBaoLanhDuThau(params.giaDuToan, info.investField, false));
+    const tiLeBaoLanhDuThau = isRutGonProject(p) ? 0 : (params.tiLeBaoLanhDuThau != null ? params.tiLeBaoLanhDuThau : (isMuaSamCong(p) ? defaultTiLeBaoLanhDuThau(params.giaDuToan, info.investField, false) : 0));
     const soNgayBaoLanhDuThau = params.soNgayBaoLanhDuThau != null ? params.soNgayBaoLanhDuThau : (cfg.soNgayBaoLanhDuThau != null ? cfg.soNgayBaoLanhDuThau : 90);
     const tiLeBaoLanhThucHienHD = params.tiLeBaoLanhThucHienHD != null ? params.tiLeBaoLanhThucHienHD : (cfg.tiLeBaoLanhThucHienHD != null ? cfg.tiLeBaoLanhThucHienHD : 10);
     const soNgayBaoLanhThucHienHD = params.soNgayBaoLanhThucHienHD != null ? params.soNgayBaoLanhThucHienHD : (cfg.soNgayBaoLanhThucHienHD != null ? cfg.soNgayBaoLanhThucHienHD : 90);
@@ -3273,6 +3306,7 @@ app.post('/api/admin/sync-all', auth, adminOnly, async (req, res) => {
 
   const portalFetchCandidates = projects.filter(p => {
     if (!p.projectInfo || !p.projectInfo.maDauThau) return false;
+    if (!isMuaSamCong(p)) return false;
     if (p.items && p.items.some(i => i.portalKyMaHieu)) return false;
     // Chỉ fetch danh mục hàng hóa cho gói rút gọn (có bảng hàng hóa) chưa có items portal
     if (!isRutGonProject(p)) return false;
@@ -3281,6 +3315,7 @@ app.post('/api/admin/sync-all', auth, adminOnly, async (req, res) => {
 
   const tbmtCandidates = projects.filter(p => {
     if (!p.projectInfo || !p.projectInfo.maDauThau) return false;
+    if (!isMuaSamCong(p)) return false;
     if (p.tbmtFile) return false;
     if (isRutGonProject(p)) return false;
     return true;
@@ -3552,6 +3587,7 @@ async function checkPendingTbmtFiles() {
     const data = readData(PROJ_FILE);
     const candidates = data.projects.filter(p => {
       if (!p.projectInfo || !p.projectInfo.maDauThau) return false;
+      if (!isMuaSamCong(p)) return false;
       if (p.tbmtFile) return false;
       if (isRutGonProject(p)) return false;
       const info = p.tbmtDownloadInfo;

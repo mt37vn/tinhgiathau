@@ -349,7 +349,14 @@ table .td-num input{text-align:right}
       <div style="display:flex;flex-direction:column;gap:8px">
       <div id="statusBadge" style="margin-bottom:4px"></div>
           <div class="form-group">
-          <label>Mã đấu thầu (IB) <span style="color:#e74c3c">*</span></label>
+          <label>Loại gói thầu</label>
+          <select id="loaiGoiThauSelect" onchange="onLoaiGoiThauChange()">
+            <option value="mua_sam_cong">Mua sắm công</option>
+            <option value="khac">Không phải mua sắm công</option>
+          </select>
+        </div>
+          <div class="form-group">
+          <label>Mã đấu thầu (IB) <span id="maDauThauRequired" style="color:#e74c3c">*</span></label>
           <div style="display:flex;gap:4px">
             <input type="text" id="maDauThau" oninput="onProjectInfoChange();checkDuplicateIB()" placeholder="Nhập mã đấu thầu" style="flex:1">
             <button class="btn btn-primary btn-sm" id="btnFetchIB" onclick="fetchBiddingInfo()" style="white-space:nowrap">🔍 Tìm</button>
@@ -953,6 +960,29 @@ table .td-num input{text-align:right}
   </div>
 </div>
 
+<!-- Create Project Modal -->
+<div class="modal-overlay" id="createProjectModal">
+  <div class="modal" style="min-width:420px">
+    <h3>➕ Tạo gói thầu</h3>
+    <div class="form-group" style="margin-bottom:10px">
+      <label>Loại gói thầu</label>
+      <select id="newProjectLoaiGoiThau" onchange="onNewProjectLoaiChange()">
+        <option value="mua_sam_cong">Mua sắm công</option>
+        <option value="khac">Không phải mua sắm công</option>
+      </select>
+    </div>
+    <div class="form-group" style="margin-bottom:10px">
+      <label>Mã đấu thầu (IB) <span id="newProjectIbRequired" style="color:#e74c3c">*</span></label>
+      <input type="text" id="newProjectMaDauThau" placeholder="Nhập mã đấu thầu" onkeydown="if(event.key==='Enter')confirmCreateProject()">
+      <span id="newProjectIbHint" style="font-size:11px;color:#888"></span>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeCreateProjectModal()">Hủy</button>
+      <button class="btn btn-primary" onclick="confirmCreateProject()">Tạo</button>
+    </div>
+  </div>
+</div>
+
 <div class="bottombar" id="bottomBar">
   <span class="bb-label" id="bbProjectName" style="margin-right:auto;text-align:left;font-size:13px;color:rgba(255,255,255,.9);overflow:hidden;min-width:0"></span>
   <button class="btn btn-primary btn-sm" style="background:#fff;color:#1a3a5c" onclick="manualSave()" id="btnSave">💾 Lưu</button>
@@ -1054,8 +1084,20 @@ function defaultTiLeBaoLanhDuThau(giaDuToan, investField, isRutGon) {
   return giaDuToan <= quyMoNhoLimit(investField) ? 1.5 : 3;
 }
 
+// Gói không mua sắm công: kiểm tra từ dự án đang mở hoặc từ select trên form
+function isKhacProject(p) {
+  const info = p && p.projectInfo;
+  return !!(info && info.loaiGoiThau === 'khac');
+}
+function isKhacContext() {
+  const sel = document.getElementById('loaiGoiThauSelect');
+  if (sel) return sel.value === 'khac';
+  return isKhacProject(currentProject);
+}
+
 function getLegalContext() {
-  // Phải khớp isRutGonProject() ở server.js để tránh lệch ngữ cảnh khi kiểm tra giới hạn
+  // Phải khớp isMuaSamCong() ở server.js để tránh lệch ngữ cảnh khi kiểm tra giới hạn
+  if (isKhacContext()) return 'khac'; // gói không mua sắm công: không áp dụng giới hạn luật
   const pi = currentProject && currentProject.projectInfo;
   const rutgon = !!(pi && pi.isRutGon)
     || document.getElementById('hinhThucLCNTInput').dataset.rutgon === '1'
@@ -1067,7 +1109,9 @@ function getLegalContext() {
 function getFieldLimit(field) {
   const limits = LEGAL_LIMITS[field];
   if (!limits) return null;
-  return limits[getLegalContext()] || limits.normal;
+  const ctx = getLegalContext();
+  if (ctx === 'khac') return null; // miễn giới hạn pháp lý cho gói không mua sắm công
+  return limits[ctx] || limits.normal;
 }
 // Trả { ok, block, msg }
 function validateLegalRate(field, value) {
@@ -1142,10 +1186,12 @@ function showFieldHelp(fieldKey, event, contextOverride) {
   if (tip.classList.contains('show') && tip.dataset.field === fieldKey) { closeLabelTooltip(); return; }
   const info = LEGAL_HELP[fieldKey];
   const context = contextOverride || getLegalContext();
-  const range = LEGAL_LIMITS[fieldKey] ? LEGAL_LIMITS[fieldKey][context] : null;
+  const range = (LEGAL_LIMITS[fieldKey] && context !== 'khac') ? LEGAL_LIMITS[fieldKey][context] : null;
   let html = '<h4>' + (info ? info.title : fieldKey) + '</h4>';
   if (info) html += '<div class="tip-row">' + (info[context] || info.normal) + '</div>';
-  if (range) {
+  if (context === 'khac') {
+    html += '<div class="tip-note">Không áp dụng giới hạn luật cho gói không mua sắm công.</div>';
+  } else if (range) {
     const rangeTxt = (range.allowMax != null && range.allowMax > range.max) ? range.min + '% - ' + range.allowMax + '%' : range.min + '% - ' + range.max + '%';
     html += '<div class="tip-note">Giới hạn áp dụng cho gói ' + (context === 'rutGon' ? 'rút gọn' : 'thường') + ': ' + rangeTxt + (range.allowMax ? ' (mức tối đa ' + range.allowMax + '% khi rủi ro cao, cần người có thẩm quyền quyết định)' : '') + '.</div>';
   }
@@ -1816,9 +1862,11 @@ async function loadProjectList() {
     const li = document.createElement('li');
     li.dataset.id = p.id;
     li.className = (currentProject && currentProject.id === p.id) ? 'active' : '';
-    const ibStr = p.maDauThau ? escHtml(p.maDauThau) : '';
+    const pi = p.projectInfo || {};
+    const ibStr = pi.maDauThau ? escHtml(pi.maDauThau) : (p.maDauThau ? escHtml(p.maDauThau) : '');
+    const khacBadge = pi.loaiGoiThau === 'khac' && !ibStr ? '[Không MSC] ' : '';
     const bm = p.benMoiThau ? ' - ' + escHtml(p.benMoiThau) : '';
-    const dn = (ibStr ? '['+ibStr+'] ' : '') + escHtml(p.name) + bm;
+    const dn = (ibStr ? '['+ibStr+'] ' : '') + khacBadge + escHtml(p.name) + bm;
     const closeStr = p.projectInfo && p.projectInfo.thoiGianDongThau;
     const ts = closeStr ? toDateTimeStr(closeStr) : toDateTimeStr(p.updatedAt||p.createdAt);
     const xh = p.xepHang ? '<span class="r-rank">#' + escHtml(p.xepHang) + '</span>' : '';
@@ -2058,14 +2106,41 @@ function urlBase64ToUint8Array(base64String) {
   return outputArray;
 }
 
-async function createProject() {
-  const ib = prompt('Nhập mã đấu thầu (IB):');
-  if (!ib) return;
-  if (projects.some(p => p.maDauThau === ib)) { showToast('Mã đấu thầu đã tồn tại', 'error'); return; }
+function createProject() {
+  showCreateProjectModal();
+}
+
+function showCreateProjectModal() {
+  document.getElementById('newProjectLoaiGoiThau').value = 'mua_sam_cong';
+  document.getElementById('newProjectMaDauThau').value = '';
+  onNewProjectLoaiChange();
+  document.getElementById('createProjectModal').className = 'modal-overlay show';
+  setTimeout(() => { const el = document.getElementById('newProjectMaDauThau'); if (el) el.focus(); }, 50);
+}
+
+function closeCreateProjectModal() {
+  document.getElementById('createProjectModal').className = 'modal-overlay';
+}
+
+function onNewProjectLoaiChange() {
+  const isKhac = document.getElementById('newProjectLoaiGoiThau').value === 'khac';
+  document.getElementById('newProjectIbRequired').style.display = isKhac ? 'none' : '';
+  document.getElementById('newProjectMaDauThau').placeholder = isKhac ? 'Không bắt buộc' : 'Nhập mã đấu thầu';
+  document.getElementById('newProjectIbHint').textContent = isKhac ? 'Gói không mua sắm công không cần mã IB.' : '';
+}
+
+async function confirmCreateProject() {
+  const loaiGoiThau = document.getElementById('newProjectLoaiGoiThau').value === 'khac' ? 'khac' : 'mua_sam_cong';
+  const ib = document.getElementById('newProjectMaDauThau').value.trim();
+  if (loaiGoiThau === 'mua_sam_cong' && !ib) { showToast('Nhập mã đấu thầu (IB)', 'error'); return; }
+  if (ib && projects.some(p => ((p.projectInfo && p.projectInfo.maDauThau) || p.maDauThau) === ib)) {
+    showToast('Mã đấu thầu đã tồn tại', 'error'); return;
+  }
   try {
     const p = await api('POST', '/api/projects', {
-      name: ib,
+      name: loaiGoiThau === 'khac' ? 'Gói không mua sắm công' : ib,
       projectInfo: {
+        loaiGoiThau: loaiGoiThau,
         tenCongTrinh: '',
         maDauThau: ib,
         benMoiThau: '', noiDungTrinh: '',
@@ -2076,9 +2151,10 @@ async function createProject() {
         thoiGianDongThau: ''
       }
     });
+    closeCreateProjectModal();
     await loadProjectList();
     await selectProjectById(p.id);
-    showToast('Đã tạo: ' + ib, 'success');
+    showToast(loaiGoiThau === 'khac' ? 'Đã tạo gói không mua sắm công' : 'Đã tạo: ' + ib, 'success');
   } catch (e) { showToast(e.message, 'error'); }
 }
 
@@ -2096,7 +2172,57 @@ async function deleteProject() {
   } catch (e) { showToast(e.message, 'error'); }
 }
 
+// Ẩn/hiện tiện ích cổng đấu thầu (IB, chi tiết, TBMT, lấy kết quả) theo loại gói thầu
+function applyLoaiGoiThauUI() {
+  const sel = document.getElementById('loaiGoiThauSelect');
+  if (!sel) return;
+  const isKhac = sel.value === 'khac';
+  const show = (id, visible) => { const el = document.getElementById(id); if (el) el.style.display = visible ? '' : 'none'; };
+  show('btnFetchIB', !isKhac);
+  if (isKhac) show('fetchSourceBadge', false);
+  show('maDauThauRequired', !isKhac);
+  const ibEl = document.getElementById('maDauThau');
+  if (ibEl) ibEl.placeholder = isKhac ? 'Không bắt buộc (gói không mua sắm công)' : 'Nhập mã đấu thầu';
+  if (isKhac) {
+    show('btnDetailIB', false);
+    show('btnFetchBidResult', false);
+  } else {
+    show('btnFetchBidResult', true);
+    const pi = currentProject && currentProject.projectInfo;
+    const hasDetail = !!(pi && (pi.planNo || pi.bidForm || pi.bidOpenDate || pi.publicDate || pi.investField || pi.bidMode || pi.capitalDetail || pi.processApply || pi.contractType || pi.contractPeriod));
+    show('btnDetailIB', hasDetail);
+  }
+  // Chỉ cho đổi loại gói khi dự án ở trạng thái dự thảo hoặc không duyệt
+  sel.disabled = !(currentProject && (currentProject.status === 'draft' || currentProject.status === 'rejected'));
+  updateTbmtFileUI();
+}
+
+function onLoaiGoiThauChange() {
+  const isKhac = document.getElementById('loaiGoiThauSelect').value === 'khac';
+  const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  if (isKhac) {
+    // Gói không mua sắm công: mặc định miễn bảo lãnh (người dùng vẫn sửa tay được)
+    setVal('tiLeBaoLanhDuThau', 0);
+    setVal('tiLeBaoLanhThucHienHD', 0);
+    setVal('tiLeBaoHanh', 0);
+  } else {
+    // Đổi về mua sắm công: khôi phục mặc định nếu các tỷ lệ đang là 0 (mặc định của gói khac)
+    if ((parseFloat(document.getElementById('tiLeBaoLanhDuThau').value) || 0) === 0) {
+      setVal('tiLeBaoLanhDuThau', defaultTiLeBaoLanhDuThau(parseNumber(document.getElementById('giaDuToan').value), (currentProject && currentProject.projectInfo && currentProject.projectInfo.investField) || '', false));
+    }
+    if ((parseFloat(document.getElementById('tiLeBaoLanhThucHienHD').value) || 0) === 0) setVal('tiLeBaoLanhThucHienHD', settings.tiLeBaoLanhThucHienHD);
+    if ((parseFloat(document.getElementById('tiLeBaoHanh').value) || 0) === 0) setVal('tiLeBaoHanh', settings.tiLeBaoHanh);
+  }
+  updateAutoFees();
+  applyLoaiGoiThauUI();
+  applyLegalWarnings();
+  calculate();
+  setFormDirty();
+  scheduleAutoSave();
+}
+
 function clearForm() {
+  document.getElementById('loaiGoiThauSelect').value = 'mua_sam_cong';
   document.getElementById('tenCongTrinh').value = '';
   document.getElementById('maDauThau').value = '';
   document.getElementById('benMoiThau').value = '';
@@ -2157,11 +2283,13 @@ function clearForm() {
   document.getElementById('nguoiDuyetGroup').style.display = 'none';
   document.getElementById('ngayDuyetGroup').style.display = 'none';
   document.getElementById('fetchSourceBadge').style.display = 'none';
-  updateTbmtFileUI();
+  applyLoaiGoiThauUI();
 }
 
 function loadProjectToForm(p) {
   const info = p.projectInfo || {};
+  const isKhac = info.loaiGoiThau === 'khac';
+  document.getElementById('loaiGoiThauSelect').value = isKhac ? 'khac' : 'mua_sam_cong';
   document.getElementById('tenCongTrinh').value = info.tenCongTrinh || '';
   document.getElementById('maDauThau').value = info.maDauThau || '';
   document.getElementById('benMoiThau').value = info.benMoiThau || '';
@@ -2238,11 +2366,11 @@ function loadProjectToForm(p) {
   document.getElementById('soNgayNhapHang').value = params.soNgayNhapHang != null && params.soNgayNhapHang !== '' ? params.soNgayNhapHang : settings.soNgayNhapHang;
   document.getElementById('tiLeTamUngNCC').value = params.tiLeTamUngNCC != null && params.tiLeTamUngNCC !== '' ? params.tiLeTamUngNCC : settings.tiLeTamUngNCC;
   document.getElementById('soNgayBaoHanh').value = params.soNgayBaoHanh != null && params.soNgayBaoHanh !== '' ? params.soNgayBaoHanh : settings.soNgayBaoHanh;
-  document.getElementById('tiLeBaoHanh').value = params.tiLeBaoHanh != null && params.tiLeBaoHanh !== '' ? params.tiLeBaoHanh : settings.tiLeBaoHanh;
+  document.getElementById('tiLeBaoHanh').value = params.tiLeBaoHanh != null && params.tiLeBaoHanh !== '' ? params.tiLeBaoHanh : (isKhac ? 0 : settings.tiLeBaoHanh);
   const hlcntRutgon = document.getElementById('hinhThucLCNTInput').dataset.rutgon === '1';
-  document.getElementById('tiLeBaoLanhDuThau').value = hlcntRutgon ? 0 : (params.tiLeBaoLanhDuThau != null && params.tiLeBaoLanhDuThau !== '' ? params.tiLeBaoLanhDuThau : defaultTiLeBaoLanhDuThau(giaDuToan, info.investField, false));
+  document.getElementById('tiLeBaoLanhDuThau').value = hlcntRutgon ? 0 : (params.tiLeBaoLanhDuThau != null && params.tiLeBaoLanhDuThau !== '' ? params.tiLeBaoLanhDuThau : (isKhac ? 0 : defaultTiLeBaoLanhDuThau(giaDuToan, info.investField, false)));
   document.getElementById('soNgayBaoLanhDuThau').value = params.soNgayBaoLanhDuThau != null && params.soNgayBaoLanhDuThau !== '' ? params.soNgayBaoLanhDuThau : settings.soNgayBaoLanhDuThau;
-  document.getElementById('tiLeBaoLanhThucHienHD').value = params.tiLeBaoLanhThucHienHD != null && params.tiLeBaoLanhThucHienHD !== '' ? params.tiLeBaoLanhThucHienHD : settings.tiLeBaoLanhThucHienHD;
+  document.getElementById('tiLeBaoLanhThucHienHD').value = params.tiLeBaoLanhThucHienHD != null && params.tiLeBaoLanhThucHienHD !== '' ? params.tiLeBaoLanhThucHienHD : (isKhac ? 0 : settings.tiLeBaoLanhThucHienHD);
   document.getElementById('soNgayBaoLanhThucHienHD').value = params.soNgayBaoLanhThucHienHD != null && params.soNgayBaoLanhThucHienHD !== '' ? params.soNgayBaoLanhThucHienHD : settings.soNgayBaoLanhThucHienHD;
   document.getElementById('phiBaoLanhDuThau').value = params.phiBaoLanhDuThau != null && params.phiBaoLanhDuThau !== '' ? params.phiBaoLanhDuThau : settings.phiBaoLanhDuThau;
   document.getElementById('phiBaoLanhThucHienHD').value = params.phiBaoLanhThucHienHD != null && params.phiBaoLanhThucHienHD !== '' ? params.phiBaoLanhThucHienHD : settings.phiBaoLanhThucHienHD;
@@ -2251,7 +2379,7 @@ function loadProjectToForm(p) {
   renderItems(p.items || []);
   // Recalculate efficiency display after loading project data
   calculate();
-  updateTbmtFileUI();
+  applyLoaiGoiThauUI();
 }
 
 function renderItems(items) {
@@ -2508,6 +2636,7 @@ function onGiaChaoInput(el) {
 }
 
 function computeSubmissionFee() {
+  if (isKhacContext()) return 0; // gói không mua sắm công: miễn phí dự thầu tự động
   const info = (currentProject && currentProject.projectInfo) || {};
   const hinhThucLCNT = info.hinhThucLCNT || document.getElementById('hinhThucLCNTInput').dataset.label || '';
   const s = String(hinhThucLCNT || '').toLowerCase();
@@ -2517,6 +2646,7 @@ function computeSubmissionFee() {
 }
 
 function computeWinFee() {
+  if (isKhacContext()) return 0; // gói không mua sắm công: miễn phí trúng thầu tự động
   const ketQuaTrungThau = (currentProject && currentProject.ketQuaTrungThau) || null;
   const giaTrungThau = (currentProject && currentProject.giaTrungThau) || 0;
   const giaDuToan = parseNumber(document.getElementById('giaDuToan').value);
@@ -2587,6 +2717,7 @@ function capGet(id, fallback, isCurrency) {
 }
 
 function calculate() {
+  const khacCtx = isKhacContext(); // gói không mua sắm công: mặc định các tỷ lệ bảo lãnh = 0
   const items = getItemsFromTable();
   let tiLeGiamGia = parseFloat(document.getElementById('tiLeGiamGia').value) || 0;
   const phiDuThau = parseNumber(document.getElementById('phiDuThau').value);
@@ -2597,10 +2728,10 @@ function calculate() {
   const soNgayNhapHang = capGet('soNgayNhapHang', settings.soNgayNhapHang) || 0;
   const tiLeTamUngNCC = capGet('tiLeTamUngNCC', settings.tiLeTamUngNCC) || 0;
   const soNgayBaoHanh = capGet('soNgayBaoHanh', settings.soNgayBaoHanh) || 0;
-  const tiLeBaoHanh = capGet('tiLeBaoHanh', settings.tiLeBaoHanh) || 0;
-  const tiLeBaoLanhDuThau = capGet('tiLeBaoLanhDuThau', settings.tiLeBaoLanhDuThau) || 0;
+  const tiLeBaoHanh = capGet('tiLeBaoHanh', khacCtx ? 0 : settings.tiLeBaoHanh) || 0;
+  const tiLeBaoLanhDuThau = capGet('tiLeBaoLanhDuThau', khacCtx ? 0 : settings.tiLeBaoLanhDuThau) || 0;
   const soNgayBaoLanhDuThau = capGet('soNgayBaoLanhDuThau', settings.soNgayBaoLanhDuThau) || 0;
-  const tiLeBaoLanhThucHienHD = capGet('tiLeBaoLanhThucHienHD', settings.tiLeBaoLanhThucHienHD) || 0;
+  const tiLeBaoLanhThucHienHD = capGet('tiLeBaoLanhThucHienHD', khacCtx ? 0 : settings.tiLeBaoLanhThucHienHD) || 0;
   const soNgayBaoLanhThucHienHD = capGet('soNgayBaoLanhThucHienHD', settings.soNgayBaoLanhThucHienHD) || 0;
   const phiBaoLanhDuThau = capGet('phiBaoLanhDuThau', settings.phiBaoLanhDuThau) || 0;
   const phiBaoLanhThucHienHD = capGet('phiBaoLanhThucHienHD', settings.phiBaoLanhThucHienHD) || 0;
@@ -2840,6 +2971,7 @@ function collectFormData() {
   return {
     name: document.getElementById('tenCongTrinh').value || currentProject.name,
     projectInfo: {
+      loaiGoiThau: document.getElementById('loaiGoiThauSelect').value || 'mua_sam_cong',
       tenCongTrinh: document.getElementById('tenCongTrinh').value,
       maDauThau: document.getElementById('maDauThau').value,
       benMoiThau: document.getElementById('benMoiThau').value,
@@ -2938,6 +3070,8 @@ function applyPermissions() {
     if (currentProject.status === 'approved') bu.style.display = '';
     else if (currentProject.status === 'pending') { ba.style.display = ''; br.style.display = ''; }
   }
+  // Cập nhật hiển thị theo loại gói thầu (ẩn tiện ích cổng cho gói không mua sắm công)
+  applyLoaiGoiThauUI();
 }
 
 function showToast(msg, type) {
@@ -2993,6 +3127,7 @@ function mergePortalItems(portalItems, existingItems) {
 }
 
 async function fetchBiddingInfo() {
+  if (isKhacContext()) { showToast('Gói không mua sắm công không tra cứu được trên cổng đấu thầu', 'error'); return; }
   const ib = document.getElementById('maDauThau').value.trim();
   if (!ib) { showToast('Nhập mã đấu thầu (IB)', 'error'); return; }
   const btn = document.getElementById('btnFetchIB');
@@ -3161,7 +3296,8 @@ function showProjectDetailModal() {
 function validateProjectInfo() {
   clearErrors();
   const checks = [
-    { id:'maDauThau', msg:'Nhập mã đấu thầu (IB)' },
+    // Gói không mua sắm công: mã IB được để trống
+    ...(isKhacContext() ? [] : [{ id:'maDauThau', msg:'Nhập mã đấu thầu (IB)' }]),
     { id:'tenCongTrinh', msg:'Nhập tên công trình / dự án' },
     { id:'benMoiThau', msg:'Nhập bên mời thầu' },
     { id:'giaDuToan', msg:'Nhập giá dự toán' },
@@ -3565,6 +3701,7 @@ async function saveBidResult(ketQuaTrungThau, giaTrungThauRaw) {
 
 async function fetchBidResult() {
   if (!currentProject) { showToast('Chưa chọn dự án', 'error'); return; }
+  if (isKhacContext()) { showToast('Gói không mua sắm công không lấy được kết quả tự động. Vui lòng nhập tay.', 'error'); return; }
   const btn = document.getElementById('btnFetchBidResult');
   const statusEl = document.getElementById('bidResultFetchStatus');
   btn.disabled = true;
@@ -3602,6 +3739,7 @@ async function fetchBidResult() {
 // --- TBMT File Download ---
 async function downloadTbmtFile() {
   if (!currentProject) { showToast('Chưa chọn dự án', 'error'); return; }
+  if (isKhacContext()) { showToast('Gói không mua sắm công không có file TBMT để tải', 'error'); return; }
   const ib = currentProject.projectInfo && currentProject.projectInfo.maDauThau;
   if (!ib) { showToast('Dự án chưa có mã đấu thầu (IB)', 'error'); return; }
   const btn = document.getElementById('btnDownloadTbmt');
@@ -3635,7 +3773,7 @@ function updateTbmtFileUI() {
     (pi && pi.bidForm && pi.bidForm.endsWith('RG'));
   const tf = currentProject && currentProject.tbmtFile;
 
-  if (group) group.style.display = hasIb && !isRutGon ? '' : 'none';
+  if (group) group.style.display = hasIb && !isRutGon && !isKhacContext() ? '' : 'none';
 
   let fileHtml = '<span style="color:#888">Chưa tải file TBMT</span>';
 
