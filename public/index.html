@@ -2755,7 +2755,12 @@ function calculate() {
   if (giaDuToan > 0 && giaChaoToiThieuEff > giaDuToan) giaChaoToiThieuEff = giaDuToan;
   if (giaChaoToiThieuEff < tongGiaNhap) giaChaoToiThieuEff = tongGiaNhap;
   const firstDonGiaNhap = items.length > 0 ? items[0].donGiaNhap : 0;
-  for (const item of items) item.trongSo = firstDonGiaNhap > 0 ? Math.round(item.donGiaNhap / firstDonGiaNhap * 10000) / 10000 : 0;
+  const firstGiaNhap = items.length > 0 ? items[0].giaNhap : 0;
+  for (const item of items) {
+    item.trongSo = khacCtx
+      ? (firstGiaNhap > 0 ? Math.round(item.giaNhap / firstGiaNhap * 10000) / 10000 : 0)
+      : (firstDonGiaNhap > 0 ? Math.round(item.donGiaNhap / firstDonGiaNhap * 10000) / 10000 : 0);
+  }
   const tongTrongSo = items.reduce((s, item) => s + (item.trongSo || 0), 0);
   for (const item of items) item.donGiaChao = tongTrongSo > 0 && item.trongSo > 0 ? Math.round(giaChaoToiThieuEff * item.trongSo / tongTrongSo) : 0;
 

@@ -2917,10 +2917,14 @@ app.post('/api/projects/auto-process-imported', auth, adminOnly, (req, res) => {
     project.params.tiLeGiamGia = tiLeGiamGia;
 
     // Recalculate donGiaChao for each item to match the new bid price
+    const _isKhac = !isMuaSamCong(project);
     const _firstDonGiaNhap = items[0].donGiaNhap;
+    const _firstGiaNhap = (items[0].soLuong || 0) * (items[0].donGiaNhap || 0);
     for (const item of items) {
-      item.giaNhap = item.soLuong * item.donGiaNhap;
-      item.trongSo = _firstDonGiaNhap > 0 ? Math.round(item.donGiaNhap / _firstDonGiaNhap * 10000) / 10000 : 0;
+      item.giaNhap = (item.soLuong || 0) * (item.donGiaNhap || 0);
+      item.trongSo = _isKhac
+        ? (_firstGiaNhap > 0 ? Math.round(item.giaNhap / _firstGiaNhap * 10000) / 10000 : 0)
+        : (_firstDonGiaNhap > 0 ? Math.round(item.donGiaNhap / _firstDonGiaNhap * 10000) / 10000 : 0);
     }
     const _tongTrongSo = items.reduce((s, i) => s + (i.trongSo || 0), 0);
     // Floor instead of round: guarantee giaChaoToiThieu <= targetBidPrice
