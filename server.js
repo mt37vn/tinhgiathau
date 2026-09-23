@@ -726,6 +726,9 @@ app.get('/api/settings', (req, res) => {
   const config = readData(CONFIG_FILE);
   res.json({
     companyName: config.companyName || '',
+    companyAddress: config.companyAddress || '',
+    companyTaxCode: config.companyTaxCode || '',
+    companyPhone: config.companyPhone || '',
     scraperKeywords: config.scraperKeywords || [],
     scraperLocations: config.scraperLocations || [],
     scraperMaxBidPrice: config.scraperMaxBidPrice || 2000000000,
@@ -752,6 +755,9 @@ app.get('/api/settings', (req, res) => {
 app.put('/api/settings', auth, adminOnly, (req, res) => {
   const config = readData(CONFIG_FILE);
   if (req.body.companyName !== undefined) config.companyName = req.body.companyName;
+  if (req.body.companyAddress !== undefined) config.companyAddress = req.body.companyAddress;
+  if (req.body.companyTaxCode !== undefined) config.companyTaxCode = req.body.companyTaxCode;
+  if (req.body.companyPhone !== undefined) config.companyPhone = req.body.companyPhone;
   if (req.body.scraperKeywords !== undefined) config.scraperKeywords = req.body.scraperKeywords;
   if (req.body.scraperLocations !== undefined) config.scraperLocations = req.body.scraperLocations;
   if (req.body.scraperMaxBidPrice !== undefined) config.scraperMaxBidPrice = req.body.scraperMaxBidPrice;
@@ -2674,6 +2680,161 @@ function computeWinFee(ketQuaTrungThau, giaTrungThau, giaDuToan, project) {
 }
 function toDateStr(s) { if (!s) return ''; const d = new Date(s); if (isNaN(d)) return s; const dd = String(d.getDate()).padStart(2,'0'); const mm = String(d.getMonth()+1).padStart(2,'0'); const yyyy = d.getFullYear(); return dd+'/'+mm+'/'+yyyy; }
 function toDateTimeStr(s) { if (!s) return ''; const d = new Date(s); if (isNaN(d)) return s; const dd = String(d.getDate()).padStart(2,'0'); const mm = String(d.getMonth()+1).padStart(2,'0'); const yyyy = d.getFullYear(); const h = String(d.getHours()).padStart(2,'0'); const m = String(d.getMinutes()).padStart(2,'0'); return dd+'/'+mm+'/'+yyyy+' '+h+':'+m; }
+
+// Đọc số tiền thành chữ (tiếng Việt) cho báo giá
+function numberToVietnameseWords(n) {
+  const num = Math.round(Math.abs(Number(n) || 0));
+  if (num === 0) return 'Không đồng';
+  const chuSo = ['không','một','hai','ba','bốn','năm','sáu','bảy','tám','chín'];
+  const labels = ['', 'nghìn', 'triệu', 'tỷ', 'nghìn tỷ', 'triệu tỷ', 'tỷ tỷ'];
+  function doc3(baso) {
+    const tram = Math.floor(baso / 100);
+    const chuc = Math.floor((baso % 100) / 10);
+    const donvi = baso % 10;
+    let s = '';
+    if (tram === 0 && chuc === 0 && donvi === 0) return '';
+    if (tram !== 0) {
+      s += chuSo[tram] + ' trăm';
+      if (chuc === 0 && donvi !== 0) s += ' lẻ';
+    }
+    if (chuc > 1) {
+      s += ' ' + chuSo[chuc] + ' mươi';
+      if (donvi === 1) s += ' mốt';
+      else if (donvi === 5) s += ' lăm';
+      else if (donvi !== 0) s += ' ' + chuSo[donvi];
+    } else if (chuc === 1) {
+      s += ' mười';
+      if (donvi === 1) s += ' một';
+      else if (donvi === 5) s += ' lăm';
+      else if (donvi !== 0) s += ' ' + chuSo[donvi];
+    } else if (donvi !== 0) {
+      s += ' ' + chuSo[donvi];
+    }
+    return s.trim();
+  }
+  const groups = [];
+  let x = num;
+  while (x > 0) { groups.push(x % 1000); x = Math.floor(x / 1000); }
+  const parts = [];
+  for (let i = groups.length - 1; i >= 0; i--) {
+    if (groups[i] === 0) continue;
+    const w = doc3(groups[i]);
+    parts.push(labels[i] ? w + ' ' + labels[i] : w);
+  }
+  let out = parts.join(' ');
+  out = out.charAt(0).toUpperCase() + out.slice(1) + ' đồng';
+  return out;
+}
+
+app.get('/quote/:id', (req, res) => {
+  const data = readData(PROJ_FILE);
+  const p = data.projects.find(pr => pr.id === req.params.id);
+  const cfg = readData(CONFIG_FILE);
+  const companyName = cfg.companyName || 'CÔNG TY CỔ PHẦN THÔNG TIN HAPRO';
+  if (!p) return res.status(404).send('<h1>Không tìm thấy dự án</h1>');
+  const info = p.projectInfo || {};
+  const params = p.params || {};
+  const items = p.items || [];
+
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const quoteNo = 'QG-' + yyyy + mm + dd;
+  const quoteDate = dd + '/' + mm + '/' + yyyy;
+
+  let tongTien = 0;
+  for (const item of items) tongTien += (item.soLuong || 0) * (item.donGiaChao || 0);
+
+  const soNgayBaoHanh = params.soNgayBaoHanh != null ? params.soNgayBaoHanh : (cfg.soNgayBaoHanh != null ? cfg.soNgayBaoHanh : 365);
+  const baoHanhThang = Math.round(soNgayBaoHanh / 30);
+
+  let h = '<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">';
+  h += '<title>' + esc(p.name) + ' - Báo giá</title>';
+  h += '<style>body{font-family:"Times New Roman",Georgia,serif;margin:20px auto;color:#111;font-size:14px;max-width:900px;padding:0 20px}';
+  h += '.co{text-align:center}.co .name{font-size:17px;font-weight:700;text-transform:uppercase}.co .line{font-size:12.5px;color:#333}';
+  h += 'h1{font-size:22px;text-align:center;margin:16px 0 4px;letter-spacing:1px}';
+  h += '.sub{text-align:center;font-size:13px;color:#444;margin:0 0 16px;font-style:italic}';
+  h += '.meta{width:100%;border-collapse:collapse;margin:8px 0 4px}';
+  h += '.meta td{padding:2px 4px;vertical-align:top}';
+  h += 'table.items{width:100%;border-collapse:collapse;margin:10px 0;font-size:13px}';
+  h += 'table.items th{border:1px solid #333;background:#eef2f7;padding:6px 5px;text-align:center}';
+  h += 'table.items td{border:1px solid #333;padding:5px 6px;vertical-align:top}';
+  h += '.n{text-align:right;white-space:nowrap}.c{text-align:center}';
+  h += '.total td{font-weight:700;background:#f7f9fb}';
+  h += '.words{margin:8px 0;font-style:italic}';
+  h += '.terms{margin:14px 0;font-size:13px;line-height:1.7}';
+  h += '.sign{width:100%;border-collapse:collapse;margin-top:28px;text-align:center;font-size:13px}';
+  h += '.sign td{width:50%;vertical-align:top;padding:6px}.sign .role{font-weight:700}.sign .space{height:72px}';
+  h += '.footer{text-align:center;font-size:11px;color:#888;margin-top:24px}';
+  h += '@media print{body{margin:0 auto;max-width:100%;padding:0}button{display:none}}</style></head><body>';
+
+  h += '<div class="co"><div class="name">' + esc(companyName) + '</div>';
+  if (cfg.companyAddress) h += '<div class="line">Địa chỉ: ' + esc(cfg.companyAddress) + '</div>';
+  const coLine = [];
+  if (cfg.companyTaxCode) coLine.push('MST: ' + esc(cfg.companyTaxCode));
+  if (cfg.companyPhone) coLine.push('ĐT: ' + esc(cfg.companyPhone));
+  if (coLine.length) h += '<div class="line">' + coLine.join(' — ') + '</div>';
+  h += '</div>';
+
+  h += '<h1>BÁO GIÁ</h1>';
+  h += '<div class="sub">Số: ' + esc(quoteNo) + ' — Ngày ' + esc(quoteDate) + '</div>';
+
+  h += '<table class="meta">';
+  h += '<tr><td style="width:22%"><strong>Kính gửi:</strong></td><td>' + esc(info.benMoiThau || '') + '</td></tr>';
+  h += '<tr><td><strong>Tên dự án:</strong></td><td>' + esc(info.tenCongTrinh || p.name) + '</td></tr>';
+  if (info.maDauThau) h += '<tr><td><strong>Mã đấu thầu:</strong></td><td>' + esc(info.maDauThau) + '</td></tr>';
+  if (info.diaDiem) h += '<tr><td><strong>Địa điểm:</strong></td><td>' + esc(info.diaDiem) + '</td></tr>';
+  h += '</table>';
+
+  h += '<p>Chúng tôi trân trọng gửi tới Quý cơ quan bảng báo giá cho các hạng mục sau:</p>';
+  h += '<table class="items"><thead><tr><th style="width:36px">STT</th><th>Tên hàng hóa</th><th style="width:60px">ĐVT</th><th style="width:56px">SL</th><th style="width:110px">Đơn giá</th><th style="width:120px">Thành tiền</th></tr></thead><tbody>';
+  let idx = 0;
+  for (const item of items) {
+    idx++;
+    const sl = item.soLuong || 0;
+    const dg = item.donGiaChao || 0;
+    const tt = sl * dg;
+    let nameCell = '<strong>' + esc(item.tenHangHoa) + '</strong>';
+    const infoLines = [];
+    if (item.portalNhanHieu && item.portalNhanHieu !== 'Không có') infoLines.push('Nhãn hiệu: ' + esc(item.portalNhanHieu));
+    if (item.portalHangSanXuat && item.portalHangSanXuat !== 'Không có') infoLines.push('Hãng SX: ' + esc(item.portalHangSanXuat));
+    if (item.portalKyMaHieu && item.portalKyMaHieu !== 'Không có') infoLines.push('Ký mã hiệu: ' + esc(item.portalKyMaHieu));
+    if (item.portalXuatXu && item.portalXuatXu !== 'Không có') infoLines.push('Xuất xứ: ' + esc(item.portalXuatXu));
+    if (item.portalNamSanXuat && item.portalNamSanXuat !== 'Không có') infoLines.push('Năm SX: ' + esc(item.portalNamSanXuat));
+    if (item.ghiChu) infoLines.push('Thông số KT: ' + esc(item.ghiChu));
+    if (infoLines.length > 0) nameCell += '<br><small style="color:#333">' + infoLines.join('<br>') + '</small>';
+    h += '<tr><td class="c">' + idx + '</td><td>' + nameCell + '</td><td class="c">' + esc(item.donViTinh || '') + '</td>';
+    h += '<td class="n">' + fmt(sl) + '</td><td class="n">' + fmt(dg) + '</td><td class="n">' + fmt(tt) + '</td></tr>';
+  }
+  h += '<tr class="total"><td colspan="5" class="n">TỔNG CỘNG</td><td class="n">' + fmt(tongTien) + ' ₫</td></tr>';
+  h += '</tbody></table>';
+
+  h += '<p class="words"><strong>Tổng tiền bằng chữ:</strong> ' + esc(numberToVietnameseWords(tongTien)) + '.</p>';
+
+  h += '<div class="terms"><strong>Điều khoản báo giá:</strong><br>';
+  const customTerms = String(info.dieuKhoanBaoGia || '').trim();
+  if (customTerms) {
+    const lines = customTerms.split(/\r?\n/).map(function(s) { return s.replace(/^\s*(?:\d+[\.\)]\s*|[-•*]\s*)/, '').trim(); }).filter(Boolean);
+    for (let i = 0; i < lines.length; i++) h += (i + 1) + '. ' + esc(lines[i]) + '<br>';
+  } else {
+    h += '1. Hiệu lực báo giá: 30 ngày kể từ ngày báo giá.<br>';
+    h += '2. Thời gian giao hàng, lắp đặt: theo tiến độ thỏa thuận của dự án.<br>';
+    h += '3. Điều kiện thanh toán: theo thỏa thuận trong hợp đồng.<br>';
+    h += '4. Bảo hành: ' + baoHanhThang + ' tháng theo tiêu chuẩn của nhà sản xuất.<br>';
+    h += '5. Đơn giá đã bao gồm thuế GTGT và chi phí vận chuyển, lắp đặt, hướng dẫn sử dụng.';
+  }
+  h += '</div>';
+
+  h += '<table class="sign"><tr><td class="role">ĐẠI DIỆN NHÀ THẦU</td><td class="role">ĐẠI DIỆN CHỦ ĐẦU TƯ</td></tr>';
+  h += '<tr><td style="font-size:12px;color:#555">(Ký, đóng dấu, ghi rõ họ tên)</td><td style="font-size:12px;color:#555">(Ký, ghi rõ họ tên)</td></tr>';
+  h += '<tr><td class="space"></td><td class="space"></td></tr>';
+  h += '<tr><td>' + esc(companyName) + '</td><td>' + esc(info.benMoiThau || '') + '</td></tr></table>';
+
+  h += '<div style="text-align:center;margin-top:16px"><button onclick="window.print()" style="padding:8px 24px;background:#2a5a8c;color:#fff;border:none;border-radius:4px;font-size:14px;cursor:pointer">🖨 In trang này</button></div>';
+  h += '<div class="footer">Phần Mềm Tính Giá Chào Thầu</div></body></html>';
+  res.send(h);
+});
 
 app.get('/share/:id', (req, res) => {
   const data = readData(PROJ_FILE);

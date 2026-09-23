@@ -216,7 +216,7 @@ table .td-num input{text-align:right}
   .bottombar{padding:6px 8px;gap:4px;flex-wrap:wrap;justify-content:center}
   .bottombar .bb-label{font-size:11px;width:100%;text-align:center;margin-bottom:2px}
   .bottombar .btn{font-size:11px;padding:6px 10px;min-height:36px}
-  .bottombar #btnShare{display:inline-flex}
+  .bottombar #btnShare,.bottombar #btnQuote{display:inline-flex}
 
   .modal{padding:16px;width:94vw;min-width:0 !important;max-width:94vw !important}
   .modal h3{font-size:15px}
@@ -629,6 +629,14 @@ table .td-num input{text-align:right}
       </div>
       </div>
     </div>
+
+    <div class="card">
+      <h2>Điều khoản báo giá</h2>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <span style="font-size:11.5px;color:#888">Mỗi dòng là 1 điều khoản, hiển thị trên trang In Báo Giá. Để trống → dùng điều khoản mặc định.</span>
+        <textarea id="dieuKhoanBaoGia" oninput="onProjectInfoChange()" style="width:100%;min-height:140px;padding:8px 10px;border:1px solid #d0d5dd;border-radius:4px;font-size:13.5px;background:#f5f7fa;resize:vertical;font-family:inherit" placeholder="Mỗi dòng 1 điều khoản. Để trống sẽ dùng điều khoản mặc định."></textarea>
+      </div>
+    </div>
     </div>
 
     <div class="card">
@@ -777,7 +785,13 @@ table .td-num input{text-align:right}
 <div class="modal-overlay" id="settingsModal">
   <div class="modal" style="min-width:550px;max-height:80vh;overflow-y:auto">
     <h3>⚙️ Cài đặt hệ thống</h3>
+    <h4 style="margin:0 0 8px">Thông tin công ty (dùng cho Báo giá)</h4>
     <div class="form-group" style="margin-bottom:10px"><label>Tên công ty</label><input type="text" id="settingsCompanyName" placeholder="Tên công ty"></div>
+    <div class="form-group" style="margin-bottom:10px"><label>Địa chỉ</label><input type="text" id="settingsCompanyAddress" placeholder="Số nhà, đường, phường, tỉnh/thành"></div>
+    <div style="display:flex;gap:10px;margin-bottom:10px">
+      <div class="form-group" style="flex:1"><label>Mã số thuế</label><input type="text" id="settingsCompanyTaxCode" placeholder="MST"></div>
+      <div class="form-group" style="flex:1"><label>Điện thoại</label><input type="text" id="settingsCompanyPhone" placeholder="Số điện thoại"></div>
+    </div>
     <div class="form-group" style="margin-bottom:10px">
       <label>Từ khóa cào dữ liệu (mỗi dòng 1 từ khóa)</label>
       <textarea id="settingsKeywords" rows="6" style="width:100%;padding:7px 10px;border:1px solid #d0d5dd;border-radius:4px;font-size:14px;background:#f5f7fa;font-family:inherit" placeholder="âm thanh&#10;máy tính&#10;màn hình led"></textarea>
@@ -991,7 +1005,8 @@ table .td-num input{text-align:right}
   <button class="btn btn-danger btn-sm" onclick="rejectProject()" id="btnReject" style="display:none">✗ Không duyệt</button>
   <button class="btn btn-warning btn-sm" onclick="unapproveProject()" id="btnUnapprove" style="display:none">↩ Huỷ duyệt</button>
   <button class="btn btn-primary btn-sm" style="background:#3498db;color:#fff;display:none" onclick="submitProject()" id="btnSubmit">📨 Trình duyệt</button>
-  <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff;cursor:pointer" onclick="printProject()" id="btnShare">🖨 In</button>
+  <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff;cursor:pointer" onclick="printProject()" id="btnShare">🖨 In Phương Án</button>
+  <button class="btn btn-outline btn-sm" style="border-color:#fff;color:#fff;cursor:pointer" onclick="printQuote()" id="btnQuote">🧾 In Báo Giá</button>
 </div>
 
 <datalist id="nccDatalist"></datalist>
@@ -1440,6 +1455,9 @@ async function showSettings() {
   try {
     const cfg = await api('GET', '/api/settings');
     document.getElementById('settingsCompanyName').value = cfg.companyName || '';
+    document.getElementById('settingsCompanyAddress').value = cfg.companyAddress || '';
+    document.getElementById('settingsCompanyTaxCode').value = cfg.companyTaxCode || '';
+    document.getElementById('settingsCompanyPhone').value = cfg.companyPhone || '';
     document.getElementById('settingsKeywords').value = (cfg.scraperKeywords || []).join('\n');
     document.getElementById('settingsMaxBidPrice').value = cfg.scraperMaxBidPrice ? formatNumber(cfg.scraperMaxBidPrice) : '';
     document.getElementById('settingsMaxCards').value = cfg.scraperMaxCardsPerKeyword || 5;
@@ -1529,6 +1547,9 @@ async function saveSettings() {
   try {
     await api('PUT', '/api/settings', {
       companyName,
+      companyAddress: document.getElementById('settingsCompanyAddress').value.trim(),
+      companyTaxCode: document.getElementById('settingsCompanyTaxCode').value.trim(),
+      companyPhone: document.getElementById('settingsCompanyPhone').value.trim(),
       scraperKeywords: keywords,
       scraperMaxBidPrice: maxBidPrice || 2000000000,
       scraperMaxCardsPerKeyword: maxCards,
@@ -1781,7 +1802,27 @@ async function unapproveProject() {
 async function printProject() {
   if (!currentProject) { showToast('Chưa chọn dự án', 'error'); return; }
   window.open(window.location.origin + '/share/' + currentProject.id, '_blank');
-  showToast('Đã mở trang in', 'success');
+  showToast('Đã mở trang in phương án', 'success');
+}
+
+async function printQuote() {
+  if (!currentProject) { showToast('Chưa chọn dự án', 'error'); return; }
+  window.open(window.location.origin + '/quote/' + currentProject.id, '_blank');
+  showToast('Đã mở trang in báo giá', 'success');
+}
+
+// Điều khoản báo giá mặc định (khớp default trong server.js route /quote/:id)
+function defaultDieuKhoanBaoGia() {
+  const el = document.getElementById('soNgayBaoHanh');
+  const soNgay = el ? (parseFloat(el.value) || 365) : 365;
+  const thang = Math.round(soNgay / 30) || 12;
+  return [
+    'Hiệu lực báo giá: 30 ngày kể từ ngày báo giá.',
+    'Thời gian giao hàng, lắp đặt: theo tiến độ thỏa thuận của dự án.',
+    'Điều kiện thanh toán: theo thỏa thuận trong hợp đồng.',
+    'Bảo hành: ' + thang + ' tháng theo tiêu chuẩn của nhà sản xuất.',
+    'Đơn giá đã bao gồm thuế GTGT và chi phí vận chuyển, lắp đặt, hướng dẫn sử dụng.'
+  ].join('\n');
 }
 
 // --- Status ---
@@ -1811,13 +1852,24 @@ function updateStatusUI() {
 }
 
 // --- Projects ---
+// Nhãn tìm kiếm/hiển thị dự án: gói không mua sắm công ghép thêm bên mời thầu
+function projectSearchLabel(p) {
+  const pi = p.projectInfo || {};
+  const ben = pi.benMoiThau || p.benMoiThau || '';
+  if (pi.loaiGoiThau === 'khac' && ben) return p.name + ' - ' + ben;
+  return p.name;
+}
+function findProjectByInput(v) {
+  return projects.find(p => p.name === v || projectSearchLabel(p) === v || (p.projectInfo && p.projectInfo.maDauThau && p.projectInfo.maDauThau.toUpperCase() === v.toUpperCase()));
+}
+
 async function loadProjectList() {
   if (!currentUser) return;
   projects = await api('GET', '/api/projects');
   const datalist = document.getElementById('projectDatalist');
   datalist.innerHTML = '';
   for (const p of projects) {
-    const opt = document.createElement('option'); opt.value = p.name; datalist.appendChild(opt);
+    const opt = document.createElement('option'); opt.value = projectSearchLabel(p); datalist.appendChild(opt);
     const ib = p.projectInfo && p.projectInfo.maDauThau;
     if (ib) { const o = document.createElement('option'); o.value = ib; datalist.appendChild(o); }
   }
@@ -1865,7 +1917,8 @@ async function loadProjectList() {
     const pi = p.projectInfo || {};
     const ibStr = pi.maDauThau ? escHtml(pi.maDauThau) : (p.maDauThau ? escHtml(p.maDauThau) : '');
     const khacBadge = pi.loaiGoiThau === 'khac' && !ibStr ? '[Không MSC] ' : '';
-    const bm = p.benMoiThau ? ' - ' + escHtml(p.benMoiThau) : '';
+    const benMoiThau = pi.benMoiThau || p.benMoiThau || '';
+    const bm = pi.loaiGoiThau === 'khac' && benMoiThau ? ' - ' + escHtml(benMoiThau) : '';
     const dn = (ibStr ? '['+ibStr+'] ' : '') + khacBadge + escHtml(p.name) + bm;
     const closeStr = p.projectInfo && p.projectInfo.thoiGianDongThau;
     const ts = closeStr ? toDateTimeStr(closeStr) : toDateTimeStr(p.updatedAt||p.createdAt);
@@ -1907,12 +1960,12 @@ async function loadProjectList() {
 
 function onSearchInput(input) {
   const v = input.value.trim();
-  const m = projects.find(p => p.name === v || (p.projectInfo && p.projectInfo.maDauThau && p.projectInfo.maDauThau.toUpperCase() === v.toUpperCase()));
+  const m = findProjectByInput(v);
   if (m) selectProjectById(m.id);
 }
 document.getElementById('projectSearch').addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') { const v = this.value.trim(); const m = projects.find(p => p.name === v || (p.projectInfo && p.projectInfo.maDauThau && p.projectInfo.maDauThau.toUpperCase() === v.toUpperCase())); if (m) selectProjectById(m.id); }
-  if (e.key === 'Escape') { this.value = currentProject ? (projects.find(p=>p.id===currentProject.id)?.name||'') : ''; this.blur(); }
+  if (e.key === 'Enter') { const v = this.value.trim(); const m = findProjectByInput(v); if (m) selectProjectById(m.id); }
+  if (e.key === 'Escape') { const cp = currentProject && projects.find(p=>p.id===currentProject.id); this.value = cp ? projectSearchLabel(cp) : ''; this.blur(); }
 });
 
 function highlightProjectInList(id) {
@@ -1931,7 +1984,7 @@ async function selectProjectById(id) {
   document.getElementById('projectSelect').value = id;
   await switchProject(id);
   const p = projects.find(pr => pr.id === id);
-  if (p) document.getElementById('projectSearch').value = p.name;
+  if (p) document.getElementById('projectSearch').value = projectSearchLabel(p);
 }
 
 async function switchProject(id) {
@@ -1948,7 +2001,7 @@ async function switchProject(id) {
   markFormClean();
   loadHistory();
   const p = projects.find(pr => pr.id === id);
-  if (p) document.getElementById('projectSearch').value = p.name;
+  if (p) document.getElementById('projectSearch').value = projectSearchLabel(p);
 }
 
 // --- Lịch sử dự án ---
@@ -2144,6 +2197,7 @@ async function confirmCreateProject() {
         tenCongTrinh: '',
         maDauThau: ib,
         benMoiThau: '', noiDungTrinh: '',
+        dieuKhoanBaoGia: '',
         diaDiem: '', nguoiPhuTrach: '',
         nguoiLap: currentUser.fullName,
         nguoiLapId: currentUser.id,
@@ -2257,6 +2311,7 @@ function clearForm() {
   document.getElementById('soNgayNhapHang').value = settings.soNgayNhapHang;
   document.getElementById('tiLeTamUngNCC').value = settings.tiLeTamUngNCC;
   document.getElementById('soNgayBaoHanh').value = settings.soNgayBaoHanh;
+  document.getElementById('dieuKhoanBaoGia').value = defaultDieuKhoanBaoGia();
   document.getElementById('tiLeBaoHanh').value = settings.tiLeBaoHanh;
   document.getElementById('tiLeBaoLanhDuThau').value = defaultTiLeBaoLanhDuThau(parseNumber(document.getElementById('giaDuToan').value), (currentProject && currentProject.projectInfo && currentProject.projectInfo.investField) || '', document.getElementById('hinhThucLCNTInput').dataset.rutgon === '1');
   document.getElementById('soNgayBaoLanhDuThau').value = settings.soNgayBaoLanhDuThau;
@@ -2366,6 +2421,7 @@ function loadProjectToForm(p) {
   document.getElementById('soNgayNhapHang').value = params.soNgayNhapHang != null && params.soNgayNhapHang !== '' ? params.soNgayNhapHang : settings.soNgayNhapHang;
   document.getElementById('tiLeTamUngNCC').value = params.tiLeTamUngNCC != null && params.tiLeTamUngNCC !== '' ? params.tiLeTamUngNCC : settings.tiLeTamUngNCC;
   document.getElementById('soNgayBaoHanh').value = params.soNgayBaoHanh != null && params.soNgayBaoHanh !== '' ? params.soNgayBaoHanh : settings.soNgayBaoHanh;
+  document.getElementById('dieuKhoanBaoGia').value = info.dieuKhoanBaoGia || defaultDieuKhoanBaoGia();
   document.getElementById('tiLeBaoHanh').value = params.tiLeBaoHanh != null && params.tiLeBaoHanh !== '' ? params.tiLeBaoHanh : (isKhac ? 0 : settings.tiLeBaoHanh);
   const hlcntRutgon = document.getElementById('hinhThucLCNTInput').dataset.rutgon === '1';
   document.getElementById('tiLeBaoLanhDuThau').value = hlcntRutgon ? 0 : (params.tiLeBaoLanhDuThau != null && params.tiLeBaoLanhDuThau !== '' ? params.tiLeBaoLanhDuThau : (isKhac ? 0 : defaultTiLeBaoLanhDuThau(giaDuToan, info.investField, false)));
@@ -2981,6 +3037,7 @@ function collectFormData() {
       maDauThau: document.getElementById('maDauThau').value,
       benMoiThau: document.getElementById('benMoiThau').value,
       noiDungTrinh: document.getElementById('noiDungTrinh').value,
+      dieuKhoanBaoGia: document.getElementById('dieuKhoanBaoGia').value,
       diaDiem: document.getElementById('diaDiem').value,
       nguoiLap: nguoiLapName,
       nguoiLapId: nguoiLapId,
