@@ -2743,8 +2743,9 @@ app.get('/quote/:id', (req, res) => {
   const quoteNo = 'QG-' + yyyy + mm + dd;
   const quoteDate = dd + '/' + mm + '/' + yyyy;
 
+  // donGiaChao là THÀNH TIỀN phân bổ của dòng (Σ donGiaChao = giá chào dự kiến); đơn giá = donGiaChao / số lượng
   let tongTien = 0;
-  for (const item of items) tongTien += (item.soLuong || 0) * (item.donGiaChao || 0);
+  for (const item of items) tongTien += (item.donGiaChao || 0);
 
   const soNgayBaoHanh = params.soNgayBaoHanh != null ? params.soNgayBaoHanh : (cfg.soNgayBaoHanh != null ? cfg.soNgayBaoHanh : 365);
   const baoHanhThang = Math.round(soNgayBaoHanh / 30);
@@ -2793,8 +2794,8 @@ app.get('/quote/:id', (req, res) => {
   for (const item of items) {
     idx++;
     const sl = item.soLuong || 0;
-    const dg = item.donGiaChao || 0;
-    const tt = sl * dg;
+    const tt = item.donGiaChao || 0;
+    const dg = sl > 0 ? Math.round(tt / sl) : tt;
     let nameCell = '<strong>' + esc(item.tenHangHoa) + '</strong>';
     const infoLines = [];
     if (item.portalNhanHieu && item.portalNhanHieu !== 'Không có') infoLines.push('Nhãn hiệu: ' + esc(item.portalNhanHieu));
