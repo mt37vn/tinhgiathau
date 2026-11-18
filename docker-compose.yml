@@ -7,6 +7,8 @@ services:
       - "3456:3456"
     environment:
       - PORT=3456
+      - SESSION_SECRET=${SESSION_SECRET}
+      - TBMT_API_KEY=${TBMT_API_KEY}
       - TRELLO_API_KEY=${TRELLO_API_KEY}
       - TRELLO_TOKEN=${TRELLO_TOKEN}
       - TRELLO_LIST_PREPARING=${TRELLO_LIST_PREPARING}
