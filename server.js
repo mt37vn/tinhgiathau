@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
@@ -35,8 +36,18 @@ const SCRAPED_BIDS_FILE = path.join(DATA_DIR, 'scraped-bids.json');
 const HISTORY_FILE = path.join(DATA_DIR, 'history.json');
 const PUSH_SUB_FILE = path.join(DATA_DIR, 'push-subscriptions.json');
 const TBMT_API_BASE = 'https://hsmt.haproinfo.vn/api';
-const TBMT_API_KEY = 'inf0@hapro';
+const TBMT_API_KEY = process.env.TBMT_API_KEY || 'inf0@hapro';
 const TBMT_DIR = path.join(DATA_DIR, 'tbmt-files');
+
+function sessionSecret() {
+  if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
+  const file = path.join(DATA_DIR, '.session_secret');
+  if (fs.existsSync(file)) return fs.readFileSync(file, 'utf8').trim();
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  const secret = crypto.randomBytes(32).toString('hex');
+  fs.writeFileSync(file, secret, { mode: 0o600 });
+  return secret;
+}
 
 app.use(express.json());
 app.get('/', (req, res) => {
@@ -47,7 +58,7 @@ app.get('/', (req, res) => {
 });
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(session({
-  secret: 'dauthau-secret-key-2026',
+  secret: sessionSecret(),
   resave: false,
   saveUninitialized: false,
   cookie: { maxAge: 24 * 60 * 60 * 1000 }

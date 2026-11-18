@@ -45,6 +45,8 @@ Tạo file `.env` ở thư mục gốc (hoặc khai báo trong `docker-compose.y
 | --- | --- |
 | `PORT` | Cổng HTTP, mặc định `3456` |
 | `APP_VERSION` | Phiên bản hiển thị trên giao diện |
+| `SESSION_SECRET` | Khóa ký session; nếu không đặt, ứng dụng tự sinh và lưu tại `data/.session_secret` |
+| `TBMT_API_KEY` | API key gọi dịch vụ `hsmt.haproinfo.vn` |
 | `TRELLO_API_KEY`, `TRELLO_TOKEN` | Thông tin xác thực Trello |
 | `TRELLO_LIST_PREPARING`, `TRELLO_LIST_APPROVED`, `TRELLO_LIST_REJECTED`, `TRELLO_LIST_WIN`, `TRELLO_LIST_LOSE` | ID các danh sách Trello tương ứng trạng thái |
 | `SYNC_TOKEN` | Token cho API đồng bộ |
